@@ -1,0 +1,383 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
+import { isPast } from "date-fns";
+import {
+  ArrowLeft, Check, CheckCircle2, ChevronDown, ChevronUp,
+  Clock, Sparkles, Users, AlertCircle, Hash
+} from "lucide-react";
+import { cn, CAMPAIGN_COLORS, formatWeekRange, formatDeadline } from "@/lib/utils";
+import HookCard from "./HookCard";
+import HookForm from "./HookForm";
+import ExportPanel from "./ExportPanel";
+import type { Hook, WeekWithHooks } from "@/types";
+
+type FilterType = "all" | "mine" | "selected";
+
+export default function WeekView({ weekId }: { weekId: string }) {
+  const { data: session } = useSession();
+  const [week, setWeek] = useState<WeekWithHooks | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [showForm, setShowForm] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+
+  const currentUser = session?.user as { name?: string } | undefined;
+
+  const fetchWeek = useCallback(async () => {
+    const data = await fetch(`/api/weeks/${weekId}`).then((r) => r.json());
+    setWeek(data);
+    setLoading(false);
+  }, [weekId]);
+
+  useEffect(() => { fetchWeek(); }, [fetchWeek]);
+
+  async function toggleSelect(hookId: string, selected: boolean) {
+    if (!week) return;
+    const currentSelected = week.hooks.filter((h) => h.isSelected && h.id !== hookId);
+    const newOrder = selected ? currentSelected.length + 1 : null;
+
+    setWeek((w) => w ? {
+      ...w,
+      hooks: w.hooks.map((h) =>
+        h.id === hookId ? { ...h, isSelected: selected, selectedOrder: newOrder } : h
+      ),
+    } : w);
+
+    await fetch(`/api/hooks/${hookId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        isSelected: selected,
+        selectedOrder: newOrder,
+        status: selected ? "selected" : "submitted",
+      }),
+    });
+  }
+
+  async function deleteHook(hookId: string) {
+    if (!confirm("Delete this hook?")) return;
+    await fetch(`/api/hooks/${hookId}`, { method: "DELETE" });
+    setWeek((w) => w ? { ...w, hooks: w.hooks.filter((h) => h.id !== hookId) } : w);
+  }
+
+  async function generateCaption(hookId: string) {
+    if (!week) return;
+    const hook = week.hooks.find((h) => h.id === hookId);
+    if (!hook) return;
+
+    const res = await fetch("/api/generate-caption", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        hookText: hook.hookText,
+        caption: hook.caption,
+        format: hook.format,
+        campaignName: week.campaign.name,
+        clientName: week.campaign.clientName,
+        hashtags: week.campaign.hashtags,
+      }),
+    });
+
+    if (!res.ok) {
+      alert("AI caption failed. Check ANTHROPIC_API_KEY in .env");
+      return;
+    }
+
+    const { caption } = await res.json();
+
+    await fetch(`/api/hooks/${hookId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aiCaption: caption }),
+    });
+
+    setWeek((w) => w ? {
+      ...w,
+      hooks: w.hooks.map((h) => h.id === hookId ? { ...h, aiCaption: caption } : h),
+    } : w);
+  }
+
+  async function generateAllCaptions() {
+    if (!week) return;
+    const selected = week.hooks.filter((h) => h.isSelected && !h.aiCaption);
+    for (const hook of selected) {
+      await generateCaption(hook.id);
+    }
+  }
+
+  async function updateWeekStatus(status: string) {
+    setStatusUpdating(true);
+    await fetch(`/api/weeks/${weekId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setWeek((w) => w ? { ...w, status: status as WeekWithHooks["status"] } : w);
+    setStatusUpdating(false);
+  }
+
+  if (loading || !week) {
+    return (
+      <div className="p-8 animate-pulse space-y-4">
+        <div className="h-20 bg-slate-200 rounded-2xl" />
+        <div className="grid grid-cols-5 gap-4">
+          <div className="col-span-2 h-96 bg-slate-200 rounded-2xl" />
+          <div className="col-span-3 h-96 bg-slate-200 rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
+
+  const colors = CAMPAIGN_COLORS[week.campaign.color] || CAMPAIGN_COLORS.blue;
+  const deadline = new Date(week.deadline);
+  const deadlinePassed = isPast(deadline);
+
+  const filteredHooks = week.hooks.filter((h) => {
+    if (filter === "mine") return h.submitterName === currentUser?.name;
+    if (filter === "selected") return h.isSelected;
+    return true;
+  });
+
+  const selectedHooks = [...week.hooks]
+    .filter((h) => h.isSelected)
+    .sort((a, b) => (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99));
+
+  const submitterGroups = week.hooks.reduce<Record<string, Hook[]>>((acc, h) => {
+    if (!acc[h.submitterName]) acc[h.submitterName] = [];
+    acc[h.submitterName].push(h);
+    return acc;
+  }, {});
+
+  const captionsNeeded = selectedHooks.filter((h) => !h.aiCaption).length;
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <Link href="/campaigns" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          All Campaigns
+        </Link>
+
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <span className="text-2xl">{week.campaign.emoji}</span>
+              <h1 className="text-2xl font-bold text-slate-900">{week.campaign.name}</h1>
+              <span className={cn("badge", colors.badge)}>{week.campaign.clientName}</span>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-slate-500">
+              <span className="font-medium">{formatWeekRange(new Date(week.weekStart))}</span>
+              <span className="text-slate-300">·</span>
+              <span className={cn("flex items-center gap-1", deadlinePassed && "text-red-500")}>
+                <Clock className="w-3.5 h-3.5" />
+                {formatDeadline(deadline)}
+              </span>
+              <span className="text-slate-300">·</span>
+              <span>{week.hooks.length} / {week.campaign.hooksTarget} hooks</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {selectedHooks.length > 0 && captionsNeeded > 0 && (
+              <button
+                onClick={generateAllCaptions}
+                className="flex items-center gap-2 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                Generate {captionsNeeded} caption{captionsNeeded !== 1 ? "s" : ""}
+              </button>
+            )}
+            {week.status !== "finalized" && selectedHooks.length >= week.campaign.hooksTarget && (
+              <button
+                onClick={() => updateWeekStatus("finalized")}
+                disabled={statusUpdating}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Finalize Week
+              </button>
+            )}
+            {week.status === "open" && (
+              <button
+                onClick={() => updateWeekStatus("reviewing")}
+                disabled={statusUpdating}
+                className="btn-secondary flex items-center gap-2"
+              >
+                Start Review
+              </button>
+            )}
+            <span className={cn(
+              "badge text-xs font-semibold",
+              week.status === "finalized" ? "bg-emerald-100 text-emerald-700"
+                : week.status === "reviewing" ? "bg-amber-100 text-amber-700"
+                  : "bg-blue-100 text-blue-700"
+            )}>
+              {week.status}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Hashtags preview */}
+      {week.campaign.hashtags && (
+        <div className="mb-4 flex items-start gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <Hash className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-slate-500 leading-relaxed">{week.campaign.hashtags}</p>
+        </div>
+      )}
+
+      {/* Progress bar */}
+      <div className="mb-6">
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-blue-500 rounded-full transition-all duration-700"
+            style={{ width: `${Math.min(100, (selectedHooks.length / week.campaign.hooksTarget) * 100)}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-slate-400 mt-1.5">
+          <span>{selectedHooks.length} selected</span>
+          <span>Target: {week.campaign.hooksTarget}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-5 gap-6">
+        {/* Left panel */}
+        <div className="col-span-2 space-y-5">
+          {week.status !== "finalized" && (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className={cn(
+                "w-full flex items-center justify-between px-5 py-3 rounded-2xl border-2 text-sm font-semibold transition-all duration-200",
+                showForm
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-dashed border-slate-300 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-600"
+              )}
+            >
+              <span>{showForm ? "Hide form" : "+ Submit a hook"}</span>
+              {showForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          )}
+
+          {showForm && (
+            <div className="animate-slide-up">
+              <HookForm
+                weekId={weekId}
+                teamMembers={[]}
+                onSuccess={() => { fetchWeek(); setShowForm(false); }}
+              />
+            </div>
+          )}
+
+          {/* Contributor summary */}
+          {Object.keys(submitterGroups).length > 0 && (
+            <div className="card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-4 h-4 text-slate-400" />
+                <h3 className="font-semibold text-slate-800 text-sm">Contributors</h3>
+              </div>
+              <div className="space-y-3">
+                {Object.entries(submitterGroups).map(([name, hooks]) => {
+                  const selected = hooks.filter((h) => h.isSelected).length;
+                  return (
+                    <div key={name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-xs font-bold text-blue-700">{name.charAt(0)}</span>
+                        </div>
+                        <span className="text-sm font-medium text-slate-700">{name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400">{hooks.length} hooks</span>
+                        {selected > 0 && (
+                          <span className="flex items-center gap-0.5 text-xs text-emerald-600 font-medium">
+                            <Check className="w-3 h-3" />
+                            {selected}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {deadlinePassed && week.status !== "finalized" && (
+            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
+              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-sm font-semibold text-red-700">Deadline passed</div>
+                <div className="text-xs text-red-500 mt-0.5">Select your top {week.campaign.hooksTarget} and finalize.</div>
+              </div>
+            </div>
+          )}
+
+          <ExportPanel
+            weekId={weekId}
+            campaign={week.campaign}
+            weekStart={week.weekStart}
+            selectedHooks={selectedHooks}
+          />
+        </div>
+
+        {/* Right: hooks list */}
+        <div className="col-span-3">
+          <div className="flex items-center gap-1 mb-4 bg-white rounded-xl p-1 border border-slate-200 w-fit">
+            {(["all", "mine", "selected"] as FilterType[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={cn(
+                  "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 capitalize",
+                  filter === f ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                {f === "mine" ? "My Hooks"
+                  : f === "selected" ? `Selected (${selectedHooks.length})`
+                    : `All (${week.hooks.length})`}
+              </button>
+            ))}
+          </div>
+
+          {filteredHooks.length === 0 ? (
+            <div className="card p-12 text-center">
+              <div className="text-4xl mb-3">🪝</div>
+              <div className="text-slate-500 text-sm">
+                {filter === "mine"
+                  ? "You haven't submitted any hooks this week."
+                  : filter === "selected"
+                    ? `No hooks selected yet. Click any hook to select it (target: ${week.campaign.hooksTarget}).`
+                    : "No hooks yet. Be the first to submit!"}
+              </div>
+              {filter !== "selected" && week.status !== "finalized" && (
+                <button onClick={() => setShowForm(true)} className="mt-4 btn-primary inline-flex">
+                  Submit First Hook
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredHooks.map((hook) => (
+                <HookCard
+                  key={hook.id}
+                  hook={hook}
+                  campaign={week.campaign}
+                  onSelect={week.status !== "finalized" ? toggleSelect : undefined}
+                  onDelete={week.status !== "finalized" ? deleteHook : undefined}
+                  onGenerateCaption={hook.isSelected ? generateCaption : undefined}
+                  showSubmitter
+                  selectable={week.status !== "finalized"}
+                  rank={hook.isSelected ? hook.selectedOrder ?? undefined : undefined}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

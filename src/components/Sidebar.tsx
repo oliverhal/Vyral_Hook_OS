@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Megaphone, PlusCircle } from "lucide-react";
+import { LayoutDashboard, Megaphone, PlusCircle, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+  { href: "/admin/team", label: "Team", icon: Users },
 ];
 
 export default function Sidebar() {

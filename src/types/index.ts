@@ -43,6 +43,24 @@ export interface Week {
   updatedAt: string;
 }
 
+export interface HookVote {
+  id: string;
+  hookId: string;
+  userId: string;
+  value: number;
+  createdAt: string;
+}
+
+export interface HookComment {
+  id: string;
+  hookId: string;
+  userId: string;
+  user: { id: string; name: string; color: string };
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Hook {
   id: string;
   weekId: string;
@@ -58,6 +76,23 @@ export interface Hook {
   isSelected: boolean;
   selectedOrder: number | null;
   aiCaption: string | null;
+  wentViral: boolean;
+  votes?: HookVote[];
+  commentCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ValidatedHook {
+  id: string;
+  campaignId: string;
+  campaign?: Campaign;
+  hookText: string;
+  format: string;
+  sourceHookId: string | null;
+  addedById: string | null;
+  addedBy?: { id: string; name: string } | null;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 }

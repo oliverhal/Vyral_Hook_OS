@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Plus, Flame } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
 import type { Campaign, Week, Hook } from "@/types";
 
@@ -58,6 +58,13 @@ export default function CampaignsContent() {
                   <span className={cn("badge", colors.badge)}>
                     Target: {campaign.hooksTarget} hooks/week
                   </span>
+                  <Link
+                    href={`/campaigns/${campaign.id}/validated`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
+                  >
+                    <Flame className="w-3.5 h-3.5" />
+                    Validated
+                  </Link>
                 </div>
               </div>
 

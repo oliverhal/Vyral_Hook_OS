@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronDown, ChevronUp, ExternalLink, Sparkles, Trash2 } from "lucide-react";
+import { useSession } from "next-auth/react";
+import {
+  Check, ChevronDown, ChevronUp, ExternalLink, Sparkles, Trash2,
+  ThumbsUp, ThumbsDown, MessageSquare, Flame, Send, X
+} from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { FORMAT_COLORS } from "@/types";
-import type { Hook, Campaign } from "@/types";
+import type { Hook, Campaign, HookComment } from "@/types";
 
 interface HookCardProps {
   hook: Hook;
@@ -12,9 +16,11 @@ interface HookCardProps {
   onSelect?: (hookId: string, selected: boolean) => void;
   onDelete?: (hookId: string) => void;
   onGenerateCaption?: (hookId: string) => void;
+  onViralToggle?: (hookId: string, wentViral: boolean) => void;
   showSubmitter?: boolean;
   selectable?: boolean;
   rank?: number;
+  isAdmin?: boolean;
 }
 
 export default function HookCard({
@@ -23,14 +29,31 @@ export default function HookCard({
   onSelect,
   onDelete,
   onGenerateCaption,
+  onViralToggle,
   showSubmitter = true,
   selectable = false,
   rank,
+  isAdmin = false,
 }: HookCardProps) {
+  const { data: session } = useSession();
   const [expanded, setExpanded] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<HookComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentCount, setCommentCount] = useState(hook.commentCount ?? 0);
+  const [votes, setVotes] = useState(hook.votes ?? []);
+  const [viralLoading, setViralLoading] = useState(false);
+
   const colors = CAMPAIGN_COLORS[campaign.color] || CAMPAIGN_COLORS.blue;
   const formatColor = FORMAT_COLORS[hook.format] ?? "bg-slate-100 text-slate-600";
+
+  const currentUserId = (session?.user as { id?: string })?.id;
+
+  const voteScore = votes.reduce((sum, v) => sum + v.value, 0);
+  const myVote = votes.find((v) => v.userId === currentUserId)?.value ?? 0;
 
   async function handleGenerateCaption() {
     if (!onGenerateCaption) return;
@@ -39,17 +62,75 @@ export default function HookCard({
     setGenerating(false);
   }
 
+  async function handleVote(value: number) {
+    const newValue = myVote === value ? 0 : value;
+    // Optimistic update
+    setVotes((prev) => {
+      const without = prev.filter((v) => v.userId !== currentUserId);
+      if (newValue === 0) return without;
+      return [...without, { id: "temp", hookId: hook.id, userId: currentUserId!, value: newValue, createdAt: new Date().toISOString() }];
+    });
+    await fetch(`/api/hooks/${hook.id}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value: newValue }),
+    });
+  }
+
+  async function loadComments() {
+    if (loadingComments) return;
+    setLoadingComments(true);
+    const data = await fetch(`/api/hooks/${hook.id}/comments`).then((r) => r.json());
+    setComments(data);
+    setLoadingComments(false);
+  }
+
+  function toggleComments() {
+    if (!showComments && comments.length === 0) loadComments();
+    setShowComments(!showComments);
+  }
+
+  async function submitComment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!commentText.trim() || submittingComment) return;
+    setSubmittingComment(true);
+    const res = await fetch(`/api/hooks/${hook.id}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: commentText.trim() }),
+    });
+    const newComment = await res.json();
+    setComments((prev) => [...prev, newComment]);
+    setCommentCount((n) => n + 1);
+    setCommentText("");
+    setSubmittingComment(false);
+  }
+
+  async function deleteComment(commentId: string) {
+    await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    setCommentCount((n) => Math.max(0, n - 1));
+  }
+
+  async function handleViralToggle() {
+    setViralLoading(true);
+    const res = await fetch(`/api/hooks/${hook.id}/viral`, { method: "POST" });
+    const data = await res.json();
+    onViralToggle?.(hook.id, data.wentViral);
+    setViralLoading(false);
+  }
+
   return (
     <div
       className={cn(
         "card p-4 transition-all duration-200",
         hook.isSelected && "ring-2 ring-blue-500 shadow-md",
+        hook.wentViral && "ring-1 ring-orange-300",
         !hook.isSelected && selectable && "hover:shadow-md cursor-pointer"
       )}
       onClick={() => selectable && onSelect?.(hook.id, !hook.isSelected)}
     >
       <div className="flex items-start gap-3">
-        {/* Rank / Select indicator */}
         {selectable && (
           <button
             onClick={(e) => { e.stopPropagation(); onSelect?.(hook.id, !hook.isSelected); }}
@@ -69,9 +150,16 @@ export default function HookCard({
         )}
 
         <div className="flex-1 min-w-0">
-          {/* Format badge + actions */}
+          {/* Format badge + viral badge + actions */}
           <div className="flex items-center justify-between gap-2 mb-2">
-            <span className={cn("badge text-xs", formatColor)}>{hook.format}</span>
+            <div className="flex items-center gap-1.5">
+              <span className={cn("badge text-xs", formatColor)}>{hook.format}</span>
+              {hook.wentViral && (
+                <span className="badge text-xs bg-orange-100 text-orange-700 flex items-center gap-1">
+                  <Flame className="w-3 h-3" /> Viral
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               {hook.referenceVideo && (
                 <a
@@ -95,6 +183,21 @@ export default function HookCard({
                   <Sparkles className={cn("w-3.5 h-3.5", generating && "animate-spin")} />
                 </button>
               )}
+              {isAdmin && onViralToggle && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleViralToggle(); }}
+                  disabled={viralLoading}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors",
+                    hook.wentViral
+                      ? "text-orange-500 bg-orange-50 hover:bg-orange-100"
+                      : "text-slate-400 hover:text-orange-500 hover:bg-orange-50"
+                  )}
+                  title={hook.wentViral ? "Remove from validated" : "Mark as went viral"}
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                </button>
+              )}
               {onDelete && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(hook.id); }}
@@ -106,10 +209,10 @@ export default function HookCard({
             </div>
           </div>
 
-          {/* Hook text on screen — this is the main content */}
+          {/* Hook text */}
           <p className="font-semibold text-slate-900 text-sm leading-snug mb-2">{hook.hookText}</p>
 
-          {/* AI caption (if generated) */}
+          {/* AI caption */}
           {hook.aiCaption && (
             <div className="mt-2 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
               <div className="flex items-center gap-1 mb-1">
@@ -120,7 +223,6 @@ export default function HookCard({
             </div>
           )}
 
-          {/* Caption preview (collapsed) */}
           {!hook.aiCaption && (
             <p className="text-slate-500 text-xs leading-relaxed line-clamp-2 mb-1">{hook.caption}</p>
           )}
@@ -135,7 +237,7 @@ export default function HookCard({
           </button>
 
           {expanded && (
-            <div className="mt-2 space-y-2 animate-fade-in">
+            <div className="mt-2 space-y-2">
               <div className="p-3 bg-slate-50 rounded-xl">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Caption</div>
                 <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{hook.caption}</p>
@@ -149,10 +251,59 @@ export default function HookCard({
             </div>
           )}
 
-          {/* Submitter */}
-          {showSubmitter && (
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+          {/* Vote + comment bar */}
+          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            {/* Upvote */}
+            <button
+              onClick={() => handleVote(1)}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors",
+                myVote === 1
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+              )}
+            >
+              <ThumbsUp className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Score */}
+            <span className={cn(
+              "text-xs font-semibold px-1 min-w-[20px] text-center",
+              voteScore > 0 ? "text-emerald-600" : voteScore < 0 ? "text-red-500" : "text-slate-400"
+            )}>
+              {voteScore}
+            </span>
+
+            {/* Downvote */}
+            <button
+              onClick={() => handleVote(-1)}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors",
+                myVote === -1
+                  ? "bg-red-100 text-red-600"
+                  : "text-slate-400 hover:text-red-500 hover:bg-red-50"
+              )}
+            >
+              <ThumbsDown className="w-3.5 h-3.5" />
+            </button>
+
+            <div className="flex-1" />
+
+            {/* Comments toggle */}
+            <button
+              onClick={toggleComments}
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-colors",
+                showComments ? "bg-slate-100 text-slate-700" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              {commentCount > 0 ? commentCount : ""}
+            </button>
+
+            {/* Submitter */}
+            {showSubmitter && (
+              <div className="flex items-center gap-1.5 ml-1">
                 <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center">
                   <span className="text-xs font-medium text-slate-600">
                     {hook.submitterName.charAt(0).toUpperCase()}
@@ -160,9 +311,57 @@ export default function HookCard({
                 </div>
                 <span className="text-xs text-slate-500">{hook.submitterName}</span>
               </div>
-              <span className={cn("badge text-xs", colors.badge)}>
-                {campaign.emoji} {campaign.name}
-              </span>
+            )}
+          </div>
+
+          {/* Comments section */}
+          {showComments && (
+            <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+              {loadingComments && (
+                <div className="text-xs text-slate-400 py-2">Loading...</div>
+              )}
+              {comments.map((c) => (
+                <div key={c.id} className="flex gap-2 group">
+                  <div className="w-6 h-6 rounded-full bg-slate-200 flex-shrink-0 flex items-center justify-center mt-0.5">
+                    <span className="text-xs font-medium text-slate-600">{c.user.name.charAt(0)}</span>
+                  </div>
+                  <div className="flex-1 bg-slate-50 rounded-xl px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-slate-700">{c.user.name}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-slate-400">
+                          {new Date(c.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                        </span>
+                        {(c.userId === currentUserId || isAdmin) && (
+                          <button
+                            onClick={() => deleteComment(c.id)}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-red-500 transition-all"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{c.content}</p>
+                  </div>
+                </div>
+              ))}
+
+              <form onSubmit={submitComment} className="flex gap-2 mt-2">
+                <input
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Add a comment..."
+                  className="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-400 focus:bg-white transition-colors"
+                />
+                <button
+                  type="submit"
+                  disabled={!commentText.trim() || submittingComment}
+                  className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </form>
             </div>
           )}
         </div>

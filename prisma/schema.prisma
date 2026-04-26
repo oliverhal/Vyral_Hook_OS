@@ -8,64 +8,108 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  color     String   @default("blue")
-  role      String   @default("member")
-  active    Boolean  @default(true)
-  hooks     Hook[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String          @id @default(cuid())
+  name           String
+  email          String          @unique
+  password       String
+  color          String          @default("blue")
+  role           String          @default("member")
+  active         Boolean         @default(true)
+  hooks          Hook[]
+  votes          HookVote[]
+  comments       HookComment[]
+  validatedHooks ValidatedHook[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model Campaign {
-  id          String   @id @default(cuid())
-  name        String
-  clientName  String
-  description String?
-  color       String   @default("blue")
-  emoji       String   @default("🎯")
-  active      Boolean  @default(true)
-  hooksTarget Int      @default(7)
-  hashtags    String?
-  weeks       Week[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String          @id @default(cuid())
+  name           String
+  clientName     String
+  description    String?
+  color          String          @default("blue")
+  emoji          String          @default("🎯")
+  active         Boolean         @default(true)
+  hooksTarget    Int             @default(7)
+  hashtags       String?
+  weeks          Week[]
+  validatedHooks ValidatedHook[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model Week {
-  id          String   @id @default(cuid())
-  campaignId  String
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  weekStart   DateTime
-  deadline    DateTime
-  status      String   @default("open")
-  notes       String?
-  hooks       Hook[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  weekStart  DateTime
+  deadline   DateTime
+  status     String   @default("open")
+  notes      String?
+  hooks      Hook[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([campaignId, weekStart])
 }
 
 model Hook {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   weekId         String
-  week           Week     @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  week           Week          @relation(fields: [weekId], references: [id], onDelete: Cascade)
   submittedById  String?
-  submittedBy    User?    @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  submittedBy    User?         @relation(fields: [submittedById], references: [id], onDelete: SetNull)
   submitterName  String
   hookText       String
-  format         String   @default("Faceless")
+  format         String        @default("Faceless")
   caption        String
   referenceVideo String?
   recordingNotes String?
-  status         String   @default("submitted")
-  isSelected     Boolean  @default(false)
+  status         String        @default("submitted")
+  isSelected     Boolean       @default(false)
   selectedOrder  Int?
   aiCaption      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  wentViral      Boolean       @default(false)
+  votes          HookVote[]
+  comments       HookComment[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model ValidatedHook {
+  id           String   @id @default(cuid())
+  campaignId   String
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  hookText     String
+  format       String   @default("Faceless")
+  sourceHookId String?
+  addedById    String?
+  addedBy      User?    @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model HookVote {
+  id        String   @id @default(cuid())
+  hookId    String
+  hook      Hook     @relation(fields: [hookId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value     Int
+  createdAt DateTime @default(now())
+
+  @@unique([hookId, userId])
+}
+
+model HookComment {
+  id        String   @id @default(cuid())
+  hookId    String
+  hook      Hook     @relation(fields: [hookId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

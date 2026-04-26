@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Megaphone, PlusCircle, Users } from "lucide-react";
+import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+  { href: "/archive", label: "Archive", icon: Archive },
   { href: "/admin/team", label: "Team", icon: Users },
 ];
 
@@ -16,7 +17,7 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-[#0a0a0a] flex flex-col z-40">
-      {/* Logo — matches Vyral Labs brand */}
+      {/* Logo */}
       <div className="px-6 py-5 border-b border-white/10">
         <div className="flex items-baseline gap-0">
           <span

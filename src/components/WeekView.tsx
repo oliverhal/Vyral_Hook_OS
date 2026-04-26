@@ -24,7 +24,8 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const [showForm, setShowForm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
-  const currentUser = session?.user as { name?: string } | undefined;
+  const currentUser = session?.user as { name?: string; role?: string } | undefined;
+  const isAdmin = currentUser?.role === "admin";
 
   const fetchWeek = useCallback(async () => {
     const data = await fetch(`/api/weeks/${weekId}`).then((r) => r.json());
@@ -106,6 +107,13 @@ export default function WeekView({ weekId }: { weekId: string }) {
     for (const hook of selected) {
       await generateCaption(hook.id);
     }
+  }
+
+  async function handleViralToggle(hookId: string, wentViral: boolean) {
+    setWeek((w) => w ? {
+      ...w,
+      hooks: w.hooks.map((h) => h.id === hookId ? { ...h, wentViral } : h),
+    } : w);
   }
 
   async function updateWeekStatus(status: string) {
@@ -369,9 +377,11 @@ export default function WeekView({ weekId }: { weekId: string }) {
                   onSelect={week.status !== "finalized" ? toggleSelect : undefined}
                   onDelete={week.status !== "finalized" ? deleteHook : undefined}
                   onGenerateCaption={hook.isSelected ? generateCaption : undefined}
+                  onViralToggle={isAdmin ? handleViralToggle : undefined}
                   showSubmitter
                   selectable={week.status !== "finalized"}
                   rank={hook.isSelected ? hook.selectedOrder ?? undefined : undefined}
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>

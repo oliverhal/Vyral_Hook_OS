@@ -82,16 +82,19 @@ function csvCell(value: string | null | undefined): string {
   return `"${str}"`;
 }
 
+export interface ExportableHook {
+  hookText: string;
+  format: string;
+  referenceVideo: string | null;
+  aiCaption?: string | null;
+  caption: string;
+  recordingNotes: string | null;
+  selectedOrder: number | null;
+  source?: "experimental" | "validated";
+}
+
 export function generateCSV(
-  hooks: {
-    hookText: string;
-    format: string;
-    referenceVideo: string | null;
-    aiCaption: string | null;
-    caption: string;
-    recordingNotes: string | null;
-    selectedOrder: number | null;
-  }[],
+  hooks: ExportableHook[],
   hashtags?: string | null
 ): string {
   const sorted = [...hooks].sort((a, b) => (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99));
@@ -127,7 +130,7 @@ export function generateSlackMessage(
   campaignName: string,
   clientName: string,
   weekStart: Date,
-  hooks: { hookText: string; format: string; aiCaption: string | null; caption: string; selectedOrder: number | null }[]
+  hooks: ExportableHook[]
 ): string {
   const sorted = [...hooks]
     .filter((h) => h.selectedOrder !== null)
@@ -138,7 +141,8 @@ export function generateSlackMessage(
   const hookLines = sorted
     .map((h, i) => {
       const caption = h.aiCaption || h.caption;
-      return `*Hook ${i + 1} (${h.format}):* ${h.hookText}\n${caption}`;
+      const sourceTag = h.source === "validated" ? " 🔥" : "";
+      return `*Hook ${i + 1} (${h.format})${sourceTag}:* ${h.hookText}\n${caption}`;
     })
     .join("\n\n");
 

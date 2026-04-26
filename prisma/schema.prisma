@@ -24,32 +24,35 @@ model User {
 }
 
 model Campaign {
-  id             String          @id @default(cuid())
-  name           String
-  clientName     String
-  description    String?
-  color          String          @default("blue")
-  emoji          String          @default("🎯")
-  active         Boolean         @default(true)
-  hooksTarget    Int             @default(7)
-  hashtags       String?
-  weeks          Week[]
-  validatedHooks ValidatedHook[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id                 String          @id @default(cuid())
+  name               String
+  clientName         String
+  description        String?
+  color              String          @default("blue")
+  emoji              String          @default("🎯")
+  active             Boolean         @default(true)
+  hooksTarget        Int             @default(7)
+  validatedTarget    Int             @default(7)
+  hashtags           String?
+  weeks              Week[]
+  validatedHooks     ValidatedHook[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 }
 
 model Week {
-  id         String   @id @default(cuid())
-  campaignId String
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  weekStart  DateTime
-  deadline   DateTime
-  status     String   @default("open")
-  notes      String?
-  hooks      Hook[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                String              @id @default(cuid())
+  campaignId        String
+  campaign          Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  weekStart         DateTime
+  deadline          DateTime
+  status            String              @default("open")
+  mode              String              @default("mixed")
+  notes             String?
+  hooks             Hook[]
+  selectedValidated WeekValidatedHook[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   @@unique([campaignId, weekStart])
 }
@@ -78,17 +81,35 @@ model Hook {
 }
 
 model ValidatedHook {
-  id           String   @id @default(cuid())
-  campaignId   String
-  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  hookText     String
-  format       String   @default("Faceless")
-  sourceHookId String?
-  addedById    String?
-  addedBy      User?    @relation(fields: [addedById], references: [id], onDelete: SetNull)
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String              @id @default(cuid())
+  campaignId     String
+  campaign       Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  hookText       String
+  format         String              @default("Faceless")
+  caption        String              @default("")
+  referenceVideo String?
+  recordingNotes String?
+  sourceHookId   String?
+  addedById      String?
+  addedBy        User?               @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  notes          String?
+  lastUsedAt     DateTime?
+  timesUsed      Int                 @default(0)
+  weekUsages     WeekValidatedHook[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model WeekValidatedHook {
+  id              String        @id @default(cuid())
+  weekId          String
+  week            Week          @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  validatedHookId String
+  validatedHook   ValidatedHook @relation(fields: [validatedHookId], references: [id], onDelete: Cascade)
+  selectedOrder   Int?
+  createdAt       DateTime      @default(now())
+
+  @@unique([weekId, validatedHookId])
 }
 
 model HookVote {

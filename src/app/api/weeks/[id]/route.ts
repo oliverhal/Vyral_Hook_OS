@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  const userId = (session?.user as { id?: string })?.id;
-
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const week = await prisma.week.findUnique({
     where: { id: params.id },
     include: {
@@ -17,6 +12,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           votes: true,
           _count: { select: { comments: true } },
         },
+      },
+      selectedValidated: {
+        include: { validatedHook: true },
+        orderBy: { selectedOrder: "asc" },
       },
     },
   });
@@ -36,7 +35,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const week = await prisma.week.update({
     where: { id: params.id },
     data: body,
-    include: { campaign: true, hooks: true },
+    include: { campaign: true, hooks: true, selectedValidated: true },
   });
+
+  // When a week is finalized, mark each selected validated hook as used
+  if (body.status === "finalized") {
+    const validatedIds = week.selectedValidated.map((v) => v.validatedHookId);
+    if (validatedIds.length > 0) {
+      await prisma.validatedHook.updateMany({
+        where: { id: { in: validatedIds } },
+        data: { lastUsedAt: new Date(), timesUsed: { increment: 1 } },
+      });
+    }
+  }
+
   return NextResponse.json(week);
 }

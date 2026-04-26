@@ -1,6 +1,7 @@
 export type CampaignColor = "violet" | "blue" | "emerald" | "orange" | "pink" | "yellow" | "teal" | "slate";
 
 export type WeekStatus = "open" | "reviewing" | "finalized";
+export type WeekMode = "mixed" | "bulk";
 
 export type HookStatus = "submitted" | "selected" | "rejected";
 
@@ -25,6 +26,7 @@ export interface Campaign {
   emoji: string;
   active: boolean;
   hooksTarget: number;
+  validatedTarget: number;
   hashtags: string | null;
   createdAt: string;
   updatedAt: string;
@@ -37,8 +39,10 @@ export interface Week {
   weekStart: string;
   deadline: string;
   status: WeekStatus;
+  mode: WeekMode;
   notes: string | null;
   hooks?: Hook[];
+  selectedValidated?: WeekValidatedHook[];
   createdAt: string;
   updatedAt: string;
 }
@@ -89,12 +93,26 @@ export interface ValidatedHook {
   campaign?: Campaign;
   hookText: string;
   format: string;
+  caption: string;
+  referenceVideo: string | null;
+  recordingNotes: string | null;
   sourceHookId: string | null;
   addedById: string | null;
   addedBy?: { id: string; name: string } | null;
   notes: string | null;
+  lastUsedAt: string | null;
+  timesUsed: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface WeekValidatedHook {
+  id: string;
+  weekId: string;
+  validatedHookId: string;
+  validatedHook: ValidatedHook;
+  selectedOrder: number | null;
+  createdAt: string;
 }
 
 export interface CampaignWithWeeks extends Campaign {
@@ -104,4 +122,5 @@ export interface CampaignWithWeeks extends Campaign {
 export interface WeekWithHooks extends Week {
   campaign: Campaign;
   hooks: Hook[];
+  selectedValidated: WeekValidatedHook[];
 }

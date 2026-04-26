@@ -20,7 +20,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, clientName, description, color, emoji, hooksTarget } = body;
+  const { name, clientName, description, color, emoji, hooksTarget, validatedTarget, hashtags } = body;
 
   if (!name || !clientName) {
     return NextResponse.json({ error: "Name and client name are required" }, { status: 400 });
@@ -33,7 +33,9 @@ export async function POST(req: NextRequest) {
       description: description || null,
       color: color || "violet",
       emoji: emoji || "🎯",
-      hooksTarget: hooksTarget || 7,
+      hooksTarget: hooksTarget ?? 7,
+      validatedTarget: validatedTarget ?? 7,
+      hashtags: hashtags || null,
     },
   });
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive } from "lucide-react";
+import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -10,6 +10,7 @@ const nav = [
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/admin/team", label: "Team", icon: Users },
+  { href: "/help", label: "How it works", icon: BookOpen },
 ];
 
 export default function Sidebar() {

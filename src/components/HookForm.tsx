@@ -79,9 +79,9 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
           value={form.hookText}
           onChange={(e) => setField("hookText", e.target.value)}
           required
-          maxLength={200}
+          maxLength={500}
         />
-        <div className="text-right text-xs text-slate-400 mt-1">{form.hookText.length}/200</div>
+        <div className="text-right text-xs text-slate-400 mt-1">{form.hookText.length}/500</div>
       </div>
 
       {/* Format */}

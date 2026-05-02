@@ -281,6 +281,27 @@ function AddHookModal({
   );
 }
 
+function parseCSV(raw: string): string {
+  // Convert CSV to tab-separated so the existing bulk API can handle it
+  const lines = raw.split(/\r?\n/);
+  return lines.map((line) => {
+    const cells: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = !inQuotes; }
+      else if (ch === ',' && !inQuotes) { cells.push(current); current = ""; }
+      else { current += ch; }
+    }
+    cells.push(current);
+    return cells.join("\t");
+  }).join("\n");
+}
+
+const HEADER_KEYWORDS = ["hook (text", "hook text", "hooks", "text on screen"];
+
 function BulkImportModal({
   campaignId,
   onClose,
@@ -290,8 +311,44 @@ function BulkImportModal({
   onClose: () => void;
   onSuccess: (count: number) => void;
 }) {
+  const [mode, setMode] = useState<"file" | "paste">("file");
   const [text, setText] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [preview, setPreview] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  function processFileContent(content: string, name: string) {
+    const isCSV = name.endsWith(".csv") || content.includes(",");
+    const converted = isCSV ? parseCSV(content) : content;
+    // Strip header row if present
+    const lines = converted.split(/\r?\n/).filter((l) => l.trim());
+    const firstCell = lines[0]?.split("\t")[0]?.toLowerCase() ?? "";
+    const hasHeader = HEADER_KEYWORDS.some((k) => firstCell.includes(k));
+    const data = hasHeader ? lines.slice(1).join("\n") : lines.join("\n");
+    setText(data);
+    setPreview(lines.slice(hasHeader ? 1 : 0, hasHeader ? 4 : 3).map((l) => l.split("\t")[0]));
+    setFileName(name);
+  }
+
+  function handleFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => processFileContent(e.target?.result as string, file.name);
+    reader.readAsText(file);
+  }
+
+  function onFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  }
+
   const lineCount = text.split(/\r?\n/).filter((l) => l.trim()).length;
 
   async function submit() {
@@ -318,22 +375,96 @@ function BulkImportModal({
           </button>
         </div>
         <div className="p-6 space-y-4">
-          <div className="text-sm text-slate-600 leading-relaxed bg-blue-50 border border-blue-100 rounded-xl p-3">
-            <strong className="text-blue-700">Tip:</strong> Copy your hooks straight from Google Sheets — the columns paste as
-            tabs. Format: <code className="text-xs bg-white px-1 py-0.5 rounded">Hook ⇥ Format ⇥ Reference URL ⇥ Caption ⇥ Notes</code>
-            <br />
-            Or just paste plain text — one hook per line, all default to <strong>Faceless</strong>.
+
+          {/* Mode tabs */}
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+            {([["file", "Upload CSV"], ["paste", "Paste text"]] as const).map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); setText(""); setFileName(""); setPreview([]); }}
+                className={cn(
+                  "flex-1 py-2 text-sm font-medium rounded-lg transition-colors",
+                  mode === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={12}
-            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-blue-400 font-mono"
-            placeholder={`I tried this hack for 30 days...\tFaceless\thttps://...\tDay 1 was rough but...\tShoot vertically\nWhy nobody talks about...\tSnapchat\n...`}
-            autoFocus
-          />
+
+          {mode === "file" ? (
+            <>
+              <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3 leading-relaxed">
+                In Google Sheets: <strong>File → Download → Comma Separated Values (.csv)</strong> → upload that file here.
+                Columns are mapped automatically: Hook, Format, Reference URL, Caption, Notes.
+              </div>
+
+              {/* Drop zone */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={onDrop}
+                className={cn(
+                  "border-2 border-dashed rounded-2xl p-10 text-center transition-colors",
+                  dragOver ? "border-blue-400 bg-blue-50" : "border-slate-200 bg-slate-50 hover:border-slate-300"
+                )}
+              >
+                {fileName ? (
+                  <div className="space-y-2">
+                    <div className="text-2xl">✅</div>
+                    <div className="font-semibold text-slate-900 text-sm">{fileName}</div>
+                    <div className="text-xs text-slate-500">{lineCount} hooks found</div>
+                    {preview.length > 0 && (
+                      <div className="mt-3 text-left bg-white rounded-xl p-3 border border-slate-200 space-y-1">
+                        <div className="text-xs font-semibold text-slate-500 mb-1.5">Preview:</div>
+                        {preview.map((line, i) => (
+                          <div key={i} className="text-xs text-slate-700 truncate">• {line}</div>
+                        ))}
+                        {lineCount > preview.length && (
+                          <div className="text-xs text-slate-400">…and {lineCount - preview.length} more</div>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setText(""); setFileName(""); setPreview([]); }}
+                      className="text-xs text-slate-400 hover:text-red-500 transition-colors mt-2"
+                    >
+                      Remove file
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-3xl">📄</div>
+                    <div className="text-sm font-medium text-slate-700">Drop your CSV here</div>
+                    <div className="text-xs text-slate-400">or</div>
+                    <label className="btn-secondary text-xs cursor-pointer inline-block">
+                      Browse file
+                      <input type="file" accept=".csv,.tsv,.txt" onChange={onFileInput} className="hidden" />
+                    </label>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3 leading-relaxed">
+                One hook per line. Or copy rows straight from Google Sheets — columns paste as tabs automatically.
+              </div>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={10}
+                autoFocus
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:border-blue-400 font-mono"
+                placeholder={"Hook text here\nAnother hook\t Faceless\thttps://ref..."}
+              />
+            </>
+          )}
+
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500">{lineCount} hook{lineCount !== 1 ? "s" : ""} ready to import</span>
+            <span className="text-xs text-slate-500">
+              {lineCount > 0 ? `${lineCount} hook${lineCount !== 1 ? "s" : ""} ready to import` : "No hooks yet"}
+            </span>
             <div className="flex gap-2">
               <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
               <button onClick={submit} disabled={submitting || !text.trim()} className="btn-primary disabled:opacity-50">

@@ -9,6 +9,7 @@ import {
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { FORMAT_COLORS } from "@/types";
 import type { Hook, Campaign, HookComment } from "@/types";
+import MentionInput, { renderWithMentions } from "./MentionInput";
 
 interface HookCardProps {
   hook: Hook;
@@ -342,17 +343,18 @@ export default function HookCard({
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{c.content}</p>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{renderWithMentions(c.content)}</p>
                   </div>
                 </div>
               ))}
 
               <form onSubmit={submitComment} className="flex gap-2 mt-2">
-                <input
+                <MentionInput
                   value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="flex-1 text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-400 focus:bg-white transition-colors"
+                  onChange={setCommentText}
+                  onSubmit={() => submitComment({ preventDefault: () => {} } as React.FormEvent)}
+                  placeholder="Add a comment... (@ to mention)"
+                  disabled={submittingComment}
                 />
                 <button
                   type="submit"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import NotificationBell from "./NotificationBell";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -61,7 +62,8 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="px-3 py-4 border-t border-white/10">
+      <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
+        <NotificationBell />
         <Link
           href="/campaigns/new"
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/50 hover:text-white hover:bg-white/10 transition-colors duration-150"

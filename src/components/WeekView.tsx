@@ -23,6 +23,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const [week, setWeek] = useState<WeekWithHooks | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>("all");
+  const [filterContributor, setFilterContributor] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
@@ -35,7 +36,11 @@ export default function WeekView({ weekId }: { weekId: string }) {
     setLoading(false);
   }, [weekId]);
 
-  useEffect(() => { fetchWeek(); }, [fetchWeek]);
+  useEffect(() => {
+    fetchWeek();
+    const interval = setInterval(fetchWeek, 20000);
+    return () => clearInterval(interval);
+  }, [fetchWeek]);
 
   async function toggleSelect(hookId: string, selected: boolean) {
     if (!week) return;
@@ -164,6 +169,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const totalTarget = expTarget + valTarget;
 
   const filteredHooks = week.hooks.filter((h) => {
+    if (filterContributor && h.submitterName !== filterContributor) return false;
     if (filter === "mine") return h.submitterName === currentUser?.name;
     if (filter === "selected") return h.isSelected;
     return true;
@@ -346,20 +352,38 @@ export default function WeekView({ weekId }: { weekId: string }) {
           {/* Contributor summary */}
           {Object.keys(submitterGroups).length > 0 && (
             <div className="card p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="w-4 h-4 text-slate-400" />
-                <h3 className="font-semibold text-slate-800 text-sm">Contributors</h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-slate-400" />
+                  <h3 className="font-semibold text-slate-800 text-sm">Contributors</h3>
+                </div>
+                {filterContributor && (
+                  <button
+                    onClick={() => setFilterContributor(null)}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Show all
+                  </button>
+                )}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {Object.entries(submitterGroups).map(([name, hooks]) => {
                   const selected = hooks.filter((h) => h.isSelected).length;
+                  const isActive = filterContributor === name;
                   return (
-                    <div key={name} className="flex items-center justify-between">
+                    <button
+                      key={name}
+                      onClick={() => setFilterContributor(isActive ? null : name)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-2 py-2 rounded-xl transition-colors text-left",
+                        isActive ? "bg-blue-50" : "hover:bg-slate-50"
+                      )}
+                    >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-xs font-bold text-blue-700">{name.charAt(0)}</span>
+                        <div className={cn("w-7 h-7 rounded-full flex items-center justify-center", isActive ? "bg-blue-600" : "bg-blue-100")}>
+                          <span className={cn("text-xs font-bold", isActive ? "text-white" : "text-blue-700")}>{name.charAt(0)}</span>
                         </div>
-                        <span className="text-sm font-medium text-slate-700">{name}</span>
+                        <span className={cn("text-sm font-medium", isActive ? "text-blue-700" : "text-slate-700")}>{name}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-slate-400">{hooks.length} hooks</span>
@@ -370,7 +394,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                           </span>
                         )}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -417,7 +441,9 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 </button>
               ))}
             </div>
-            <span className="text-xs text-slate-400">Experimental hooks</span>
+            <span className="text-xs text-slate-400">
+              {filterContributor ? `${filterContributor}'s hooks` : "Experimental hooks"}
+            </span>
           </div>
 
           {filteredHooks.length === 0 ? (

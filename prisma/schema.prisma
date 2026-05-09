@@ -3,9 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+  // For production (Neon/PostgreSQL): change provider to "postgresql" and add:
+  // directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -20,6 +21,7 @@ model User {
   votes          HookVote[]
   comments       HookComment[]
   validatedHooks ValidatedHook[]
+  notifications  Notification[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
@@ -126,12 +128,25 @@ model HookVote {
 }
 
 model HookComment {
-  id        String   @id @default(cuid())
-  hookId    String
-  hook      Hook     @relation(fields: [hookId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  hookId        String
+  hook          Hook           @relation(fields: [hookId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content       String
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Notification {
+  id        String      @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromName  String
+  commentId String
+  comment   HookComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  hookText  String
+  read      Boolean     @default(false)
+  createdAt DateTime    @default(now())
 }

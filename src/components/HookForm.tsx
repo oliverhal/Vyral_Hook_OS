@@ -18,6 +18,7 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [creatorCaption, setCreatorCaption] = useState(false);
   const [form, setForm] = useState({
     hookText: "",
     format: "Faceless",
@@ -49,6 +50,7 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
         throw new Error(data.error ?? "Failed to submit hook");
       }
       setForm({ hookText: "", format: "Faceless", caption: "", referenceVideo: "", recordingNotes: "" });
+      setCreatorCaption(false);
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -108,13 +110,28 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
 
       {/* Caption */}
       <div>
-        <label className="label">Caption *</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="label mb-0">Caption *</label>
+          <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={creatorCaption}
+              onChange={(e) => {
+                setCreatorCaption(e.target.checked);
+                setField("caption", e.target.checked ? "Creator to come up with their own caption" : "");
+              }}
+              className="rounded border-slate-300 accent-slate-800"
+            />
+            Creator writes their own
+          </label>
+        </div>
         <textarea
-          className="textarea"
+          className={cn("textarea", creatorCaption && "opacity-50 cursor-not-allowed")}
           rows={3}
           placeholder="Caption for the creator — they'll customize this with their own voice"
           value={form.caption}
-          onChange={(e) => setField("caption", e.target.value)}
+          onChange={(e) => !creatorCaption && setField("caption", e.target.value)}
+          disabled={creatorCaption}
           required
           maxLength={1000}
         />

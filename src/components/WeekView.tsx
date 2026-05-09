@@ -13,6 +13,7 @@ import HookCard from "./HookCard";
 import HookForm from "./HookForm";
 import ExportPanel from "./ExportPanel";
 import ValidatedPicker from "./ValidatedPicker";
+import WeekHistoryPanel from "./WeekHistoryPanel";
 import type { Hook, WeekWithHooks, WeekMode } from "@/types";
 
 type FilterType = "all" | "mine" | "selected";
@@ -393,6 +394,8 @@ export default function WeekView({ weekId }: { weekId: string }) {
             selectedHooks={selectedHooks}
             selectedValidated={selectedValidated}
           />
+
+          <WeekHistoryPanel campaignId={week.campaignId} currentWeekId={weekId} />
         </div>
 
         {/* Right: hooks list */}

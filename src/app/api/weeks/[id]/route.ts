@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { addDays, setHours, startOfDay } from "date-fns";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -38,13 +39,29 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     include: { campaign: true, hooks: true, selectedValidated: true },
   });
 
-  // When a week is finalized, mark each selected validated hook as used
   if (body.status === "finalized") {
+    // Mark each selected validated hook as used
     const validatedIds = week.selectedValidated.map((v) => v.validatedHookId);
     if (validatedIds.length > 0) {
       await prisma.validatedHook.updateMany({
         where: { id: { in: validatedIds } },
         data: { lastUsedAt: new Date(), timesUsed: { increment: 1 } },
+      });
+    }
+
+    // Auto-create next week if it doesn't exist yet
+    const nextWeekStart = startOfDay(addDays(new Date(week.weekStart), 7));
+    const alreadyExists = await prisma.week.findFirst({
+      where: { campaignId: week.campaignId, weekStart: nextWeekStart },
+    });
+    if (!alreadyExists) {
+      await prisma.week.create({
+        data: {
+          campaignId: week.campaignId,
+          weekStart: nextWeekStart,
+          deadline: setHours(addDays(nextWeekStart, 7), 18),
+          status: "open",
+        },
       });
     }
   }

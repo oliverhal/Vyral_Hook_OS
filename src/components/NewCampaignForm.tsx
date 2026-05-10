@@ -19,6 +19,7 @@ export default function NewCampaignForm() {
     color: "blue",
     emoji: "🎯",
     hooksTarget: 7,
+    validatedTarget: 7,
   });
 
   function setField(field: string, value: string | number) {
@@ -100,16 +101,26 @@ export default function NewCampaignForm() {
           </div>
 
           <div>
-            <label className="label">Hooks per week</label>
+            <label className="label">New experimental hooks / week</label>
             <select className="input" value={form.hooksTarget} onChange={(e) => setField("hooksTarget", parseInt(e.target.value))}>
-              <option value={7}>7 hooks</option>
-              <option value={14}>14 hooks</option>
-              <option value={5}>5 hooks</option>
-              <option value={10}>10 hooks</option>
+              <option value={7}>7</option>
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={14}>14</option>
             </select>
           </div>
 
           <div>
+            <label className="label">Validated hooks / week</label>
+            <select className="input" value={form.validatedTarget} onChange={(e) => setField("validatedTarget", parseInt(e.target.value))}>
+              <option value={7}>7</option>
+              <option value={0}>0 (none)</option>
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+            </select>
+          </div>
+
+          <div className="col-span-2">
             <label className="label">Emoji</label>
             <select className="input" value={form.emoji} onChange={(e) => setField("emoji", e.target.value)}>
               {EMOJIS.map((e) => (

@@ -6,13 +6,15 @@ import Link from "next/link";
 import { isPast } from "date-fns";
 import {
   ArrowLeft, Check, CheckCircle2, ChevronDown, ChevronUp,
-  Clock, Sparkles, Users, AlertCircle, Hash
+  Clock, Sparkles, Users, AlertCircle, Hash, Layers
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange, formatDeadline } from "@/lib/utils";
 import HookCard from "./HookCard";
 import HookForm from "./HookForm";
 import ExportPanel from "./ExportPanel";
-import type { Hook, WeekWithHooks } from "@/types";
+import ValidatedPicker from "./ValidatedPicker";
+import WeekHistoryPanel from "./WeekHistoryPanel";
+import type { Hook, WeekWithHooks, WeekMode } from "@/types";
 
 type FilterType = "all" | "mine" | "selected";
 
@@ -21,10 +23,12 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const [week, setWeek] = useState<WeekWithHooks | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>("all");
+  const [filterContributor, setFilterContributor] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
-  const currentUser = session?.user as { name?: string } | undefined;
+  const currentUser = session?.user as { name?: string; role?: string } | undefined;
+  const isAdmin = currentUser?.role === "admin";
 
   const fetchWeek = useCallback(async () => {
     const data = await fetch(`/api/weeks/${weekId}`).then((r) => r.json());
@@ -32,7 +36,11 @@ export default function WeekView({ weekId }: { weekId: string }) {
     setLoading(false);
   }, [weekId]);
 
-  useEffect(() => { fetchWeek(); }, [fetchWeek]);
+  useEffect(() => {
+    fetchWeek();
+    const interval = setInterval(fetchWeek, 20000);
+    return () => clearInterval(interval);
+  }, [fetchWeek]);
 
   async function toggleSelect(hookId: string, selected: boolean) {
     if (!week) return;
@@ -108,6 +116,20 @@ export default function WeekView({ weekId }: { weekId: string }) {
     }
   }
 
+  async function handleViralToggle(hookId: string, wentViral: boolean) {
+    setWeek((w) => w ? {
+      ...w,
+      hooks: w.hooks.map((h) => h.id === hookId ? { ...h, wentViral } : h),
+    } : w);
+  }
+
+  function handleEditHook(hookId: string, updates: Partial<Hook>) {
+    setWeek((w) => w ? {
+      ...w,
+      hooks: w.hooks.map((h) => h.id === hookId ? { ...h, ...updates } : h),
+    } : w);
+  }
+
   async function updateWeekStatus(status: string) {
     setStatusUpdating(true);
     await fetch(`/api/weeks/${weekId}`, {
@@ -117,6 +139,16 @@ export default function WeekView({ weekId }: { weekId: string }) {
     });
     setWeek((w) => w ? { ...w, status: status as WeekWithHooks["status"] } : w);
     setStatusUpdating(false);
+  }
+
+  async function changeMode(newMode: WeekMode) {
+    if (!week) return;
+    await fetch(`/api/weeks/${weekId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: newMode }),
+    });
+    setWeek((w) => w ? { ...w, mode: newMode } : w);
   }
 
   if (loading || !week) {
@@ -134,8 +166,17 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const colors = CAMPAIGN_COLORS[week.campaign.color] || CAMPAIGN_COLORS.blue;
   const deadline = new Date(week.deadline);
   const deadlinePassed = isPast(deadline);
+  const mode = week.mode || "mixed";
+
+  // Targets
+  const expTarget = mode === "bulk"
+    ? week.campaign.hooksTarget + week.campaign.validatedTarget
+    : week.campaign.hooksTarget;
+  const valTarget = mode === "bulk" ? 0 : week.campaign.validatedTarget;
+  const totalTarget = expTarget + valTarget;
 
   const filteredHooks = week.hooks.filter((h) => {
+    if (filterContributor && h.submitterName !== filterContributor) return false;
     if (filter === "mine") return h.submitterName === currentUser?.name;
     if (filter === "selected") return h.isSelected;
     return true;
@@ -144,6 +185,9 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const selectedHooks = [...week.hooks]
     .filter((h) => h.isSelected)
     .sort((a, b) => (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99));
+
+  const selectedValidated = week.selectedValidated ?? [];
+  const totalSelected = selectedHooks.length + selectedValidated.length;
 
   const submitterGroups = week.hooks.reduce<Record<string, Hook[]>>((acc, h) => {
     if (!acc[h.submitterName]) acc[h.submitterName] = [];
@@ -177,7 +221,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 {formatDeadline(deadline)}
               </span>
               <span className="text-slate-300">·</span>
-              <span>{week.hooks.length} / {week.campaign.hooksTarget} hooks</span>
+              <span>{totalSelected} / {totalTarget} hooks selected</span>
             </div>
           </div>
 
@@ -191,7 +235,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 Generate {captionsNeeded} caption{captionsNeeded !== 1 ? "s" : ""}
               </button>
             )}
-            {week.status !== "finalized" && selectedHooks.length >= week.campaign.hooksTarget && (
+            {week.status !== "finalized" && (
               <button
                 onClick={() => updateWeekStatus("finalized")}
                 disabled={statusUpdating}
@@ -201,26 +245,42 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 Finalize Week
               </button>
             )}
-            {week.status === "open" && (
-              <button
-                onClick={() => updateWeekStatus("reviewing")}
-                disabled={statusUpdating}
-                className="btn-secondary flex items-center gap-2"
-              >
-                Start Review
-              </button>
-            )}
             <span className={cn(
               "badge text-xs font-semibold",
-              week.status === "finalized" ? "bg-emerald-100 text-emerald-700"
-                : week.status === "reviewing" ? "bg-amber-100 text-amber-700"
-                  : "bg-blue-100 text-blue-700"
+              week.status === "finalized" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
             )}>
               {week.status}
             </span>
           </div>
         </div>
       </div>
+
+      {/* Mode toggle */}
+      {week.status !== "finalized" && (
+        <div className="mb-4 flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <Layers className="w-4 h-4 text-slate-400 flex-shrink-0" />
+          <div className="flex-1 text-xs text-slate-600">
+            <span className="font-semibold">This week's mix:</span>{" "}
+            {mode === "mixed"
+              ? `${week.campaign.hooksTarget} new experimental + ${week.campaign.validatedTarget} from validated library`
+              : `${week.campaign.hooksTarget + week.campaign.validatedTarget} new experimental (no validated this week)`}
+          </div>
+          <div className="flex items-center gap-1 bg-white rounded-lg p-0.5 border border-slate-200">
+            {(["mixed", "bulk"] as WeekMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => changeMode(m)}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                  mode === m ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                {m === "mixed" ? "Mixed" : "Bulk"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Hashtags preview */}
       {week.campaign.hashtags && (
@@ -232,15 +292,27 @@ export default function WeekView({ weekId }: { weekId: string }) {
 
       {/* Progress bar */}
       <div className="mb-6">
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex">
           <div
-            className="h-full bg-blue-500 rounded-full transition-all duration-700"
-            style={{ width: `${Math.min(100, (selectedHooks.length / week.campaign.hooksTarget) * 100)}%` }}
+            className="h-full bg-blue-500 transition-all duration-700"
+            style={{ width: `${(Math.min(selectedHooks.length, expTarget) / totalTarget) * 100}%` }}
+          />
+          <div
+            className="h-full bg-orange-500 transition-all duration-700"
+            style={{ width: `${(Math.min(selectedValidated.length, valTarget) / totalTarget) * 100}%` }}
           />
         </div>
         <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-          <span>{selectedHooks.length} selected</span>
-          <span>Target: {week.campaign.hooksTarget}</span>
+          <span>
+            <span className="text-blue-500">●</span> {selectedHooks.length}/{expTarget} experimental
+            {valTarget > 0 && (
+              <>
+                {" · "}
+                <span className="text-orange-500">●</span> {selectedValidated.length}/{valTarget} validated
+              </>
+            )}
+          </span>
+          <span>Total target: {totalTarget}</span>
         </div>
       </div>
 
@@ -257,7 +329,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                   : "border-dashed border-slate-300 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-600"
               )}
             >
-              <span>{showForm ? "Hide form" : "+ Submit a hook"}</span>
+              <span>{showForm ? "Hide form" : "+ Submit experimental hook"}</span>
               {showForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           )}
@@ -272,23 +344,53 @@ export default function WeekView({ weekId }: { weekId: string }) {
             </div>
           )}
 
+          {/* Validated picker — only in mixed mode */}
+          {mode === "mixed" && (
+            <ValidatedPicker
+              weekId={weekId}
+              campaignId={week.campaignId}
+              selected={selectedValidated}
+              target={valTarget}
+              onChange={fetchWeek}
+              disabled={week.status === "finalized"}
+            />
+          )}
+
           {/* Contributor summary */}
           {Object.keys(submitterGroups).length > 0 && (
             <div className="card p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="w-4 h-4 text-slate-400" />
-                <h3 className="font-semibold text-slate-800 text-sm">Contributors</h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-slate-400" />
+                  <h3 className="font-semibold text-slate-800 text-sm">Contributors</h3>
+                </div>
+                {filterContributor && (
+                  <button
+                    onClick={() => setFilterContributor(null)}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Show all
+                  </button>
+                )}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {Object.entries(submitterGroups).map(([name, hooks]) => {
                   const selected = hooks.filter((h) => h.isSelected).length;
+                  const isActive = filterContributor === name;
                   return (
-                    <div key={name} className="flex items-center justify-between">
+                    <button
+                      key={name}
+                      onClick={() => setFilterContributor(isActive ? null : name)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-2 py-2 rounded-xl transition-colors text-left",
+                        isActive ? "bg-blue-50" : "hover:bg-slate-50"
+                      )}
+                    >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-xs font-bold text-blue-700">{name.charAt(0)}</span>
+                        <div className={cn("w-7 h-7 rounded-full flex items-center justify-center", isActive ? "bg-blue-600" : "bg-blue-100")}>
+                          <span className={cn("text-xs font-bold", isActive ? "text-white" : "text-blue-700")}>{name.charAt(0)}</span>
                         </div>
-                        <span className="text-sm font-medium text-slate-700">{name}</span>
+                        <span className={cn("text-sm font-medium", isActive ? "text-blue-700" : "text-slate-700")}>{name}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-slate-400">{hooks.length} hooks</span>
@@ -299,7 +401,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                           </span>
                         )}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -311,7 +413,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
               <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
               <div>
                 <div className="text-sm font-semibold text-red-700">Deadline passed</div>
-                <div className="text-xs text-red-500 mt-0.5">Select your top {week.campaign.hooksTarget} and finalize.</div>
+                <div className="text-xs text-red-500 mt-0.5">Select your top {totalTarget} hooks and finalize.</div>
               </div>
             </div>
           )}
@@ -321,26 +423,34 @@ export default function WeekView({ weekId }: { weekId: string }) {
             campaign={week.campaign}
             weekStart={week.weekStart}
             selectedHooks={selectedHooks}
+            selectedValidated={selectedValidated}
           />
+
+          <WeekHistoryPanel campaignId={week.campaignId} currentWeekId={weekId} />
         </div>
 
         {/* Right: hooks list */}
         <div className="col-span-3">
-          <div className="flex items-center gap-1 mb-4 bg-white rounded-xl p-1 border border-slate-200 w-fit">
-            {(["all", "mine", "selected"] as FilterType[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={cn(
-                  "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 capitalize",
-                  filter === f ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-              >
-                {f === "mine" ? "My Hooks"
-                  : f === "selected" ? `Selected (${selectedHooks.length})`
-                    : `All (${week.hooks.length})`}
-              </button>
-            ))}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-slate-200 w-fit">
+              {(["all", "mine", "selected"] as FilterType[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 capitalize",
+                    filter === f ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  {f === "mine" ? "My Hooks"
+                    : f === "selected" ? `Selected (${selectedHooks.length})`
+                      : `All (${week.hooks.length})`}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-slate-400">
+              {filterContributor ? `${filterContributor}'s hooks` : "Experimental hooks"}
+            </span>
           </div>
 
           {filteredHooks.length === 0 ? (
@@ -350,7 +460,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 {filter === "mine"
                   ? "You haven't submitted any hooks this week."
                   : filter === "selected"
-                    ? `No hooks selected yet. Click any hook to select it (target: ${week.campaign.hooksTarget}).`
+                    ? `No hooks selected yet. Click any hook to select it (target: ${expTarget}).`
                     : "No hooks yet. Be the first to submit!"}
               </div>
               {filter !== "selected" && week.status !== "finalized" && (
@@ -368,10 +478,13 @@ export default function WeekView({ weekId }: { weekId: string }) {
                   campaign={week.campaign}
                   onSelect={week.status !== "finalized" ? toggleSelect : undefined}
                   onDelete={week.status !== "finalized" ? deleteHook : undefined}
+                  onEdit={week.status !== "finalized" && (isAdmin || hook.submitterName === currentUser?.name) ? handleEditHook : undefined}
                   onGenerateCaption={hook.isSelected ? generateCaption : undefined}
+                  onViralToggle={isAdmin ? handleViralToggle : undefined}
                   showSubmitter
                   selectable={week.status !== "finalized"}
                   rank={hook.isSelected ? hook.selectedOrder ?? undefined : undefined}
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>

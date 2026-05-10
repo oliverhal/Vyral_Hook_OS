@@ -18,13 +18,18 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [creatorCaption, setCreatorCaption] = useState(false);
+  const [requiresAppFootage, setRequiresAppFootage] = useState(false);
   const [form, setForm] = useState({
     hookText: "",
     format: "Faceless",
     caption: "",
     referenceVideo: "",
     recordingNotes: "",
+    appFootageSource: "",
   });
+
+  const isLongText = form.format === "Long text";
 
   function setField(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -42,13 +47,15 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
       const res = await fetch("/api/hooks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weekId, ...form }),
+        body: JSON.stringify({ weekId, ...form, requiresAppFootage }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? "Failed to submit hook");
       }
-      setForm({ hookText: "", format: "Faceless", caption: "", referenceVideo: "", recordingNotes: "" });
+      setForm({ hookText: "", format: "Faceless", caption: "", referenceVideo: "", recordingNotes: "", appFootageSource: "" });
+      setCreatorCaption(false);
+      setRequiresAppFootage(false);
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -79,9 +86,9 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
           value={form.hookText}
           onChange={(e) => setField("hookText", e.target.value)}
           required
-          maxLength={200}
+          maxLength={500}
         />
-        <div className="text-right text-xs text-slate-400 mt-1">{form.hookText.length}/200</div>
+        <div className="text-right text-xs text-slate-400 mt-1">{form.hookText.length}/500</div>
       </div>
 
       {/* Format */}
@@ -92,7 +99,15 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
             <button
               key={f}
               type="button"
-              onClick={() => setField("format", f)}
+              onClick={() => {
+                setField("format", f);
+                if (f === "Short text") {
+                  setRequiresAppFootage(true);
+                } else if (f === "Long text") {
+                  setRequiresAppFootage(false);
+                  setField("appFootageSource", "");
+                }
+              }}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
                 form.format === f
@@ -106,15 +121,63 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
         </div>
       </div>
 
+      {/* App footage */}
+      {!isLongText && (
+        <div className="space-y-2">
+          <label className={cn("flex items-center gap-2 select-none w-fit", form.format === "Short text" ? "cursor-not-allowed opacity-70" : "cursor-pointer")}>
+            <input
+              type="checkbox"
+              checked={requiresAppFootage}
+              disabled={form.format === "Short text"}
+              onChange={(e) => {
+                setRequiresAppFootage(e.target.checked);
+                if (!e.target.checked) setField("appFootageSource", "");
+              }}
+              className="rounded border-slate-300 accent-slate-800"
+            />
+            <span className="text-sm font-medium text-slate-700">
+              Requires app footage{form.format === "Short text" && <span className="text-slate-400 font-normal ml-1">(always required)</span>}
+            </span>
+          </label>
+          {requiresAppFootage && (
+            <div>
+              <label className="label">Where to find the footage *</label>
+              <input
+                className="input"
+                placeholder="Link or description (e.g. Dropbox folder, Drive link, 'ask @name')"
+                value={form.appFootageSource}
+                onChange={(e) => setField("appFootageSource", e.target.value)}
+                required
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Caption */}
       <div>
-        <label className="label">Caption *</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="label mb-0">Caption *</label>
+          <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={creatorCaption}
+              onChange={(e) => {
+                setCreatorCaption(e.target.checked);
+                setField("caption", e.target.checked ? "Creator to come up with their own caption" : "");
+              }}
+              className="rounded border-slate-300 accent-slate-800"
+            />
+            Creator writes their own
+          </label>
+        </div>
         <textarea
-          className="textarea"
+          className={cn("textarea", creatorCaption && "opacity-50 cursor-not-allowed")}
           rows={3}
           placeholder="Caption for the creator — they'll customize this with their own voice"
           value={form.caption}
-          onChange={(e) => setField("caption", e.target.value)}
+          onChange={(e) => !creatorCaption && setField("caption", e.target.value)}
+          disabled={creatorCaption}
           required
           maxLength={1000}
         />

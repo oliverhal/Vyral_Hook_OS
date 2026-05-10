@@ -123,6 +123,13 @@ export default function WeekView({ weekId }: { weekId: string }) {
     } : w);
   }
 
+  function handleEditHook(hookId: string, updates: Partial<Hook>) {
+    setWeek((w) => w ? {
+      ...w,
+      hooks: w.hooks.map((h) => h.id === hookId ? { ...h, ...updates } : h),
+    } : w);
+  }
+
   async function updateWeekStatus(status: string) {
     setStatusUpdating(true);
     await fetch(`/api/weeks/${weekId}`, {
@@ -228,7 +235,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 Generate {captionsNeeded} caption{captionsNeeded !== 1 ? "s" : ""}
               </button>
             )}
-            {week.status !== "finalized" && totalSelected >= totalTarget && (
+            {week.status !== "finalized" && (
               <button
                 onClick={() => updateWeekStatus("finalized")}
                 disabled={statusUpdating}
@@ -471,6 +478,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                   campaign={week.campaign}
                   onSelect={week.status !== "finalized" ? toggleSelect : undefined}
                   onDelete={week.status !== "finalized" ? deleteHook : undefined}
+                  onEdit={week.status !== "finalized" && (isAdmin || hook.submitterName === currentUser?.name) ? handleEditHook : undefined}
                   onGenerateCaption={hook.isSelected ? generateCaption : undefined}
                   onViralToggle={isAdmin ? handleViralToggle : undefined}
                   showSubmitter

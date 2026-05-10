@@ -89,6 +89,8 @@ export interface ExportableHook {
   aiCaption?: string | null;
   caption: string;
   recordingNotes: string | null;
+  requiresAppFootage?: boolean;
+  appFootageSource?: string | null;
   selectedOrder: number | null;
   source?: "experimental" | "validated";
 }
@@ -108,7 +110,7 @@ export function generateCSV(
 
   // Header row — exactly matching the Google Sheet columns
   rows.push(
-    ["Hook (text on screen)", "Format", "Reference Vid:", "Captions (pls add your own hashtags)", "Notes:"]
+    ["Hook (text on screen)", "Format", "Reference Vid:", "Captions (pls add your own hashtags)", "Notes:", "Requires App Footage", "App Footage Source"]
       .map(csvCell)
       .join(",")
   );
@@ -117,7 +119,7 @@ export function generateCSV(
   for (const h of sorted) {
     const caption = h.aiCaption || h.caption;
     rows.push(
-      [h.hookText, h.format, h.referenceVideo ?? "", caption, h.recordingNotes ?? ""]
+      [h.hookText, h.format, h.referenceVideo ?? "", caption, h.recordingNotes ?? "", h.requiresAppFootage ? "Yes" : "", h.appFootageSource ?? ""]
         .map(csvCell)
         .join(",")
     );

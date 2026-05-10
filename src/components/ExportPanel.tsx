@@ -34,6 +34,8 @@ export default function ExportPanel({
       aiCaption: h.aiCaption,
       caption: h.caption,
       recordingNotes: h.recordingNotes,
+      requiresAppFootage: h.requiresAppFootage,
+      appFootageSource: h.appFootageSource,
       selectedOrder: h.selectedOrder,
       source: "experimental" as const,
     })),
@@ -44,6 +46,8 @@ export default function ExportPanel({
       aiCaption: null,
       caption: wv.validatedHook.caption,
       recordingNotes: wv.validatedHook.recordingNotes,
+      requiresAppFootage: false,
+      appFootageSource: null,
       selectedOrder: (wv.selectedOrder ?? 0) + expCount,
       source: "validated" as const,
     })),
@@ -54,7 +58,7 @@ export default function ExportPanel({
 
   // Sheets-ready TSV (tab-separated, ready to paste straight into Google Sheets)
   const sheetsRows = [...exportable].sort((a, b) => (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99));
-  const sheetsHeader = ["Hook (text on screen)", "Format", "Reference Vid:", "Captions (pls add your own hashtags)", "Notes:"];
+  const sheetsHeader = ["Hook (text on screen)", "Format", "Reference Vid:", "Captions (pls add your own hashtags)", "Notes:", "Requires App Footage", "App Footage Source"];
   const sheetsTSV = [
     ...(campaign.hashtags ? [campaign.hashtags] : []),
     sheetsHeader.join("\t"),
@@ -64,6 +68,8 @@ export default function ExportPanel({
       h.referenceVideo ?? "",
       h.aiCaption || h.caption,
       h.recordingNotes ?? "",
+      h.requiresAppFootage ? "Yes" : "",
+      h.appFootageSource ?? "",
     ].join("\t")),
   ].join("\n");
 

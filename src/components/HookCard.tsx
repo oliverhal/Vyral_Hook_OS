@@ -4,10 +4,10 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   Check, ChevronDown, ChevronUp, ExternalLink, Sparkles, Trash2,
-  ThumbsUp, ThumbsDown, MessageSquare, Flame, Send, X
+  ThumbsUp, ThumbsDown, MessageSquare, Flame, Send, X, Pencil, Loader2
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
-import { FORMAT_COLORS } from "@/types";
+import { FORMAT_COLORS, HOOK_FORMATS } from "@/types";
 import type { Hook, Campaign, HookComment } from "@/types";
 import MentionInput, { renderWithMentions } from "./MentionInput";
 
@@ -16,6 +16,7 @@ interface HookCardProps {
   campaign: Campaign;
   onSelect?: (hookId: string, selected: boolean) => void;
   onDelete?: (hookId: string) => void;
+  onEdit?: (hookId: string, updates: Partial<Hook>) => void;
   onGenerateCaption?: (hookId: string) => void;
   onViralToggle?: (hookId: string, wentViral: boolean) => void;
   showSubmitter?: boolean;
@@ -29,6 +30,7 @@ export default function HookCard({
   campaign,
   onSelect,
   onDelete,
+  onEdit,
   onGenerateCaption,
   onViralToggle,
   showSubmitter = true,
@@ -47,6 +49,17 @@ export default function HookCard({
   const [commentCount, setCommentCount] = useState(hook.commentCount ?? 0);
   const [votes, setVotes] = useState(hook.votes ?? []);
   const [viralLoading, setViralLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    hookText: hook.hookText,
+    format: hook.format,
+    caption: hook.caption,
+    referenceVideo: hook.referenceVideo ?? "",
+    recordingNotes: hook.recordingNotes ?? "",
+    requiresAppFootage: hook.requiresAppFootage,
+    appFootageSource: hook.appFootageSource ?? "",
+  });
 
   const colors = CAMPAIGN_COLORS[campaign.color] || CAMPAIGN_COLORS.blue;
   const formatColor = FORMAT_COLORS[hook.format] ?? "bg-slate-100 text-slate-600";
@@ -111,6 +124,32 @@ export default function HookCard({
     await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
     setComments((prev) => prev.filter((c) => c.id !== commentId));
     setCommentCount((n) => Math.max(0, n - 1));
+  }
+
+  const isLongText = editForm.format === "Long text";
+
+  function setEditField(field: string, value: string | boolean) {
+    setEditForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function saveEdit() {
+    setEditSaving(true);
+    const payload = {
+      ...editForm,
+      referenceVideo: editForm.referenceVideo || null,
+      recordingNotes: editForm.recordingNotes || null,
+      requiresAppFootage: isLongText ? false : editForm.requiresAppFootage,
+      appFootageSource: editForm.requiresAppFootage && !isLongText ? (editForm.appFootageSource || null) : null,
+    };
+    const res = await fetch(`/api/hooks/${hook.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const updated = await res.json();
+    onEdit?.(hook.id, updated);
+    setEditing(false);
+    setEditSaving(false);
   }
 
   async function handleViralToggle() {
@@ -199,6 +238,15 @@ export default function HookCard({
                   <Flame className="w-3.5 h-3.5" />
                 </button>
               )}
+              {onEdit && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditing(true); setExpanded(false); }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  title="Edit hook"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
               {onDelete && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(hook.id); }}
@@ -210,11 +258,94 @@ export default function HookCard({
             </div>
           </div>
 
+          {/* Inline edit form */}
+          {editing && (
+            <div className="space-y-3 mt-1 mb-2" onClick={(e) => e.stopPropagation()}>
+              <div>
+                <label className="label">Hook text *</label>
+                <textarea
+                  className="textarea font-medium"
+                  rows={2}
+                  value={editForm.hookText}
+                  onChange={(e) => setEditField("hookText", e.target.value)}
+                  maxLength={500}
+                />
+              </div>
+              <div>
+                <label className="label">Format *</label>
+                <div className="flex gap-2 flex-wrap">
+                  {HOOK_FORMATS.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => {
+                        setEditField("format", f);
+                        if (f === "Short text") setEditField("requiresAppFootage", true);
+                        else if (f === "Long text") { setEditField("requiresAppFootage", false); setEditField("appFootageSource", ""); }
+                      }}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                        editForm.format === f
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                      )}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {!isLongText && (
+                <div className="space-y-2">
+                  <label className={cn("flex items-center gap-2 select-none w-fit", editForm.format === "Short text" ? "cursor-not-allowed opacity-70" : "cursor-pointer")}>
+                    <input
+                      type="checkbox"
+                      checked={editForm.requiresAppFootage}
+                      disabled={editForm.format === "Short text"}
+                      onChange={(e) => { setEditField("requiresAppFootage", e.target.checked); if (!e.target.checked) setEditField("appFootageSource", ""); }}
+                      className="rounded border-slate-300 accent-slate-800"
+                    />
+                    <span className="text-sm font-medium text-slate-700">
+                      Requires app footage{editForm.format === "Short text" && <span className="text-slate-400 font-normal ml-1">(always required)</span>}
+                    </span>
+                  </label>
+                  {editForm.requiresAppFootage && (
+                    <input
+                      className="input"
+                      placeholder="Link or description"
+                      value={editForm.appFootageSource}
+                      onChange={(e) => setEditField("appFootageSource", e.target.value)}
+                    />
+                  )}
+                </div>
+              )}
+              <div>
+                <label className="label">Caption *</label>
+                <textarea className="textarea" rows={3} value={editForm.caption} onChange={(e) => setEditField("caption", e.target.value)} maxLength={1000} />
+              </div>
+              <div>
+                <label className="label">Reference video URL</label>
+                <input className="input" type="url" placeholder="https://..." value={editForm.referenceVideo} onChange={(e) => setEditField("referenceVideo", e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Recording notes</label>
+                <textarea className="textarea" rows={2} value={editForm.recordingNotes} onChange={(e) => setEditField("recordingNotes", e.target.value)} maxLength={800} />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={saveEdit} disabled={editSaving || !editForm.hookText || !editForm.caption} className="btn-primary flex items-center gap-1.5 text-sm px-4 py-2">
+                  {editSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  Save
+                </button>
+                <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+              </div>
+            </div>
+          )}
+
           {/* Hook text */}
-          <p className="font-semibold text-slate-900 text-sm leading-snug mb-2">{hook.hookText}</p>
+          {!editing && <p className="font-semibold text-slate-900 text-sm leading-snug mb-2">{hook.hookText}</p>}
 
           {/* AI caption */}
-          {hook.aiCaption && (
+          {!editing && hook.aiCaption && (
             <div className="mt-2 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
               <div className="flex items-center gap-1 mb-1">
                 <Sparkles className="w-3 h-3 text-blue-500" />
@@ -224,20 +355,20 @@ export default function HookCard({
             </div>
           )}
 
-          {!hook.aiCaption && (
+          {!editing && !hook.aiCaption && (
             <p className="text-slate-500 text-xs leading-relaxed line-clamp-2 mb-1">{hook.caption}</p>
           )}
 
           {/* Expand toggle */}
-          <button
+          {!editing && <button
             onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
             className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors mt-1"
           >
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             {expanded ? "Less" : "Caption & notes"}
-          </button>
+          </button>}
 
-          {expanded && (
+          {!editing && expanded && (
             <div className="mt-2 space-y-2">
               <div className="p-3 bg-slate-50 rounded-xl">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Caption</div>

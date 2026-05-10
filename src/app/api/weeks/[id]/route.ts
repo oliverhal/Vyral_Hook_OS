@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addDays, setHours, startOfDay } from "date-fns";
+import { addDays, startOfDay } from "date-fns";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -49,8 +49,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       });
     }
 
-    // Auto-create next week if it doesn't exist yet
-    const nextWeekStart = startOfDay(addDays(new Date(week.weekStart), 7));
+    // Auto-create next Tuesday
+    const nextWeekStart = (() => {
+      const d = addDays(new Date(week.weekStart), 7);
+      const day = d.getUTCDay();
+      const diff = day === 2 ? 0 : (2 - day + 7) % 7;
+      d.setUTCDate(d.getUTCDate() + diff);
+      d.setUTCHours(0, 0, 0, 0);
+      return d;
+    })();
     const alreadyExists = await prisma.week.findFirst({
       where: { campaignId: week.campaignId, weekStart: nextWeekStart },
     });
@@ -59,7 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         data: {
           campaignId: week.campaignId,
           weekStart: nextWeekStart,
-          deadline: setHours(addDays(nextWeekStart, 7), 18),
+          deadline: nextWeekStart, // midnight at start of week = end of the day before
           status: "open",
         },
       });

@@ -69,9 +69,11 @@ model Hook {
   hookText       String
   format         String        @default("Faceless")
   caption        String
-  referenceVideo String?
-  recordingNotes String?
-  status         String        @default("submitted")
+  referenceVideo      String?
+  recordingNotes      String?
+  requiresAppFootage  Boolean       @default(false)
+  appFootageSource    String?
+  status              String        @default("submitted")
   isSelected     Boolean       @default(false)
   selectedOrder  Int?
   aiCaption      String?

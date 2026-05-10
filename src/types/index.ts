@@ -78,6 +78,8 @@ export interface Hook {
   caption: string;
   referenceVideo: string | null;
   recordingNotes: string | null;
+  requiresAppFootage: boolean;
+  appFootageSource: string | null;
   status: HookStatus;
   isSelected: boolean;
   selectedOrder: number | null;

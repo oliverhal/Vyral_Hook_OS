@@ -409,12 +409,22 @@ export default function WeekView({ weekId }: { weekId: string }) {
           )}
 
           {deadlinePassed && week.status !== "finalized" && (
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
-              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="text-sm font-semibold text-red-700">Deadline passed</div>
-                <div className="text-xs text-red-500 mt-0.5">Select your top {totalTarget} hooks and finalize.</div>
+            <div className="flex items-start justify-between gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="text-sm font-semibold text-red-700">Deadline passed</div>
+                  <div className="text-xs text-red-500 mt-0.5">Finalize whenever you're ready — no minimum required.</div>
+                </div>
               </div>
+              <button
+                onClick={() => updateWeekStatus("finalized")}
+                disabled={statusUpdating}
+                className="flex-shrink-0 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Finalize now
+              </button>
             </div>
           )}
 

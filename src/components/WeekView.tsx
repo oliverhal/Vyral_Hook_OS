@@ -6,7 +6,7 @@ import Link from "next/link";
 import { isPast } from "date-fns";
 import {
   ArrowLeft, Check, CheckCircle2, ChevronDown, ChevronUp,
-  Clock, Sparkles, Users, AlertCircle, Hash, Layers, Link as LinkIcon
+  Clock, Sparkles, Users, AlertCircle, Hash, Layers, Link as LinkIcon, Share2
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange, formatDeadline } from "@/lib/utils";
 import HookCard from "./HookCard";
@@ -26,6 +26,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const [filterContributor, setFilterContributor] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const currentUser = session?.user as { name?: string; role?: string } | undefined;
   const isAdmin = currentUser?.role === "admin";
@@ -226,6 +227,17 @@ export default function WeekView({ weekId }: { weekId: string }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(window.location.href);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2000);
+              }}
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+            >
+              {linkCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
+              {linkCopied ? "Link copied!" : "Share"}
+            </button>
             {selectedHooks.length > 0 && captionsNeeded > 0 && (
               <button
                 onClick={generateAllCaptions}

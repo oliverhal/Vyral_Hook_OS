@@ -132,7 +132,8 @@ export function generateSlackMessage(
   campaignName: string,
   clientName: string,
   weekStart: Date,
-  hooks: ExportableHook[]
+  hooks: ExportableHook[],
+  sheetUrl?: string | null
 ): string {
   const sorted = [...hooks]
     .filter((h) => h.selectedOrder !== null)
@@ -148,10 +149,12 @@ export function generateSlackMessage(
     })
     .join("\n\n");
 
+  const sheetLine = sheetUrl ? `\n📋 *Hook sheet:* ${sheetUrl}\n` : "";
+
   return `Hey! 👋 Here are your hooks for the week of ${weekRange}
 
 *${clientName} — ${campaignName}*
-
+${sheetLine}
 ${hookLines}
 
 Let me know if you'd like any adjustments! 🚀`;

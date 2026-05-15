@@ -6,7 +6,7 @@ import Link from "next/link";
 import { isPast } from "date-fns";
 import {
   ArrowLeft, Check, CheckCircle2, ChevronDown, ChevronUp,
-  Clock, Sparkles, Users, AlertCircle, Hash, Layers
+  Clock, Sparkles, Users, AlertCircle, Hash, Layers, Link as LinkIcon
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange, formatDeadline } from "@/lib/utils";
 import HookCard from "./HookCard";
@@ -344,6 +344,38 @@ export default function WeekView({ weekId }: { weekId: string }) {
             </div>
           )}
 
+          {/* Creator sheet URL */}
+          <div className="card p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <LinkIcon className="w-4 h-4 text-slate-400" />
+              <span className="text-sm font-semibold text-slate-700">Creator sheet</span>
+            </div>
+            {isAdmin ? (
+              <input
+                className="input text-xs"
+                placeholder="https://docs.google.com/spreadsheets/..."
+                defaultValue={week.sheetUrl ?? ""}
+                onBlur={async (e) => {
+                  const val = e.target.value.trim() || null;
+                  if (val === (week.sheetUrl ?? null)) return;
+                  await fetch(`/api/weeks/${weekId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sheetUrl: val }),
+                  });
+                  fetchWeek();
+                }}
+              />
+            ) : week.sheetUrl ? (
+              <a href={week.sheetUrl} target="_blank" rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:underline truncate block">
+                {week.sheetUrl}
+              </a>
+            ) : (
+              <p className="text-xs text-slate-400">No sheet linked yet</p>
+            )}
+          </div>
+
           {/* Validated picker — only in mixed mode */}
           {mode === "mixed" && (
             <ValidatedPicker
@@ -432,6 +464,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
             weekId={weekId}
             campaign={week.campaign}
             weekStart={week.weekStart}
+            sheetUrl={week.sheetUrl}
             selectedHooks={selectedHooks}
             selectedValidated={selectedValidated}
           />

@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -51,6 +50,7 @@ model Week {
   status            String              @default("open")
   mode              String              @default("mixed")
   notes             String?
+  sheetUrl          String?
   hooks             Hook[]
   selectedValidated WeekValidatedHook[]
   createdAt         DateTime            @default(now())

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Download, Check, FileSpreadsheet, ExternalLink } from "lucide-react";
+import { Copy, Download, Check, FileSpreadsheet, ExternalLink, Link as LinkIcon } from "lucide-react";
 import { generateSlackMessage, type ExportableHook } from "@/lib/utils";
 import type { Hook, Campaign, WeekValidatedHook } from "@/types";
 
@@ -9,6 +9,7 @@ interface ExportPanelProps {
   weekId: string;
   campaign: Campaign;
   weekStart: string;
+  sheetUrl?: string | null;
   selectedHooks: Hook[];
   selectedValidated?: WeekValidatedHook[];
 }
@@ -17,6 +18,7 @@ export default function ExportPanel({
   weekId,
   campaign,
   weekStart,
+  sheetUrl,
   selectedHooks,
   selectedValidated = [],
 }: ExportPanelProps) {
@@ -54,7 +56,7 @@ export default function ExportPanel({
   ];
 
   const totalCount = exportable.length;
-  const slackMsg = generateSlackMessage(campaign.name, campaign.clientName, new Date(weekStart), exportable);
+  const slackMsg = generateSlackMessage(campaign.name, campaign.clientName, new Date(weekStart), exportable, sheetUrl);
 
   // Sheets-ready TSV (tab-separated, ready to paste straight into Google Sheets)
   const sheetsRows = [...exportable].sort((a, b) => (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99));
@@ -122,6 +124,18 @@ export default function ExportPanel({
       <div className="p-5">
         {activeTab === "sheets" ? (
           <div className="space-y-3">
+            {sheetUrl && (
+              <a
+                href={sheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                <LinkIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs font-semibold flex-1 truncate">Open creator sheet</span>
+                <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+              </a>
+            )}
             <div className="text-sm text-slate-600 leading-relaxed bg-emerald-50 border border-emerald-100 rounded-xl p-3">
               <div className="flex items-center gap-1.5 font-semibold text-emerald-700 mb-1">
                 <FileSpreadsheet className="w-4 h-4" />

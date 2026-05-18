@@ -86,8 +86,8 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
           value={form.hookText}
           onChange={(e) => setField("hookText", e.target.value)}
           required
+          
         />
-        <div className="text-right text-xs text-slate-400 mt-1">{form.hookText.length} characters</div>
       </div>
 
       {/* Format */}
@@ -178,9 +178,8 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
           onChange={(e) => !creatorCaption && setField("caption", e.target.value)}
           disabled={creatorCaption}
           required
-          maxLength={1000}
+          
         />
-        <div className="text-right text-xs text-slate-400 mt-1">{form.caption.length}/1000</div>
       </div>
 
       {/* Reference video */}
@@ -210,7 +209,7 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
           placeholder="Detailed instructions for the creator on how to film this hook..."
           value={form.recordingNotes}
           onChange={(e) => setField("recordingNotes", e.target.value)}
-          maxLength={800}
+          
         />
       </div>
 

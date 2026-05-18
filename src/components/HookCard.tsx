@@ -268,7 +268,7 @@ export default function HookCard({
                   rows={2}
                   value={editForm.hookText}
                   onChange={(e) => setEditField("hookText", e.target.value)}
-                  maxLength={500}
+                  
                 />
               </div>
               <div>
@@ -321,7 +321,7 @@ export default function HookCard({
               )}
               <div>
                 <label className="label">Caption *</label>
-                <textarea className="textarea" rows={3} value={editForm.caption} onChange={(e) => setEditField("caption", e.target.value)} maxLength={1000} />
+                <textarea className="textarea" rows={3} value={editForm.caption} onChange={(e) => setEditField("caption", e.target.value)}  />
               </div>
               <div>
                 <label className="label">Reference video URL</label>
@@ -329,7 +329,7 @@ export default function HookCard({
               </div>
               <div>
                 <label className="label">Recording notes</label>
-                <textarea className="textarea" rows={2} value={editForm.recordingNotes} onChange={(e) => setEditField("recordingNotes", e.target.value)} maxLength={800} />
+                <textarea className="textarea" rows={2} value={editForm.recordingNotes} onChange={(e) => setEditField("recordingNotes", e.target.value)}  />
               </div>
               <div className="flex gap-2">
                 <button onClick={saveEdit} disabled={editSaving || !editForm.hookText || !editForm.caption} className="btn-primary flex items-center gap-1.5 text-sm px-4 py-2">

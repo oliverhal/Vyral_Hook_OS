@@ -148,6 +148,7 @@ model Notification {
   commentId String
   comment   HookComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
   hookText  String
+  type      String      @default("mention")
   read      Boolean     @default(false)
   createdAt DateTime    @default(now())
 }

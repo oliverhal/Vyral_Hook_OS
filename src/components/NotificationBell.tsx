@@ -8,6 +8,7 @@ interface Notification {
   id: string;
   fromName: string;
   hookText: string;
+  type: string;
   read: boolean;
   createdAt: string;
 }
@@ -98,7 +99,8 @@ export default function NotificationBell() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-slate-700">
-                        <span className="font-semibold">{n.fromName}</span> mentioned you in a comment
+                        <span className="font-semibold">{n.fromName}</span>{" "}
+                        {n.type === "mention" ? "mentioned you in a comment" : "replied to a thread you're on"}
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5 truncate">"{n.hookText}"</p>
                       <p className="text-[10px] text-slate-400 mt-1">

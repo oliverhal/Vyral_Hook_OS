@@ -165,5 +165,5 @@ export function generateSlackMessage(
 ${sheetsBlock}
 ${hookLines}
 
-Let me know if you'd like any adjustments! 🚀`;
+Please look at the full sheet this week for instructions on how to recreate. If you have any questions lmk 🙏`;
 }

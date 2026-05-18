@@ -45,25 +45,47 @@ export default function WeekView({ weekId }: { weekId: string }) {
 
   async function toggleSelect(hookId: string, selected: boolean) {
     if (!week) return;
-    const currentSelected = week.hooks.filter((h) => h.isSelected && h.id !== hookId);
-    const newOrder = selected ? currentSelected.length + 1 : null;
 
-    setWeek((w) => w ? {
-      ...w,
-      hooks: w.hooks.map((h) =>
-        h.id === hookId ? { ...h, isSelected: selected, selectedOrder: newOrder } : h
-      ),
-    } : w);
+    // Mark hook as selected/deselected
+    const updated = week.hooks.map((h) =>
+      h.id === hookId ? { ...h, isSelected: selected } : h
+    );
 
-    await fetch(`/api/hooks/${hookId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        isSelected: selected,
-        selectedOrder: newOrder,
-        status: selected ? "selected" : "submitted",
-      }),
+    // Renumber all selected hooks sequentially — new hook goes last, rest keep their relative order
+    const nowSelected = updated
+      .filter((h) => h.isSelected)
+      .sort((a, b) => {
+        if (a.id === hookId) return 1;
+        if (b.id === hookId) return -1;
+        return (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99);
+      });
+
+    const orderMap = new Map(nowSelected.map((h, i) => [h.id, i + 1]));
+
+    const finalHooks = updated.map((h) => ({
+      ...h,
+      selectedOrder: h.isSelected ? (orderMap.get(h.id) ?? null) : null,
+    }));
+
+    setWeek((w) => w ? { ...w, hooks: finalHooks } : w);
+
+    // Persist all changed hooks to backend
+    const changed = finalHooks.filter((h) => {
+      const orig = week.hooks.find((o) => o.id === h.id);
+      return orig && (orig.isSelected !== h.isSelected || orig.selectedOrder !== h.selectedOrder);
     });
+
+    await Promise.all(changed.map((h) =>
+      fetch(`/api/hooks/${h.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isSelected: h.isSelected,
+          selectedOrder: h.selectedOrder,
+          status: h.isSelected ? "selected" : "submitted",
+        }),
+      })
+    ));
   }
 
   async function deleteHook(hookId: string) {

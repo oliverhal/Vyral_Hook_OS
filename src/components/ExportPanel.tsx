@@ -9,7 +9,8 @@ interface ExportPanelProps {
   weekId: string;
   campaign: Campaign;
   weekStart: string;
-  sheetUrl?: string | null;
+  newHooksSheetUrl?: string | null;
+  validatedSheetUrl?: string | null;
   selectedHooks: Hook[];
   selectedValidated?: WeekValidatedHook[];
 }
@@ -18,7 +19,8 @@ export default function ExportPanel({
   weekId,
   campaign,
   weekStart,
-  sheetUrl,
+  newHooksSheetUrl,
+  validatedSheetUrl,
   selectedHooks,
   selectedValidated = [],
 }: ExportPanelProps) {
@@ -56,7 +58,7 @@ export default function ExportPanel({
   ];
 
   const totalCount = exportable.length;
-  const slackMsg = generateSlackMessage(campaign.name, campaign.clientName, new Date(weekStart), exportable, sheetUrl);
+  const slackMsg = generateSlackMessage(campaign.name, campaign.clientName, new Date(weekStart), exportable, newHooksSheetUrl, validatedSheetUrl);
 
   // Sheets-ready TSV (tab-separated, ready to paste straight into Google Sheets)
   const sheetsRows = [...exportable].sort((a, b) => (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99));
@@ -124,15 +126,27 @@ export default function ExportPanel({
       <div className="p-5">
         {activeTab === "sheets" ? (
           <div className="space-y-3">
-            {sheetUrl && (
+            {newHooksSheetUrl && (
               <a
-                href={sheetUrl}
+                href={newHooksSheetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 hover:bg-blue-100 transition-colors"
               >
                 <LinkIcon className="w-4 h-4 flex-shrink-0" />
-                <span className="text-xs font-semibold flex-1 truncate">Open creator sheet</span>
+                <span className="text-xs font-semibold flex-1 truncate">Open new hooks sheet</span>
+                <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+              </a>
+            )}
+            {validatedSheetUrl && (
+              <a
+                href={validatedSheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-xl text-orange-700 hover:bg-orange-100 transition-colors"
+              >
+                <LinkIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs font-semibold flex-1 truncate">Open validated hooks sheet</span>
                 <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
               </a>
             )}

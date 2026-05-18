@@ -378,36 +378,73 @@ export default function WeekView({ weekId }: { weekId: string }) {
             </div>
           )}
 
-          {/* Creator sheet URL */}
-          <div className="card p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <LinkIcon className="w-4 h-4 text-slate-400" />
-              <span className="text-sm font-semibold text-slate-700">Creator sheet</span>
+          {/* Sheet URLs */}
+          <div className="card p-4 space-y-4">
+            {/* New hooks sheet */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <LinkIcon className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-semibold text-slate-700">New hooks sheet</span>
+              </div>
+              {isAdmin ? (
+                <input
+                  className="input text-xs"
+                  placeholder="https://docs.google.com/spreadsheets/..."
+                  defaultValue={week.newHooksSheetUrl ?? ""}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim() || null;
+                    if (val === (week.newHooksSheetUrl ?? null)) return;
+                    await fetch(`/api/weeks/${weekId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ newHooksSheetUrl: val }),
+                    });
+                    fetchWeek();
+                  }}
+                />
+              ) : week.newHooksSheetUrl ? (
+                <a href={week.newHooksSheetUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline truncate block">
+                  {week.newHooksSheetUrl}
+                </a>
+              ) : (
+                <p className="text-xs text-slate-400">No sheet linked yet</p>
+              )}
             </div>
-            {isAdmin ? (
-              <input
-                className="input text-xs"
-                placeholder="https://docs.google.com/spreadsheets/..."
-                defaultValue={week.sheetUrl ?? ""}
-                onBlur={async (e) => {
-                  const val = e.target.value.trim() || null;
-                  if (val === (week.sheetUrl ?? null)) return;
-                  await fetch(`/api/weeks/${weekId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ sheetUrl: val }),
-                  });
-                  fetchWeek();
-                }}
-              />
-            ) : week.sheetUrl ? (
-              <a href={week.sheetUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:underline truncate block">
-                {week.sheetUrl}
-              </a>
-            ) : (
-              <p className="text-xs text-slate-400">No sheet linked yet</p>
-            )}
+
+            <div className="border-t border-slate-100" />
+
+            {/* Validated hooks sheet */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <LinkIcon className="w-4 h-4 text-orange-400" />
+                <span className="text-sm font-semibold text-slate-700">Validated hooks sheet</span>
+              </div>
+              {isAdmin ? (
+                <input
+                  className="input text-xs"
+                  placeholder="https://docs.google.com/spreadsheets/..."
+                  defaultValue={week.validatedSheetUrl ?? ""}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim() || null;
+                    if (val === (week.validatedSheetUrl ?? null)) return;
+                    await fetch(`/api/weeks/${weekId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ validatedSheetUrl: val }),
+                    });
+                    fetchWeek();
+                  }}
+                />
+              ) : week.validatedSheetUrl ? (
+                <a href={week.validatedSheetUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-orange-600 hover:underline truncate block">
+                  {week.validatedSheetUrl}
+                </a>
+              ) : (
+                <p className="text-xs text-slate-400">No sheet linked yet</p>
+              )}
+            </div>
           </div>
 
           {/* Validated picker — only in mixed mode */}
@@ -498,7 +535,8 @@ export default function WeekView({ weekId }: { weekId: string }) {
             weekId={weekId}
             campaign={week.campaign}
             weekStart={week.weekStart}
-            sheetUrl={week.sheetUrl}
+            newHooksSheetUrl={week.newHooksSheetUrl}
+            validatedSheetUrl={week.validatedSheetUrl}
             selectedHooks={selectedHooks}
             selectedValidated={selectedValidated}
           />

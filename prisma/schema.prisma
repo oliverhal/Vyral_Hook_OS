@@ -50,7 +50,8 @@ model Week {
   status            String              @default("open")
   mode              String              @default("mixed")
   notes             String?
-  sheetUrl          String?
+  newHooksSheetUrl  String?
+  validatedSheetUrl String?
   hooks             Hook[]
   selectedValidated WeekValidatedHook[]
   createdAt         DateTime            @default(now())

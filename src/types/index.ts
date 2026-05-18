@@ -43,7 +43,8 @@ export interface Week {
   status: WeekStatus;
   mode: WeekMode;
   notes: string | null;
-  sheetUrl: string | null;
+  newHooksSheetUrl: string | null;
+  validatedSheetUrl: string | null;
   hooks?: Hook[];
   selectedValidated?: WeekValidatedHook[];
   createdAt: string;

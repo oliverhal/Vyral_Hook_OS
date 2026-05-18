@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, MessageCircle, AtSign } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 interface Notification {
   id: string;
   fromName: string;
   hookText: string;
+  weekId: string | null;
   type: string;
   read: boolean;
   createdAt: string;
@@ -34,11 +36,10 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -50,6 +51,14 @@ export default function NotificationBell() {
   function handleOpen() {
     setOpen((o) => !o);
     if (!open && unread > 0) markAllRead();
+  }
+
+  function timeAgo(date: string) {
+    const diff = (Date.now() - new Date(date).getTime()) / 1000;
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return new Date(date).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   }
 
   return (
@@ -81,36 +90,49 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-96 overflow-y-auto divide-y divide-slate-50">
             {notifications.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-slate-400">No notifications yet</div>
+              <div className="px-4 py-8 text-center">
+                <Bell className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm text-slate-400">No notifications yet</p>
+              </div>
             ) : (
-              notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={cn(
-                    "px-4 py-3 border-b border-slate-50 last:border-0 transition-colors",
-                    !n.read && "bg-blue-50"
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-xs font-bold text-blue-700">{n.fromName.charAt(0)}</span>
+              notifications.map((n) => {
+                const inner = (
+                  <div className={cn(
+                    "px-4 py-3 flex items-start gap-3 transition-colors hover:bg-slate-50",
+                    !n.read && "bg-blue-50 hover:bg-blue-100/70"
+                  )}>
+                    <div className={cn(
+                      "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                      n.type === "mention" ? "bg-violet-100" : "bg-blue-100"
+                    )}>
+                      {n.type === "mention"
+                        ? <AtSign className="w-3.5 h-3.5 text-violet-600" />
+                        : <MessageCircle className="w-3.5 h-3.5 text-blue-600" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-700">
+                      <p className="text-xs text-slate-700 leading-snug">
                         <span className="font-semibold">{n.fromName}</span>{" "}
-                        {n.type === "mention" ? "mentioned you in a comment" : "replied to a thread you're on"}
+                        {n.type === "mention" ? "mentioned you" : "replied to a thread you're on"}
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5 truncate">"{n.hookText}"</p>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        {new Date(n.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-snug">
+                        "{n.hookText}"
                       </p>
+                      <p className="text-[10px] text-slate-400 mt-1">{timeAgo(n.createdAt)}</p>
                     </div>
                     {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />}
                   </div>
-                </div>
-              ))
+                );
+
+                return n.weekId ? (
+                  <Link key={n.id} href={`/weeks/${n.weekId}`} onClick={() => setOpen(false)}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={n.id}>{inner}</div>
+                );
+              })
             )}
           </div>
         </div>

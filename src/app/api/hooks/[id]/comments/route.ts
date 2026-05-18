@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const [hook, existingComments] = await Promise.all([
     prisma.hook.findUnique({
       where: { id: params.id },
-      select: { hookText: true, submittedById: true },
+      select: { hookText: true, submittedById: true, weekId: true },
     }),
     prisma.hookComment.findMany({
       where: { hookId: params.id, id: { not: comment.id } },
@@ -46,7 +46,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   ]);
 
   const hookText = hook?.hookText ?? "";
-  const notificationsToCreate: { userId: string; fromName: string; commentId: string; hookText: string; type: string }[] = [];
+  const weekId = hook?.weekId ?? undefined;
+
+  type NotifData = { userId: string; fromName: string; commentId: string; hookText: string; type: string; weekId?: string };
+  const notificationsToCreate: NotifData[] = [];
   const notifiedIds = new Set<string>();
 
   // @mention notifications
@@ -60,23 +63,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         (u) => u.name.toLowerCase() === mentionedName || u.name.toLowerCase().startsWith(mentionedName)
       );
       if (mentioned && mentioned.id !== userId && !notifiedIds.has(mentioned.id)) {
-        notificationsToCreate.push({ userId: mentioned.id, fromName, commentId: comment.id, hookText, type: "mention" });
+        notificationsToCreate.push({ userId: mentioned.id, fromName, commentId: comment.id, hookText, type: "mention", weekId });
         notifiedIds.add(mentioned.id);
       }
     }
   }
 
   // Reply notifications — hook author + all previous thread commenters
-  const replyTargets: string[] = [];
   const replyTargetSet = new Set<string>();
-  if (hook?.submittedById) { replyTargets.push(hook.submittedById); replyTargetSet.add(hook.submittedById); }
-  for (const c of existingComments) {
-    if (!replyTargetSet.has(c.userId)) { replyTargets.push(c.userId); replyTargetSet.add(c.userId); }
-  }
+  if (hook?.submittedById) replyTargetSet.add(hook.submittedById);
+  for (const c of existingComments) replyTargetSet.add(c.userId);
 
-  for (const targetId of replyTargets) {
+  for (const targetId of Array.from(replyTargetSet)) {
     if (targetId !== userId && !notifiedIds.has(targetId)) {
-      notificationsToCreate.push({ userId: targetId, fromName, commentId: comment.id, hookText, type: "reply" });
+      notificationsToCreate.push({ userId: targetId, fromName, commentId: comment.id, hookText, type: "reply", weekId });
       notifiedIds.add(targetId);
     }
   }

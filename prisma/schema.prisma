@@ -35,6 +35,7 @@ model Campaign {
   hooksTarget        Int             @default(7)
   validatedTarget    Int             @default(7)
   hashtags           String?
+  validatedSheetUrl  String?
   weeks              Week[]
   validatedHooks     ValidatedHook[]
   createdAt          DateTime        @default(now())
@@ -51,7 +52,6 @@ model Week {
   mode              String              @default("mixed")
   notes             String?
   newHooksSheetUrl  String?
-  validatedSheetUrl String?
   hooks             Hook[]
   selectedValidated WeekValidatedHook[]
   createdAt         DateTime            @default(now())

@@ -30,6 +30,7 @@ export interface Campaign {
   hooksTarget: number;
   validatedTarget: number;
   hashtags: string | null;
+  validatedSheetUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,7 +45,6 @@ export interface Week {
   mode: WeekMode;
   notes: string | null;
   newHooksSheetUrl: string | null;
-  validatedSheetUrl: string | null;
   hooks?: Hook[];
   selectedValidated?: WeekValidatedHook[];
   createdAt: string;

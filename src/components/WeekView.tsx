@@ -426,21 +426,22 @@ export default function WeekView({ weekId }: { weekId: string }) {
 
             <div className="border-t border-slate-100" />
 
-            {/* Validated hooks sheet */}
+            {/* Validated hooks sheet — campaign-level, shared across all weeks */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1">
                 <LinkIcon className="w-4 h-4 text-orange-400" />
                 <span className="text-sm font-semibold text-slate-700">Validated hooks sheet</span>
               </div>
+              <p className="text-[10px] text-slate-400 mb-2">Saved for all weeks in this campaign</p>
               {isAdmin ? (
                 <input
                   className="input text-xs"
                   placeholder="https://docs.google.com/spreadsheets/..."
-                  defaultValue={week.validatedSheetUrl ?? ""}
+                  defaultValue={week.campaign.validatedSheetUrl ?? ""}
                   onBlur={async (e) => {
                     const val = e.target.value.trim() || null;
-                    if (val === (week.validatedSheetUrl ?? null)) return;
-                    await fetch(`/api/weeks/${weekId}`, {
+                    if (val === (week.campaign.validatedSheetUrl ?? null)) return;
+                    await fetch(`/api/campaigns/${week.campaignId}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ validatedSheetUrl: val }),
@@ -448,10 +449,10 @@ export default function WeekView({ weekId }: { weekId: string }) {
                     fetchWeek();
                   }}
                 />
-              ) : week.validatedSheetUrl ? (
-                <a href={week.validatedSheetUrl} target="_blank" rel="noopener noreferrer"
+              ) : week.campaign.validatedSheetUrl ? (
+                <a href={week.campaign.validatedSheetUrl} target="_blank" rel="noopener noreferrer"
                   className="text-xs text-orange-600 hover:underline truncate block">
-                  {week.validatedSheetUrl}
+                  {week.campaign.validatedSheetUrl}
                 </a>
               ) : (
                 <p className="text-xs text-slate-400">No sheet linked yet</p>
@@ -548,7 +549,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
             campaign={week.campaign}
             weekStart={week.weekStart}
             newHooksSheetUrl={week.newHooksSheetUrl}
-            validatedSheetUrl={week.validatedSheetUrl}
+            validatedSheetUrl={week.campaign.validatedSheetUrl}
             selectedHooks={selectedHooks}
             selectedValidated={selectedValidated}
           />

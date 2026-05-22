@@ -11,6 +11,7 @@ import {
 import { cn, CAMPAIGN_COLORS, formatWeekRange, formatDeadline } from "@/lib/utils";
 import HookCard from "./HookCard";
 import HookForm from "./HookForm";
+import BulkImportModal from "./BulkImportModal";
 import ExportPanel from "./ExportPanel";
 import ValidatedPicker from "./ValidatedPicker";
 import WeekHistoryPanel from "./WeekHistoryPanel";
@@ -27,6 +28,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const [showForm, setShowForm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   const currentUser = session?.user as { name?: string; role?: string } | undefined;
   const isAdmin = currentUser?.role === "admin";
@@ -221,6 +223,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const captionsNeeded = selectedHooks.filter((h) => !h.aiCaption).length;
 
   return (
+    <>
     <div className="p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
@@ -354,18 +357,27 @@ export default function WeekView({ weekId }: { weekId: string }) {
         {/* Left panel */}
         <div className="col-span-2 space-y-5">
           {week.status !== "finalized" && (
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className={cn(
-                "w-full flex items-center justify-between px-5 py-3 rounded-2xl border-2 text-sm font-semibold transition-all duration-200",
-                showForm
-                  ? "border-blue-500 bg-blue-50 text-blue-700"
-                  : "border-dashed border-slate-300 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-600"
-              )}
-            >
-              <span>{showForm ? "Hide form" : "+ Submit experimental hook"}</span>
-              {showForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className={cn(
+                  "w-full flex items-center justify-between px-5 py-3 rounded-2xl border-2 text-sm font-semibold transition-all duration-200",
+                  showForm
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-dashed border-slate-300 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-600"
+                )}
+              >
+                <span>{showForm ? "Hide form" : "+ Submit experimental hook"}</span>
+                {showForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={() => setShowBulkImport(true)}
+                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-500 hover:text-violet-600 hover:border-violet-300 hover:bg-violet-50 text-sm font-medium transition-all duration-200"
+              >
+                <span>⚡</span>
+                <span>Bulk import from sheet</span>
+              </button>
+            </div>
           )}
 
           {showForm && (
@@ -607,5 +619,14 @@ export default function WeekView({ weekId }: { weekId: string }) {
         </div>
       </div>
     </div>
+
+    {showBulkImport && (
+      <BulkImportModal
+        weekId={weekId}
+        onClose={() => setShowBulkImport(false)}
+        onSuccess={() => { fetchWeek(); }}
+      />
+    )}
+    </>
   );
 }

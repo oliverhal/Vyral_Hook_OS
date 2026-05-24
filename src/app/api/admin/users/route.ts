@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   const siteUrl = process.env.NEXTAUTH_URL ?? "https://vyral-hook-os.vercel.app";
   try {
     await resend.emails.send({
-      from: "Vyral Hook OS <onboarding@resend.dev>",
+      from: "Vyral Hook OS <team@vyral-labs.com>",
       to: email.toLowerCase(),
       subject: "You've been invited to Vyral Hook OS 🎣",
       html: `

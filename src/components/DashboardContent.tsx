@@ -92,15 +92,6 @@ export default function DashboardContent() {
           </div>
           <div className="text-3xl font-bold text-slate-900">{totalHooksThisWeek}</div>
         </div>
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center">
-              <Users className="w-4 h-4 text-violet-600" />
-            </div>
-            <span className="text-sm font-medium text-slate-500">Selected</span>
-          </div>
-          <div className="text-3xl font-bold text-slate-900">{totalSelected}</div>
-        </div>
       </div>
 
       {/* Current Week Campaigns */}

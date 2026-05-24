@@ -20,7 +20,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, clientName, description, color, emoji, hooksTarget, validatedTarget, hashtags } = body;
+  const { name, clientName, description, color, emoji, hooksTarget, validatedTarget, hashtags, firstWeekStart } = body;
 
   if (!name || !clientName) {
     return NextResponse.json({ error: "Name and client name are required" }, { status: 400 });
@@ -38,6 +38,20 @@ export async function POST(req: NextRequest) {
       hashtags: hashtags || null,
     },
   });
+
+  // Auto-create the first week if a start date was provided
+  if (firstWeekStart) {
+    const weekStart = new Date(firstWeekStart);
+    weekStart.setUTCHours(0, 0, 0, 0);
+    await prisma.week.create({
+      data: {
+        campaignId: campaign.id,
+        weekStart,
+        deadline: weekStart,
+        status: "open",
+      },
+    });
+  }
 
   return NextResponse.json(campaign, { status: 201 });
 }

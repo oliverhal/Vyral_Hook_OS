@@ -20,6 +20,7 @@ export default function NewCampaignForm() {
     emoji: "🎯",
     hooksTarget: 7,
     validatedTarget: 7,
+    firstWeekStart: "",
   });
 
   function setField(field: string, value: string | number) {
@@ -118,6 +119,19 @@ export default function NewCampaignForm() {
               <option value={5}>5</option>
               <option value={10}>10</option>
             </select>
+          </div>
+
+          <div className="col-span-2">
+            <label className="label">First week starts</label>
+            <input
+              className="input"
+              type="date"
+              value={form.firstWeekStart}
+              onChange={(e) => setField("firstWeekStart", e.target.value)}
+            />
+            <p className="text-xs text-slate-400 mt-1.5">
+              Sets the first open week so the team can start submitting hooks straight away. Leave blank to add weeks manually later.
+            </p>
           </div>
 
           <div className="col-span-2">

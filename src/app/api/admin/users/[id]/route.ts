@@ -24,13 +24,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   });
   const isReactivating = active === true && existingUser?.active === false;
 
+  // Always assign a fresh password on reactivation so we can email it in plain text
+  const reactivationPassword = isReactivating && !password
+    ? Math.random().toString(36).slice(2, 8).toUpperCase() + Math.random().toString(36).slice(2, 5) + "!"
+    : null;
+  const plainPassword = password || reactivationPassword;
+
   const data: Record<string, unknown> = {};
   if (name !== undefined) data.name = name;
   if (email !== undefined) data.email = email.toLowerCase();
   if (color !== undefined) data.color = color;
   if (role !== undefined) data.role = role;
   if (active !== undefined) data.active = active;
-  if (password) data.password = await bcrypt.hash(password, 10);
+  if (plainPassword) data.password = await bcrypt.hash(plainPassword, 10);
 
   const user = await prisma.user.update({
     where: { id: params.id },
@@ -66,13 +72,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
                   <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Email</td>
                   <td style="padding: 8px 0; font-size: 14px; font-weight: 500;">${userEmail}</td>
                 </tr>
-                ${password ? `<tr>
+                <tr>
                   <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Password</td>
-                  <td style="padding: 8px 0; font-size: 14px; font-weight: 500; font-family: monospace; background: #fff; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">${password}</td>
-                </tr>` : `<tr>
-                  <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Password</td>
-                  <td style="padding: 8px 0; font-size: 14px; color: #64748b;">Same as before</td>
-                </tr>`}
+                  <td style="padding: 8px 0; font-size: 14px; font-weight: 500; font-family: monospace; background: #fff; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">${plainPassword}</td>
+                </tr>
               </table>
             </div>
 

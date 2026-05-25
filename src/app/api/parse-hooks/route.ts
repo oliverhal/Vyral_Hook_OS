@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import Anthropic from "@anthropic-ai/sdk";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const VALID_FORMATS = ["Faceless", "Snapchat", "Face-to-camera", "Voiceover", "Text-only", "Long text", "Short text"];
 
@@ -18,15 +21,15 @@ function parseTSV(raw: string): string[][] {
 
     if (inQuotes) {
       if (ch === '"' && next === '"') {
-        cell += '"'; i++; // escaped quote
+        cell += '"'; i++;
       } else if (ch === '"') {
-        inQuotes = false; // end of quoted cell
+        inQuotes = false;
       } else {
         cell += ch;
       }
     } else {
       if (ch === '"' && cell === "") {
-        inQuotes = true; // start of quoted cell
+        inQuotes = true;
       } else if (ch === "\t") {
         row.push(cell.trim()); cell = "";
       } else if (ch === "\n" || (ch === "\r" && next === "\n")) {
@@ -39,11 +42,8 @@ function parseTSV(raw: string): string[][] {
       }
     }
   }
-
-  // flush last cell/row
   row.push(cell.trim());
   if (row.some((c) => c.length > 0)) rows.push(row);
-
   return rows;
 }
 
@@ -56,7 +56,6 @@ function matchFormat(s: string): string | null {
   for (const f of VALID_FORMATS) {
     if (lower === f.toLowerCase()) return f;
   }
-  // partial match
   for (const f of VALID_FORMATS) {
     if (lower.includes(f.toLowerCase())) return f;
   }
@@ -64,50 +63,27 @@ function matchFormat(s: string): string | null {
 }
 
 function isFormatOnly(col: string[]): boolean {
-  // A column is "format-only" if almost every non-empty cell is a valid format
   const nonEmpty = col.filter((c) => c.length > 0);
   if (nonEmpty.length === 0) return false;
   const matches = nonEmpty.filter((c) => matchFormat(c) !== null);
   return matches.length / nonEmpty.length > 0.6;
 }
 
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { rawText } = await req.json();
-  if (!rawText?.trim()) return NextResponse.json({ hooks: [] });
-
-  const rows = parseTSV(rawText);
-  if (rows.length === 0) return NextResponse.json({ hooks: [] });
-
-  const numCols = Math.max(...rows.map((r) => r.length));
-
-  // Build per-column arrays
+function heuristicColumns(rows: string[][], numCols: number) {
   const cols: string[][] = Array.from({ length: numCols }, (_, i) =>
     rows.map((r) => r[i] ?? "")
   );
 
-  // Identify special columns
   let formatCol = -1;
   let refCol = -1;
 
   for (let c = 0; c < numCols; c++) {
     const nonEmpty = cols[c].filter((v) => v.length > 0);
     if (nonEmpty.length === 0) continue;
-
-    if (refCol === -1 && nonEmpty.some(looksLikeUrl)) {
-      refCol = c;
-      continue;
-    }
-    if (formatCol === -1 && isFormatOnly(cols[c])) {
-      formatCol = c;
-      continue;
-    }
+    if (refCol === -1 && nonEmpty.some(looksLikeUrl)) { refCol = c; continue; }
+    if (formatCol === -1 && isFormatOnly(cols[c])) { formatCol = c; continue; }
   }
 
-  // Hook text column: among remaining columns, pick the one with the longest average text
-  // If two similar-length text columns exist, prefer the LAST one (usually the corrected version)
   const taken = new Set([formatCol, refCol]);
   let hookCol = 0;
   let bestScore = -1;
@@ -117,22 +93,54 @@ export async function POST(req: NextRequest) {
     const nonEmpty = cols[c].filter((v) => v.length > 10);
     if (nonEmpty.length === 0) continue;
     const avgLen = nonEmpty.reduce((s, v) => s + v.length, 0) / nonEmpty.length;
-    // Bias toward later columns (corrected version) by adding a small bonus per column index
-    const score = avgLen + c * 2;
-    if (score > bestScore) {
-      bestScore = score;
-      hookCol = c;
-    }
+    const score = avgLen + c * 2; // bias toward later cols (corrected version)
+    if (score > bestScore) { bestScore = score; hookCol = c; }
   }
 
-  // Map rows to hooks
-  const hooks = rows
+  return { hookCol, formatCol, refCol };
+}
+
+// Returns true if heuristics seem unreliable
+function needsAiFallback(rows: string[][], hookCol: number, formatCol: number): boolean {
+  if (formatCol === -1) return true; // couldn't find format column
+  const hookTexts = rows.map((r) => r[hookCol]?.trim() ?? "").filter(Boolean);
+  if (hookTexts.length === 0) return true;
+  const avgLen = hookTexts.reduce((s, t) => s + t.length, 0) / hookTexts.length;
+  if (avgLen < 20) return true; // hooks suspiciously short — probably wrong column
+  return false;
+}
+
+async function aiColumnHints(rows: string[][], numCols: number): Promise<{ hookCol: number; formatCol: number; refCol: number }> {
+  const sample = rows
+    .slice(0, 4)
+    .map((r, i) => `Row ${i}: ${r.map((c, j) => `[${j}] ${c.slice(0, 60)}`).join("  |  ")}`)
+    .join("\n");
+
+  const msg = await anthropic.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 60,
+    messages: [{
+      role: "user",
+      content: `Google Sheet rows (${numCols} cols, 0-indexed):\n${sample}\n\nReturn ONLY JSON with column indices (-1 if absent): {"hookCol":N,"formatCol":N,"refCol":N}`,
+    }],
+  });
+
+  const raw = msg.content[0].type === "text" ? msg.content[0].text : "{}";
+  const match = raw.match(/\{[^}]+\}/);
+  const parsed = match ? JSON.parse(match[0]) : {};
+  return {
+    hookCol: typeof parsed.hookCol === "number" ? parsed.hookCol : 0,
+    formatCol: typeof parsed.formatCol === "number" ? parsed.formatCol : -1,
+    refCol: typeof parsed.refCol === "number" ? parsed.refCol : -1,
+  };
+}
+
+function buildHooks(rows: string[][], hookCol: number, formatCol: number, refCol: number) {
+  return rows
     .map((r) => {
       const hookText = r[hookCol]?.trim() ?? "";
       if (hookText.length < 5) return null;
-
-      // Skip rows that look like headers
-      if (hookText.toLowerCase().includes("hook text") || hookText.toLowerCase() === "hook") return null;
+      if (/^(hook|hook text|text on screen)$/i.test(hookText)) return null;
 
       const formatRaw = formatCol >= 0 ? r[formatCol]?.trim() ?? "" : "";
       const format = matchFormat(formatRaw) ?? "Faceless";
@@ -148,6 +156,35 @@ export async function POST(req: NextRequest) {
       };
     })
     .filter(Boolean);
+}
 
+export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { rawText } = await req.json();
+  if (!rawText?.trim()) return NextResponse.json({ hooks: [] });
+
+  const rows = parseTSV(rawText);
+  if (rows.length === 0) return NextResponse.json({ hooks: [] });
+
+  const numCols = Math.max(...rows.map((r) => r.length));
+
+  // Step 1: fast heuristics
+  let { hookCol, formatCol, refCol } = heuristicColumns(rows, numCols);
+
+  // Step 2: AI fallback only when heuristics look unreliable
+  if (needsAiFallback(rows, hookCol, formatCol)) {
+    try {
+      const aiHints = await aiColumnHints(rows, numCols);
+      hookCol = aiHints.hookCol;
+      formatCol = aiHints.formatCol;
+      refCol = aiHints.refCol;
+    } catch {
+      // AI failed too — proceed with heuristics anyway
+    }
+  }
+
+  const hooks = buildHooks(rows, hookCol, formatCol, refCol);
   return NextResponse.json({ hooks });
 }

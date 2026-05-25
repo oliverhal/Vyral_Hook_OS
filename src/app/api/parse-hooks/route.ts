@@ -4,11 +4,47 @@ import { authOptions } from "@/lib/auth";
 
 const VALID_FORMATS = ["Faceless", "Snapchat", "Face-to-camera", "Voiceover", "Text-only", "Long text", "Short text"];
 
+// RFC-4180 TSV parser — handles quoted cells containing newlines and tabs
 function parseTSV(raw: string): string[][] {
-  return raw
-    .split(/\r?\n/)
-    .map((line) => line.split("\t").map((c) => c.trim()))
-    .filter((cols) => cols.some((c) => c.length > 0));
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+  const n = raw.length;
+
+  for (let i = 0; i < n; i++) {
+    const ch = raw[i];
+    const next = raw[i + 1];
+
+    if (inQuotes) {
+      if (ch === '"' && next === '"') {
+        cell += '"'; i++; // escaped quote
+      } else if (ch === '"') {
+        inQuotes = false; // end of quoted cell
+      } else {
+        cell += ch;
+      }
+    } else {
+      if (ch === '"' && cell === "") {
+        inQuotes = true; // start of quoted cell
+      } else if (ch === "\t") {
+        row.push(cell.trim()); cell = "";
+      } else if (ch === "\n" || (ch === "\r" && next === "\n")) {
+        if (ch === "\r") i++;
+        row.push(cell.trim());
+        if (row.some((c) => c.length > 0)) rows.push(row);
+        row = []; cell = "";
+      } else {
+        cell += ch;
+      }
+    }
+  }
+
+  // flush last cell/row
+  row.push(cell.trim());
+  if (row.some((c) => c.length > 0)) rows.push(row);
+
+  return rows;
 }
 
 function looksLikeUrl(s: string) {

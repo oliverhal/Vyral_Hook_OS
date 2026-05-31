@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowRight, Plus, Flame } from "lucide-react";
+import { ArrowRight, Plus, Flame, Settings } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
 import type { Campaign, Week, Hook } from "@/types";
+import EditCampaignModal from "./EditCampaignModal";
 
 interface CampaignFull extends Campaign {
   weeks: (Week & { hooks: Hook[] })[];
@@ -14,12 +15,15 @@ interface CampaignFull extends Campaign {
 export default function CampaignsContent() {
   const [campaigns, setCampaigns] = useState<CampaignFull[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<CampaignFull | null>(null);
 
-  useEffect(() => {
+  function fetchCampaigns() {
     fetch("/api/campaigns")
       .then((r) => r.json())
       .then((data) => { setCampaigns(data); setLoading(false); });
-  }, []);
+  }
+
+  useEffect(() => { fetchCampaigns(); }, []);
 
   if (loading) {
     return <div className="p-8 animate-pulse space-y-4">
@@ -65,6 +69,13 @@ export default function CampaignsContent() {
                     <Flame className="w-3.5 h-3.5" />
                     Validated
                   </Link>
+                  <button
+                    onClick={() => setEditing(campaign)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
                 </div>
               </div>
 
@@ -140,6 +151,14 @@ export default function CampaignsContent() {
           );
         })}
       </div>
+
+      {editing && (
+        <EditCampaignModal
+          campaign={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { fetchCampaigns(); }}
+        />
+      )}
     </div>
   );
 }

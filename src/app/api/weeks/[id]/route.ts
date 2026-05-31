@@ -75,3 +75,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   return NextResponse.json(week);
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  await prisma.week.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
+}

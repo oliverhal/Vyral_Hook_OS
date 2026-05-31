@@ -7,6 +7,7 @@ import { ArrowRight, Plus, Flame, Settings } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
 import type { Campaign, Week, Hook } from "@/types";
 import EditCampaignModal from "./EditCampaignModal";
+import CampaignLogo from "./CampaignLogo";
 
 interface CampaignFull extends Campaign {
   weeks: (Week & { hooks: Hook[] })[];
@@ -52,7 +53,7 @@ export default function CampaignsContent() {
               {/* Header */}
               <div className={cn("px-6 py-4 border-b border-slate-100 flex items-center justify-between", colors.bg)}>
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{campaign.emoji}</span>
+                  <CampaignLogo logoUrl={campaign.logoUrl} emoji={campaign.emoji} name={campaign.name} size="md" />
                   <div>
                     <h2 className="font-bold text-slate-900 text-base">{campaign.name}</h2>
                     <p className="text-slate-500 text-sm">{campaign.clientName}</p>

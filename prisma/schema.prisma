@@ -36,6 +36,7 @@ model Campaign {
   validatedTarget    Int             @default(7)
   hashtags           String?
   validatedSheetUrl  String?
+  logoUrl            String?
   weeks              Week[]
   validatedHooks     ValidatedHook[]
   createdAt          DateTime        @default(now())

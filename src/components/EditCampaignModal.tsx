@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { X, Loader2, Plus, Trash2, Calendar, Settings } from "lucide-react";
+import { useRef, useState } from "react";
+import { X, Loader2, Plus, Trash2, Calendar, Settings, Upload, ImageOff } from "lucide-react";
 import { format } from "date-fns";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { HOOK_FORMATS } from "@/types";
 import type { Campaign, Week, Hook } from "@/types";
+import CampaignLogo from "./CampaignLogo";
 
 const COLORS = ["blue", "violet", "emerald", "orange", "pink", "teal", "yellow"] as const;
 const EMOJIS = ["🎯", "⚡", "💪", "✨", "🚀", "💡", "🔥", "🌟", "🎬", "📱", "💰", "🏆"];
@@ -20,6 +21,9 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
   const [tab, setTab] = useState<"settings" | "weeks">("settings");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(campaign.logoUrl ?? null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     name: campaign.name,
@@ -68,6 +72,22 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
     } finally {
       setSaving(false);
     }
+  }
+
+  async function uploadLogo(file: File) {
+    setLogoUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/campaigns/${campaign.id}/logo`, { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.logoUrl) { setLogoUrl(data.logoUrl); onSaved(); }
+    setLogoUploading(false);
+  }
+
+  async function removeLogo() {
+    await fetch(`/api/campaigns/${campaign.id}/logo`, { method: "DELETE" });
+    setLogoUrl(null);
+    onSaved();
   }
 
   async function addWeek() {
@@ -187,12 +207,40 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
         <div className="flex-1 overflow-y-auto p-6">
           {tab === "settings" ? (
             <div className="space-y-5">
-              {/* Preview */}
+              {/* Preview + Logo upload */}
               <div className={cn("p-4 rounded-xl border flex items-center gap-3", previewColors.bg, previewColors.border)}>
-                <span className="text-3xl">{form.emoji}</span>
-                <div>
+                <CampaignLogo logoUrl={logoUrl} emoji={form.emoji} name={form.name} size="lg" />
+                <div className="flex-1 min-w-0">
                   <div className={cn("font-bold text-base", previewColors.text)}>{form.name || "Campaign Name"}</div>
                   <div className="text-sm text-slate-500">{form.clientName || "Client Name"}</div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={logoUploading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-slate-200 hover:border-slate-300 rounded-lg transition-colors"
+                  >
+                    {logoUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    {logoUrl ? "Replace logo" : "Upload logo"}
+                  </button>
+                  {logoUrl && (
+                    <button
+                      type="button"
+                      onClick={removeLogo}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors"
+                    >
+                      <ImageOff className="w-3.5 h-3.5" />
+                      Remove
+                    </button>
+                  )}
                 </div>
               </div>
 

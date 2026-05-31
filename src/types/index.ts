@@ -31,6 +31,7 @@ export interface Campaign {
   validatedTarget: number;
   hashtags: string | null;
   validatedSheetUrl: string | null;
+  logoUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }

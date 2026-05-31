@@ -17,6 +17,7 @@ import ExportPanel from "./ExportPanel";
 import ValidatedPicker from "./ValidatedPicker";
 import WeekHistoryPanel from "./WeekHistoryPanel";
 import type { Hook, WeekWithHooks, WeekMode } from "@/types";
+import CampaignLogo from "./CampaignLogo";
 
 type FilterType = "all" | "mine" | "selected";
 
@@ -236,7 +237,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <span className="text-2xl">{week.campaign.emoji}</span>
+              <CampaignLogo logoUrl={week.campaign.logoUrl} emoji={week.campaign.emoji} name={week.campaign.name} size="md" />
               <h1 className="text-2xl font-bold text-slate-900">{week.campaign.name}</h1>
               <span className={cn("badge", colors.badge)}>{week.campaign.clientName}</span>
             </div>

@@ -12,6 +12,7 @@ import { cn, CAMPAIGN_COLORS, formatWeekRange, formatDeadline } from "@/lib/util
 import HookCard from "./HookCard";
 import HookForm from "./HookForm";
 import BulkImportModal from "./BulkImportModal";
+import PreviousHooksPicker from "./PreviousHooksPicker";
 import ExportPanel from "./ExportPanel";
 import ValidatedPicker from "./ValidatedPicker";
 import WeekHistoryPanel from "./WeekHistoryPanel";
@@ -388,6 +389,11 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 onSuccess={() => { fetchWeek(); setShowForm(false); }}
               />
             </div>
+          )}
+
+          {/* Carry forward from previous weeks */}
+          {week.status !== "finalized" && (
+            <PreviousHooksPicker weekId={weekId} onAdded={fetchWeek} />
           )}
 
           {/* Sheet URLs */}

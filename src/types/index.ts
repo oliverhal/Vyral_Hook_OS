@@ -5,14 +5,14 @@ export type WeekMode = "mixed" | "bulk";
 
 export type HookStatus = "submitted" | "selected" | "rejected";
 
-export type HookFormat = "Faceless" | "Snapchat" | "Face-to-camera" | "Voiceover" | "Text-only" | "Long text" | "Short text";
+export type HookFormat = "Faceless" | "Snapchat" | "Talking head" | "Voiceover" | "Text-only" | "Long text" | "Short text";
 
-export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Face-to-camera", "Voiceover", "Text-only", "Long text", "Short text"];
+export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only", "Long text", "Short text"];
 
 export const FORMAT_COLORS: Record<string, string> = {
   Faceless: "bg-yellow-100 text-yellow-800",
   Snapchat: "bg-green-100 text-green-800",
-  "Face-to-camera": "bg-blue-100 text-blue-800",
+  "Talking head": "bg-blue-100 text-blue-800",
   Voiceover: "bg-purple-100 text-purple-800",
   "Text-only": "bg-slate-100 text-slate-700",
   "Long text": "bg-pink-100 text-pink-800",

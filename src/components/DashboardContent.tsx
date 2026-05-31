@@ -7,6 +7,7 @@ import { format, isPast, formatDistanceToNow } from "date-fns";
 import { ArrowRight, Clock, Plus, TrendingUp, Users, Zap } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
 import ContributionBoard from "./ContributionBoard";
+import CampaignLogo from "./CampaignLogo";
 import type { Campaign, Week, Hook } from "@/types";
 
 interface CampaignWithCurrentWeek extends Campaign {
@@ -122,7 +123,7 @@ export default function DashboardContent() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-lg">{campaign.emoji}</span>
+                      <CampaignLogo logoUrl={campaign.logoUrl} emoji={campaign.emoji} name={campaign.name} size="sm" />
                       <h3 className="font-bold text-slate-900 text-base">{campaign.name}</h3>
                     </div>
                     <p className="text-slate-400 text-xs">{campaign.clientName}</p>

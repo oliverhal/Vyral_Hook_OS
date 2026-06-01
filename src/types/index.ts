@@ -5,9 +5,9 @@ export type WeekMode = "mixed" | "bulk";
 
 export type HookStatus = "submitted" | "selected" | "rejected";
 
-export type HookFormat = "Faceless" | "Snapchat" | "Talking head" | "Voiceover" | "Text-only" | "Long text" | "Short text";
+export type HookFormat = "Faceless" | "Snapchat" | "Talking head" | "Voiceover" | "Text-only" | "Long text" | "Short text" | "Other";
 
-export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only", "Long text", "Short text"];
+export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Other"];
 
 export const FORMAT_COLORS: Record<string, string> = {
   Faceless: "bg-yellow-100 text-yellow-800",
@@ -17,6 +17,7 @@ export const FORMAT_COLORS: Record<string, string> = {
   "Text-only": "bg-slate-100 text-slate-700",
   "Long text": "bg-pink-100 text-pink-800",
   "Short text": "bg-teal-100 text-teal-800",
+  Other: "bg-orange-100 text-orange-800",
 };
 
 export interface Campaign {

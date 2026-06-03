@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen } from "lucide-react";
+import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/admin/team", label: "Team", icon: Users },
   { href: "/help", label: "How it works", icon: BookOpen },

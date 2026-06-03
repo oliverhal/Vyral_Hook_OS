@@ -5,12 +5,19 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { ArrowRight, Plus, Flame, Settings } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
-import type { Campaign, Week, Hook } from "@/types";
+import type { Campaign, Week, Hook, CampaignMember } from "@/types";
 import EditCampaignModal from "./EditCampaignModal";
 import CampaignLogo from "./CampaignLogo";
 
+const USER_COLORS: Record<string, string> = {
+  blue: "bg-blue-500", violet: "bg-violet-500", emerald: "bg-emerald-500",
+  orange: "bg-orange-500", pink: "bg-pink-500", teal: "bg-teal-500",
+  yellow: "bg-yellow-500", red: "bg-red-500", slate: "bg-slate-500",
+};
+
 interface CampaignFull extends Campaign {
   weeks: (Week & { hooks: Hook[] })[];
+  members?: CampaignMember[];
 }
 
 export default function CampaignsContent() {
@@ -60,6 +67,30 @@ export default function CampaignsContent() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  {/* Team avatars */}
+                  {campaign.members && campaign.members.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      {campaign.members.slice(0, 5).map(m => (
+                        <div
+                          key={m.id}
+                          className={cn("w-7 h-7 rounded-full flex items-center justify-center border-2 border-white -ml-1 first:ml-0", USER_COLORS[m.user.color] || "bg-slate-500")}
+                          title={`${m.user.name} (${m.role})`}
+                        >
+                          {m.role === "owner" && (
+                            <span className="text-[9px] font-bold text-white">{m.user.name.charAt(0)}</span>
+                          )}
+                          {m.role === "supporter" && (
+                            <span className="text-[9px] font-bold text-white opacity-80">{m.user.name.charAt(0)}</span>
+                          )}
+                        </div>
+                      ))}
+                      {campaign.members.length > 5 && (
+                        <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center border-2 border-white -ml-1">
+                          <span className="text-[9px] font-bold text-slate-600">+{campaign.members.length - 5}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <span className={cn("badge", colors.badge)}>
                     Target: {campaign.hooksTarget} hooks/week
                   </span>

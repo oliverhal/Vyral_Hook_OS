@@ -12,6 +12,10 @@ export async function GET() {
           hooks: { select: { id: true, isSelected: true, submittedBy: true } },
         },
       },
+      members: {
+        include: { user: { select: { id: true, name: true, color: true } } },
+        orderBy: { createdAt: "asc" },
+      },
     },
     orderBy: { createdAt: "asc" },
   });

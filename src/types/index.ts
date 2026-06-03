@@ -20,6 +20,15 @@ export const FORMAT_COLORS: Record<string, string> = {
   Other: "bg-orange-100 text-orange-800",
 };
 
+export interface CampaignMember {
+  id: string;
+  campaignId: string;
+  userId: string;
+  role: "owner" | "supporter";
+  user: { id: string; name: string; color: string };
+  createdAt: string;
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -33,6 +42,7 @@ export interface Campaign {
   hashtags: string | null;
   validatedSheetUrl: string | null;
   logoUrl: string | null;
+  members?: CampaignMember[];
   createdAt: string;
   updatedAt: string;
 }

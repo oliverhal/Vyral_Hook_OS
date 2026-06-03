@@ -1,24 +1,31 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { X, Loader2, Plus, Trash2, Calendar, Settings, Upload, ImageOff } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { X, Loader2, Plus, Trash2, Calendar, Settings, Upload, ImageOff, Users, Crown, Check } from "lucide-react";
 import { format } from "date-fns";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
-import { HOOK_FORMATS } from "@/types";
-import type { Campaign, Week, Hook } from "@/types";
+import type { Campaign, Week, Hook, CampaignMember } from "@/types";
 import CampaignLogo from "./CampaignLogo";
 
 const COLORS = ["blue", "violet", "emerald", "orange", "pink", "teal", "yellow"] as const;
 const EMOJIS = ["🎯", "⚡", "💪", "✨", "🚀", "💡", "🔥", "🌟", "🎬", "📱", "💰", "🏆"];
 
+const USER_COLORS: Record<string, string> = {
+  blue: "bg-blue-500", violet: "bg-violet-500", emerald: "bg-emerald-500",
+  orange: "bg-orange-500", pink: "bg-pink-500", teal: "bg-teal-500",
+  yellow: "bg-yellow-500", red: "bg-red-500", slate: "bg-slate-500",
+};
+
+interface TeamUser { id: string; name: string; color: string; }
+
 interface EditCampaignModalProps {
-  campaign: Campaign & { weeks: (Week & { hooks: Hook[] })[] };
+  campaign: Campaign & { weeks: (Week & { hooks: Hook[] })[]; members?: CampaignMember[] };
   onClose: () => void;
   onSaved: () => void;
 }
 
 export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCampaignModalProps) {
-  const [tab, setTab] = useState<"settings" | "weeks">("settings");
+  const [tab, setTab] = useState<"settings" | "weeks" | "team">("settings");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(campaign.logoUrl ?? null);
@@ -35,6 +42,33 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
     validatedTarget: campaign.validatedTarget,
     hashtags: campaign.hashtags ?? "",
   });
+
+  // Team state
+  const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
+  const [ownerId, setOwnerId] = useState<string | null>(
+    campaign.members?.find(m => m.role === "owner")?.userId ?? null
+  );
+  const [supporterIds, setSupporterIds] = useState<string[]>(
+    campaign.members?.filter(m => m.role === "supporter").map(m => m.userId) ?? []
+  );
+  const [teamSaving, setTeamSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/users").then(r => r.json()).then(data => {
+      if (Array.isArray(data)) setTeamUsers(data.filter((u: TeamUser & { active: boolean }) => u.active));
+    });
+  }, []);
+
+  async function saveTeam() {
+    setTeamSaving(true);
+    await fetch(`/api/campaigns/${campaign.id}/members`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ownerId, supporterIds }),
+    });
+    setTeamSaving(false);
+    onSaved();
+  }
 
   // Week management state
   const [weeks, setWeeks] = useState(campaign.weeks);
@@ -186,6 +220,7 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
           {[
             { id: "settings", label: "Campaign settings", icon: Settings },
             { id: "weeks", label: `Weeks (${weeks.length})`, icon: Calendar },
+            { id: "team", label: "Team", icon: Users },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -389,6 +424,82 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
             </div>
           )}
 
+          {tab === "team" && (
+            <div className="space-y-6">
+              {/* Owner */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Crown className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm font-semibold text-slate-800">Campaign owner</span>
+                </div>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => setOwnerId(null)}
+                    className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors text-left",
+                      !ownerId ? "border-blue-400 bg-blue-50" : "border-slate-200 hover:bg-slate-50"
+                    )}
+                  >
+                    <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs text-slate-500">—</span>
+                    </div>
+                    <span className="text-sm text-slate-500">No owner assigned</span>
+                  </button>
+                  {teamUsers.map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => setOwnerId(u.id)}
+                      className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors text-left",
+                        ownerId === u.id ? "border-amber-400 bg-amber-50" : "border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      <div className={cn("w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0", USER_COLORS[u.color] || "bg-slate-500")}>
+                        <span className="text-xs font-bold text-white">{u.name.charAt(0)}</span>
+                      </div>
+                      <span className="text-sm font-medium text-slate-800 flex-1">{u.name}</span>
+                      {ownerId === u.id && <Crown className="w-3.5 h-3.5 text-amber-500" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Supporters */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-semibold text-slate-800">Supporting team</span>
+                  <span className="text-xs text-slate-400">(select all that apply)</span>
+                </div>
+                <div className="space-y-1">
+                  {teamUsers.filter(u => u.id !== ownerId).map(u => {
+                    const isSelected = supporterIds.includes(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        onClick={() => setSupporterIds(prev =>
+                          isSelected ? prev.filter(id => id !== u.id) : [...prev, u.id]
+                        )}
+                        className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors text-left",
+                          isSelected ? "border-blue-400 bg-blue-50" : "border-slate-200 hover:bg-slate-50"
+                        )}
+                      >
+                        <div className={cn("w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0", USER_COLORS[u.color] || "bg-slate-500")}>
+                          <span className="text-xs font-bold text-white">{u.name.charAt(0)}</span>
+                        </div>
+                        <span className="text-sm font-medium text-slate-800 flex-1">{u.name}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                      </button>
+                    );
+                  })}
+                  {teamUsers.filter(u => u.id !== ownerId).length === 0 && (
+                    <p className="text-sm text-slate-400 py-4 text-center">
+                      {ownerId ? "No other team members to assign." : "No team members found."}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
               {error}
@@ -415,6 +526,19 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
         {tab === "weeks" && (
           <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
             <p className="text-xs text-slate-400">Changes to weeks save automatically when you leave the field.</p>
+          </div>
+        )}
+        {tab === "team" && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
+            <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 font-medium">Cancel</button>
+            <button
+              onClick={saveTeam}
+              disabled={teamSaving}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50"
+            >
+              {teamSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {teamSaving ? "Saving..." : "Save team"}
+            </button>
           </div>
         )}
       </div>

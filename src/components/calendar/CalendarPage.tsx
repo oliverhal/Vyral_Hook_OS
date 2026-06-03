@@ -106,7 +106,7 @@ export default function CalendarPage() {
           ) : view === "gantt" ? (
             <GanttView clients={clients} onEditClient={setEditClient} />
           ) : (
-            <CalendarGridView clients={clients} />
+            <CalendarGridView clients={clients} onEditClient={setEditClient} />
           )}
         </div>
 

@@ -57,10 +57,10 @@ export function getContractStatus(client: CalendarClient): ContractStatus {
 }
 
 export const STATUS_STYLES: Record<ContractStatus, { pill: string; bar: string }> = {
-  active: { pill: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30", bar: "" },
-  ending_soon: { pill: "bg-amber-500/20 text-amber-400 border border-amber-500/30", bar: "" },
-  ended: { pill: "bg-slate-600/40 text-slate-400 border border-slate-600/30", bar: "" },
-  starting_soon: { pill: "bg-blue-500/20 text-blue-400 border border-blue-500/30", bar: "" },
+  active: { pill: "bg-emerald-100 text-emerald-700", bar: "" },
+  ending_soon: { pill: "bg-amber-100 text-amber-700", bar: "" },
+  ended: { pill: "bg-slate-100 text-slate-500", bar: "" },
+  starting_soon: { pill: "bg-blue-100 text-blue-700", bar: "" },
 };
 
 export const STATUS_BAR_OVERRIDE: Record<ContractStatus, string | null> = {

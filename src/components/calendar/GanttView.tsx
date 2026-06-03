@@ -167,21 +167,21 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
   })();
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-slate-50">
       {/* Navigation bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 gap-4 flex-shrink-0">
-        <div className="text-sm font-mono text-slate-400">{rangeLabel}</div>
+      <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white gap-4 flex-shrink-0">
+        <div className="text-sm font-mono text-slate-500">{rangeLabel}</div>
 
         <div className="flex items-center gap-3">
           {/* Scale selector */}
-          <div className="flex items-center bg-white/5 rounded-lg p-0.5 gap-0.5">
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
             {(Object.keys(SCALE_CONFIG) as Scale[]).map((s) => (
               <button
                 key={s}
                 onClick={() => { setScale(s); setViewOffset(0); }}
                 className={cn(
                   "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                  scale === s ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-white"
+                  scale === s ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
                 )}
               >
                 {SCALE_CONFIG[s].label}
@@ -191,13 +191,13 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
 
           {/* Navigation */}
           <div className="flex items-center gap-1">
-            <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+            <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button onClick={resetToToday} className="px-3 py-1 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+            <button onClick={resetToToday} className="px-3 py-1 rounded-lg text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors">
               Today
             </button>
-            <button onClick={() => navigate(1)} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+            <button onClick={() => navigate(1)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -208,25 +208,25 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
       <div className="flex-1 overflow-auto">
         <div className="flex" style={{ minHeight: "100%" }}>
           {/* Fixed left column */}
-          <div className="flex-shrink-0 sticky left-0 bg-[#080e1a] z-20 border-r border-white/10" style={{ width: LEFT_COL_WIDTH }}>
-            <div className="h-8 border-b border-white/10" />
-            <div className="h-14 border-b border-white/10 px-3 flex items-center">
-              <span className="text-[10px] text-slate-500 uppercase tracking-widest">Active</span>
+          <div className="flex-shrink-0 sticky left-0 bg-white z-20 border-r border-slate-200" style={{ width: LEFT_COL_WIDTH }}>
+            <div className="h-8 border-b border-slate-200" />
+            <div className="h-14 border-b border-slate-200 px-3 flex items-center">
+              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Active</span>
             </div>
             {clients.map((client) => {
               const status = getContractStatus(client);
               return (
                 <div
                   key={client.id}
-                  className="h-11 border-b border-white/10 px-3 flex items-center gap-2.5 cursor-pointer hover:bg-white/5 transition-colors group"
+                  className="h-11 border-b border-slate-100 px-3 flex items-center gap-2.5 cursor-pointer hover:bg-slate-50 transition-colors group"
                   onClick={() => onEditClient(client)}
                 >
                   <div className={cn("w-2 h-2 rounded-full flex-shrink-0", COLOR_BAR[client.color] || "bg-violet-500")} />
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm text-white truncate font-medium block">{client.name}</span>
+                    <span className="text-sm text-slate-800 truncate font-medium block">{client.name}</span>
                   </div>
                   <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
-                    STATUS_STYLES[status as keyof typeof STATUS_STYLES]?.pill || "bg-slate-700 text-slate-300"
+                    STATUS_STYLES[status as keyof typeof STATUS_STYLES]?.pill || "bg-slate-100 text-slate-500"
                   )}>
                     {status.replace("_", " ")}
                   </span>
@@ -239,7 +239,7 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
           <div className="flex-1 overflow-x-auto">
             <div style={{ width: Math.max(totalWidth, 600) }}>
               {/* Column headers */}
-              <div className="flex h-8 border-b border-white/10">
+              <div className="flex h-8 border-b border-slate-200 bg-slate-50">
                 {columns.map((col, i) => {
                   const colDays = cfg.colWidth(col);
                   const w = colDays * cfg.pxPerDay;
@@ -247,10 +247,10 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
                   return (
                     <div
                       key={i}
-                      className={cn("flex-shrink-0 border-r border-white/10 flex items-center px-2", isCurrentCol && "bg-emerald-500/10")}
+                      className={cn("flex-shrink-0 border-r border-slate-200 flex items-center px-2", isCurrentCol && "bg-blue-50")}
                       style={{ width: w }}
                     >
-                      <span className={cn("text-[11px] font-mono truncate", isCurrentCol ? "text-emerald-400 font-semibold" : "text-slate-500")}>
+                      <span className={cn("text-[11px] font-mono truncate", isCurrentCol ? "text-blue-600 font-semibold" : "text-slate-500")}>
                         {cfg.colLabel(col)}
                       </span>
                     </div>
@@ -259,7 +259,7 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
               </div>
 
               {/* Capacity row */}
-              <div className="flex h-14 border-b border-white/10 items-end pb-1.5 px-px gap-px">
+              <div className="flex h-14 border-b border-slate-200 bg-white items-end pb-1.5 px-px gap-px">
                 {columns.map((col, i) => {
                   const colDays = cfg.colWidth(col);
                   const w = colDays * cfg.pxPerDay;
@@ -267,18 +267,18 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
                   return (
                     <div key={i} className="flex flex-col items-center justify-end flex-shrink-0" style={{ width: w - 1 }}>
                       <span className="text-[10px] font-mono text-slate-500 mb-0.5 leading-none">{capacity[i]}</span>
-                      <div className="w-full rounded-sm bg-emerald-500/25 transition-all" style={{ height: `${Math.max(pct * 0.4, 3)}px` }} />
+                      <div className="w-full rounded-sm bg-blue-200 transition-all" style={{ height: `${Math.max(pct * 0.4, 3)}px` }} />
                     </div>
                   );
                 })}
               </div>
 
               {/* Client rows */}
-              <div className="relative">
+              <div className="relative bg-white">
                 {/* Today line */}
                 {todayPx !== null && (
-                  <div className="absolute top-0 bottom-0 z-10 pointer-events-none flex flex-col items-center" style={{ left: todayPx }}>
-                    <div className="w-px h-full bg-emerald-400/50" />
+                  <div className="absolute top-0 bottom-0 z-10 pointer-events-none" style={{ left: todayPx }}>
+                    <div className="w-px h-full bg-blue-400/60" />
                   </div>
                 )}
 
@@ -286,7 +286,7 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
                 {columns.map((col, i) => {
                   const offset = daysBetween(viewStart, col) * cfg.pxPerDay;
                   return (
-                    <div key={i} className="absolute top-0 bottom-0 w-px bg-white/5 pointer-events-none" style={{ left: offset }} />
+                    <div key={i} className="absolute top-0 bottom-0 w-px bg-slate-100 pointer-events-none" style={{ left: offset }} />
                   );
                 })}
 
@@ -303,7 +303,7 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
                   const barColor = STATUS_BAR_OVERRIDE[status as keyof typeof STATUS_BAR_OVERRIDE] || COLOR_BAR[client.color] || "bg-violet-500";
 
                   return (
-                    <div key={client.id} className="h-11 border-b border-white/10 flex items-center relative">
+                    <div key={client.id} className="h-11 border-b border-slate-100 flex items-center relative">
                       {startPx < totalWidth && endPx > 0 && (
                         <div
                           className={cn("absolute h-7 rounded cursor-pointer hover:brightness-125 hover:scale-y-105 transition-all flex items-center overflow-hidden", barColor, isOngoing ? "rounded-r-none" : "")}
@@ -331,7 +331,7 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
       </div>
 
       {/* Legend */}
-      <div className="px-6 py-2.5 border-t border-white/10 flex items-center gap-5 flex-shrink-0">
+      <div className="px-6 py-2.5 border-t border-slate-200 bg-white flex items-center gap-5 flex-shrink-0">
         {(Object.entries(STATUS_STYLES) as [string, { pill: string }][]).map(([status, styles]) => (
           <div key={status} className="flex items-center gap-1.5">
             <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium", styles.pill)}>
@@ -339,7 +339,7 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
             </span>
           </div>
         ))}
-        <div className="ml-auto text-[11px] text-slate-500 font-mono">
+        <div className="ml-auto text-[11px] text-slate-400 font-mono">
           Today: {today.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
         </div>
       </div>

@@ -130,39 +130,38 @@ export default function CalendarGridView({ clients, onEditClient }: CalendarGrid
   }, [clients, year, month]);
 
   return (
-    <div className="flex flex-col h-full p-6 overflow-hidden">
+    <div className="flex flex-col h-full p-6 overflow-hidden bg-slate-50">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h2 className="text-lg font-semibold text-white">{monthName}</h2>
-          <p className="text-xs text-slate-500 mt-0.5 font-mono">{activeThisMonth} active client{activeThisMonth !== 1 ? "s" : ""}</p>
+          <h2 className="text-lg font-semibold text-slate-900">{monthName}</h2>
+          <p className="text-xs text-slate-400 mt-0.5 font-mono">{activeThisMonth} active client{activeThisMonth !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+          <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button onClick={() => { setMonth(today.getMonth()); setYear(today.getFullYear()); }}
-            className="px-3 py-1 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+            className="px-3 py-1 rounded-lg text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-200 transition-colors">
             Today
           </button>
-          <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+          <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Day headers */}
-      <div className="grid grid-cols-7 gap-px mb-1 flex-shrink-0">
+      <div className="grid grid-cols-7 gap-1 mb-1 flex-shrink-0">
         {DAY_NAMES.map((d) => (
-          <div key={d} className="text-center text-[11px] text-slate-500 uppercase tracking-widest py-1.5 font-medium">{d}</div>
+          <div key={d} className="text-center text-[11px] text-slate-400 uppercase tracking-widest py-1.5 font-semibold">{d}</div>
         ))}
       </div>
 
       {/* Calendar grid */}
-      <div className="flex-1 flex flex-col gap-px overflow-auto">
+      <div className="flex-1 flex flex-col gap-1 overflow-auto">
         {weeks.map((week, weekIdx) => {
           const spans = computeWeekSpans(clients, week);
-          const laneCount = Math.max(...spans.map(s => s.lane + 1), 0);
           const visibleSpans = spans.filter(s => s.lane < MAX_VISIBLE_LANES);
           const overflowByDay: number[] = Array(7).fill(0);
           spans.filter(s => s.lane >= MAX_VISIBLE_LANES).forEach(s => {
@@ -170,26 +169,25 @@ export default function CalendarGridView({ clients, onEditClient }: CalendarGrid
           });
 
           return (
-            <div key={weekIdx} className="grid grid-cols-7 gap-px relative min-h-[90px]">
+            <div key={weekIdx} className="grid grid-cols-7 gap-1 relative min-h-[90px]">
               {/* Day cells (background) */}
               {week.map((day, colIdx) => (
                 <div
                   key={colIdx}
                   className={cn(
-                    "bg-[#0f1629] border border-white/[0.06] rounded-lg pt-1.5 pb-1 px-1.5 min-h-[90px]",
-                    !isCurrentMonth(day) && "opacity-30",
-                    isToday(day) && "border-emerald-500/40 bg-emerald-500/5"
+                    "bg-white border border-slate-200 rounded-xl pt-1.5 pb-1 px-1.5 min-h-[90px]",
+                    !isCurrentMonth(day) && "opacity-40 bg-slate-50",
+                    isToday(day) && "border-blue-300 bg-blue-50"
                   )}
                 >
                   <div className={cn(
                     "text-xs font-mono w-6 h-6 flex items-center justify-center rounded-full",
-                    isToday(day) ? "bg-emerald-500 text-white font-bold" : "text-slate-500"
+                    isToday(day) ? "bg-blue-600 text-white font-bold" : "text-slate-400"
                   )}>
                     {day.getDate()}
                   </div>
-                  {/* Overflow count */}
                   {overflowByDay[colIdx] > 0 && (
-                    <div className="mt-auto text-[10px] text-slate-500 px-0.5 pt-1">
+                    <div className="mt-auto text-[10px] text-slate-400 px-0.5 pt-1">
                       +{overflowByDay[colIdx]} more
                     </div>
                   )}
@@ -246,7 +244,7 @@ export default function CalendarGridView({ clients, onEditClient }: CalendarGrid
       </div>
 
       {/* Client legend */}
-      <div className="flex-shrink-0 mt-4 pt-4 border-t border-white/10">
+      <div className="flex-shrink-0 mt-3 pt-3 border-t border-slate-200">
         <div className="flex flex-wrap gap-2">
           {clients.map(client => {
             const status = getContractStatus(client);
@@ -254,12 +252,12 @@ export default function CalendarGridView({ clients, onEditClient }: CalendarGrid
               <button
                 key={client.id}
                 onClick={() => onEditClient(client)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm"
               >
                 <div className={cn("w-2 h-2 rounded-full flex-shrink-0", COLOR_BAR[client.color] || "bg-violet-500")} />
-                <span className="text-xs text-slate-300 font-medium">{client.name}</span>
+                <span className="text-xs text-slate-700 font-medium">{client.name}</span>
                 <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full ml-0.5",
-                  STATUS_STYLES[status as keyof typeof STATUS_STYLES]?.pill || "bg-slate-700 text-slate-300"
+                  STATUS_STYLES[status as keyof typeof STATUS_STYLES]?.pill || "bg-slate-100 text-slate-500"
                 )}>
                   {status.replace("_", " ")}
                 </span>

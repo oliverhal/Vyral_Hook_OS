@@ -25,7 +25,7 @@ export interface CampaignMember {
   campaignId: string;
   userId: string;
   role: "owner" | "supporter";
-  user: { id: string; name: string; color: string };
+  user: { id: string; name: string; color: string; avatarUrl: string | null };
   createdAt: string;
 }
 
@@ -75,7 +75,7 @@ export interface HookComment {
   id: string;
   hookId: string;
   userId: string;
-  user: { id: string; name: string; color: string };
+  user: { id: string; name: string; color: string; avatarUrl: string | null };
   content: string;
   createdAt: string;
   updatedAt: string;

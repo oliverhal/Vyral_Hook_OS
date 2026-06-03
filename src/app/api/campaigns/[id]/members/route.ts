@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   const members = await prisma.campaignMember.findMany({
     where: { campaignId: params.id },
-    include: { user: { select: { id: true, name: true, color: true } } },
+    include: { user: { select: { id: true, name: true, color: true, avatarUrl: true } } },
     orderBy: { createdAt: "asc" },
   });
 

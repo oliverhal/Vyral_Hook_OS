@@ -8,10 +8,12 @@ import { ArrowRight, Clock, Plus, TrendingUp, Users, Zap } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
 import ContributionBoard from "./ContributionBoard";
 import CampaignLogo from "./CampaignLogo";
-import type { Campaign, Week, Hook } from "@/types";
+import UserAvatar from "./UserAvatar";
+import type { Campaign, Week, Hook, CampaignMember } from "@/types";
 
 interface CampaignWithCurrentWeek extends Campaign {
   weeks: (Week & { hooks: Hook[] })[];
+  members?: CampaignMember[];
 }
 
 interface ContributionData {
@@ -167,23 +169,45 @@ export default function DashboardContent() {
                   </div>
                 )}
 
-                {/* Submitters */}
-                {submitters.length > 0 && (
+                {/* Campaign team */}
+                {campaign.members && campaign.members.length > 0 ? (
+                  <div className="mb-4 space-y-1.5">
+                    {(() => {
+                      const owner = campaign.members!.find(m => m.role === "owner");
+                      const supporters = campaign.members!.filter(m => m.role === "supporter");
+                      return (
+                        <>
+                          {owner && (
+                            <div className="flex items-center gap-2">
+                              <UserAvatar name={owner.user.name} color={owner.user.color} avatarUrl={owner.user.avatarUrl} size="xs" />
+                              <span className="text-xs text-slate-700 font-medium">{owner.user.name}</span>
+                              <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full font-medium">owner</span>
+                            </div>
+                          )}
+                          {supporters.length > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex -space-x-1">
+                                {supporters.slice(0, 4).map(m => (
+                                  <UserAvatar key={m.id} name={m.user.name} color={m.user.color} avatarUrl={m.user.avatarUrl} size="xs" />
+                                ))}
+                              </div>
+                              <span className="text-xs text-slate-400">
+                                {supporters.length === 1 ? supporters[0].user.name : `${supporters.length} supporting`}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                ) : submitters.length > 0 && (
                   <div className="flex items-center gap-1.5 mb-4">
                     {submitters.map((name) => (
-                      <div
-                        key={name}
-                        className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center"
-                        title={name}
-                      >
-                        <span className="text-xs font-semibold text-slate-600">
-                          {name.charAt(0)}
-                        </span>
+                      <div key={name} className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center" title={name}>
+                        <span className="text-xs font-semibold text-slate-600">{name.charAt(0)}</span>
                       </div>
                     ))}
-                    <span className="text-xs text-slate-400 ml-1">
-                      {submitters.length} contributor{submitters.length !== 1 ? "s" : ""}
-                    </span>
+                    <span className="text-xs text-slate-400 ml-1">{submitters.length} contributor{submitters.length !== 1 ? "s" : ""}</span>
                   </div>
                 )}
 

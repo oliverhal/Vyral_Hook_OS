@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
+import UserAvatar from "./UserAvatar";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -17,6 +19,8 @@ const nav = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const currentUser = session?.user as { name?: string; color?: string; avatarUrl?: string } | undefined;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-[#0a0a0a] flex flex-col z-40">
@@ -72,12 +76,18 @@ export default function Sidebar() {
           <PlusCircle className="w-4 h-4 flex-shrink-0" />
           New Campaign
         </Link>
-        <div className="mt-4 px-3">
-          <div className="text-xs text-white/20">
-            Weekly deadline:{" "}
-            <span className="text-white/40 font-medium">Mon 6pm</span>
-          </div>
-        </div>
+        {currentUser?.name && (
+          <Link href="/admin/team" className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors mt-2">
+            <UserAvatar
+              name={currentUser.name}
+              color={currentUser.color ?? "blue"}
+              avatarUrl={currentUser.avatarUrl}
+              size="sm"
+              className="ring-0 ring-offset-0"
+            />
+            <span className="text-xs text-white/60 font-medium truncate">{currentUser.name}</span>
+          </Link>
+        )}
       </div>
     </aside>
   );

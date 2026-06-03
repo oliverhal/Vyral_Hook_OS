@@ -15,7 +15,7 @@ export async function GET() {
   }
 
   const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, color: true, role: true, active: true, createdAt: true },
+    select: { id: true, name: true, email: true, color: true, avatarUrl: true, role: true, active: true, createdAt: true },
     orderBy: { name: "asc" },
   });
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       color: color ?? "blue",
       role: role ?? "member",
     },
-    select: { id: true, name: true, email: true, color: true, role: true, active: true },
+    select: { id: true, name: true, email: true, color: true, avatarUrl: true, role: true, active: true },
   });
 
   // Send welcome email

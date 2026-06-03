@@ -14,7 +14,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         },
       },
       members: {
-        include: { user: { select: { id: true, name: true, color: true } } },
+        include: { user: { select: { id: true, name: true, color: true, avatarUrl: true } } },
         orderBy: { createdAt: "asc" },
       },
     },

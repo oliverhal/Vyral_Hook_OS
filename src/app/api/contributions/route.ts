@@ -42,9 +42,9 @@ export async function GET() {
 
   const members = await prisma.user.findMany({
     where: { active: true },
-    select: { name: true },
+    select: { name: true, color: true, avatarUrl: true },
     orderBy: { name: "asc" },
   });
 
-  return NextResponse.json({ data, members: members.map((m) => m.name) });
+  return NextResponse.json({ data, members: members.map((m) => m.name), memberDetails: members });
 }

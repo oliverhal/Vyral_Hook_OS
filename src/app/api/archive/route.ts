@@ -9,13 +9,14 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const campaignId = searchParams.get("campaignId");
+  const weekId = searchParams.get("weekId");
   const format = searchParams.get("format");
   const search = searchParams.get("search");
   const viral = searchParams.get("viral");
 
   const hooks = await prisma.hook.findMany({
     where: {
-      ...(campaignId ? { week: { campaignId } } : {}),
+      ...(weekId ? { weekId } : campaignId ? { week: { campaignId } } : {}),
       ...(format ? { format } : {}),
       ...(viral === "true" ? { wentViral: true } : {}),
       ...(search

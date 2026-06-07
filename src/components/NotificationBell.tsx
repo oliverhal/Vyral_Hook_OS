@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, MessageCircle, AtSign } from "lucide-react";
+import { Bell, MessageCircle, AtSign, X } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -80,62 +80,102 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute left-full ml-2 top-0 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-            <span className="text-sm font-bold text-slate-800">Notifications</span>
-            {notifications.some((n) => !n.read) && (
-              <button onClick={markAllRead} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
-                Mark all read
-              </button>
-            )}
-          </div>
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
-          <div className="max-h-96 overflow-y-auto divide-y divide-slate-50">
-            {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center">
-                <Bell className="w-6 h-6 text-slate-300 mx-auto mb-2" />
-                <p className="text-sm text-slate-400">No notifications yet</p>
+          {/* Panel — fixed so it's never clipped by sidebar */}
+          <div className="fixed left-64 bottom-4 z-50 w-[420px] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[70vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-slate-400" />
+                <span className="text-sm font-bold text-slate-900">Notifications</span>
+                {unread > 0 && (
+                  <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full">{unread}</span>
+                )}
               </div>
-            ) : (
-              notifications.map((n) => {
-                const inner = (
-                  <div className={cn(
-                    "px-4 py-3 flex items-start gap-3 transition-colors hover:bg-slate-50",
-                    !n.read && "bg-blue-50 hover:bg-blue-100/70"
-                  )}>
-                    <div className={cn(
-                      "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
-                      n.type === "mention" ? "bg-violet-100" : "bg-blue-100"
-                    )}>
-                      {n.type === "mention"
-                        ? <AtSign className="w-3.5 h-3.5 text-violet-600" />
-                        : <MessageCircle className="w-3.5 h-3.5 text-blue-600" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-700 leading-snug">
-                        <span className="font-semibold">{n.fromName}</span>{" "}
-                        {n.type === "mention" ? "mentioned you" : "replied to a thread you're on"}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-snug">
-                        "{n.hookText}"
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-1">{timeAgo(n.createdAt)}</p>
-                    </div>
-                    {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />}
-                  </div>
-                );
+              <div className="flex items-center gap-2">
+                {notifications.some((n) => !n.read) && (
+                  <button onClick={markAllRead} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                    Mark all read
+                  </button>
+                )}
+                <button onClick={() => setOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
 
-                return n.weekId ? (
-                  <Link key={n.id} href={`/weeks/${n.weekId}`} onClick={() => setOpen(false)}>
-                    {inner}
-                  </Link>
-                ) : (
-                  <div key={n.id}>{inner}</div>
-                );
-              })
-            )}
+            {/* List */}
+            <div className="overflow-y-auto flex-1 divide-y divide-slate-50">
+              {notifications.length === 0 ? (
+                <div className="px-5 py-12 text-center">
+                  <Bell className="w-7 h-7 text-slate-200 mx-auto mb-2.5" />
+                  <p className="text-sm font-medium text-slate-400">No notifications yet</p>
+                  <p className="text-xs text-slate-300 mt-0.5">You'll see mentions and replies here</p>
+                </div>
+              ) : (
+                notifications.map((n) => {
+                  const inner = (
+                    <div className={cn(
+                      "px-5 py-4 flex items-start gap-3.5 transition-colors hover:bg-slate-50",
+                      !n.read && "bg-blue-50 hover:bg-blue-50/80"
+                    )}>
+                      {/* Icon */}
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                        n.type === "mention" ? "bg-violet-100" : "bg-blue-100"
+                      )}>
+                        {n.type === "mention"
+                          ? <AtSign className="w-4 h-4 text-violet-600" />
+                          : <MessageCircle className="w-4 h-4 text-blue-600" />}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-800 leading-snug">
+                          <span className="font-semibold">{n.fromName}</span>{" "}
+                          <span className="text-slate-500">
+                            {n.type === "mention" ? "mentioned you in a comment" : "replied to a thread you're on"}
+                          </span>
+                        </p>
+
+                        {/* Full hook text — no clipping */}
+                        <div className={cn(
+                          "mt-2 px-3 py-2 rounded-lg text-sm text-slate-700 leading-relaxed",
+                          !n.read ? "bg-white border border-blue-100" : "bg-slate-50 border border-slate-100"
+                        )}>
+                          {n.hookText}
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-2">
+                          <p className="text-xs text-slate-400">{timeAgo(n.createdAt)}</p>
+                          {n.weekId && (
+                            <>
+                              <span className="text-slate-200">·</span>
+                              <span className="text-xs text-blue-500 font-medium">Click to view week →</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2" />}
+                    </div>
+                  );
+
+                  return n.weekId ? (
+                    <Link key={n.id} href={`/weeks/${n.weekId}`} onClick={() => setOpen(false)}>
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div key={n.id}>{inner}</div>
+                  );
+                })
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

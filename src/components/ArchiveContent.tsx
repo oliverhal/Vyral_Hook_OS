@@ -81,7 +81,7 @@ export default function ArchiveContent() {
           sourceHookId: hook.id,
         }),
       });
-      setValidated((prev) => new Set([...prev, hook.id]));
+      setValidated((prev) => { const next = new Set(prev); next.add(hook.id); return next; });
     } catch {}
     setValidating(null);
   }

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { isPast } from "date-fns";
 import {
   ArrowLeft, Check, CheckCircle2, ChevronDown, ChevronUp,
-  Clock, Sparkles, Users, AlertCircle, Hash, Layers, Link as LinkIcon, Share2
+  Clock, Sparkles, Users, AlertCircle, Hash, Layers, Link as LinkIcon, Share2, RotateCcw
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange, formatDeadline } from "@/lib/utils";
 import HookCard from "./HookCard";
@@ -274,7 +274,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 Generate {captionsNeeded} caption{captionsNeeded !== 1 ? "s" : ""}
               </button>
             )}
-            {week.status !== "finalized" && (
+            {week.status !== "finalized" ? (
               <button
                 onClick={() => updateWeekStatus("finalized")}
                 disabled={statusUpdating}
@@ -282,6 +282,19 @@ export default function WeekView({ weekId }: { weekId: string }) {
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Finalize Week
+              </button>
+            ) : isAdmin && (
+              <button
+                onClick={() => {
+                  if (confirm("Reopen this week? It will go back to open status so you can make changes.")) {
+                    updateWeekStatus("open");
+                  }
+                }}
+                disabled={statusUpdating}
+                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reopen week
               </button>
             )}
             <span className={cn(

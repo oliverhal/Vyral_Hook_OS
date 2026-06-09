@@ -136,21 +136,27 @@ async function aiColumnHints(rows: string[][], numCols: number): Promise<{ hookC
 }
 
 function buildHooks(rows: string[][], hookCol: number, formatCol: number, refCol: number) {
+  const hasFormatCol = formatCol >= 0;
+
   return rows
     .map((r) => {
       const hookText = r[hookCol]?.trim() ?? "";
       if (hookText.length < 5) return null;
       if (/^(hook|hook text|text on screen)$/i.test(hookText)) return null;
 
-      const formatRaw = formatCol >= 0 ? r[formatCol]?.trim() ?? "" : "";
-      const format = matchFormat(formatRaw) ?? "Faceless";
+      const formatRaw = hasFormatCol ? r[formatCol]?.trim() ?? "" : "";
+      const format = matchFormat(formatRaw);
+
+      // If the sheet has a format column, skip rows where it's empty —
+      // those are gap rows, notes, or script continuations, not real hooks
+      if (hasFormatCol && !format) return null;
 
       const refRaw = refCol >= 0 ? r[refCol]?.trim() ?? "" : "";
       const referenceVideo = looksLikeUrl(refRaw) ? refRaw : null;
 
       return {
         hookText,
-        format,
+        format: format ?? "Faceless",
         referenceVideo,
         caption: "Creator to come up with their own caption",
       };

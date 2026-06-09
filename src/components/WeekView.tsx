@@ -606,7 +606,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
 
           {/* Format filter pills */}
           {(() => {
-            const formatsInUse = [...new Set(week.hooks.map((h) => h.format))];
+            const formatsInUse = Array.from(new Set(week.hooks.map((h) => h.format)));
             if (formatsInUse.length <= 1) return null;
             return (
               <div className="flex items-center gap-1.5 mb-4 flex-wrap">

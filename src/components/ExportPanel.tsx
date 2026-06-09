@@ -61,19 +61,27 @@ export default function ExportPanel({
   const slackMsg = generateSlackMessage(campaign.name, campaign.clientName, new Date(weekStart), exportable, newHooksSheetUrl, validatedSheetUrl);
 
   // Sheets-ready TSV (tab-separated, ready to paste straight into Google Sheets)
+  // Cells containing newlines or tabs must be quoted (RFC 4180) so they stay in one cell
+  function tsvCell(val: string): string {
+    if (val.includes("\n") || val.includes("\t") || val.includes('"')) {
+      return `"${val.replace(/"/g, '""')}"`;
+    }
+    return val;
+  }
+
   const sheetsRows = [...exportable].sort((a, b) => (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99));
   const sheetsHeader = ["Hook (text on screen)", "Format", "Reference Vid:", "Captions (pls add your own hashtags)", "Notes:", "Requires App Footage", "App Footage Source"];
   const sheetsTSV = [
     ...(campaign.hashtags ? [campaign.hashtags] : []),
     sheetsHeader.join("\t"),
     ...sheetsRows.map((h) => [
-      h.hookText,
-      h.format,
-      h.referenceVideo ?? "",
-      h.aiCaption || h.caption,
-      h.recordingNotes ?? "",
+      tsvCell(h.hookText),
+      tsvCell(h.format),
+      tsvCell(h.referenceVideo ?? ""),
+      tsvCell(h.aiCaption || h.caption),
+      tsvCell(h.recordingNotes ?? ""),
       h.requiresAppFootage ? "Yes" : "",
-      h.appFootageSource ?? "",
+      tsvCell(h.appFootageSource ?? ""),
     ].join("\t")),
   ].join("\n");
 

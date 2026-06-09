@@ -135,8 +135,36 @@ async function aiColumnHints(rows: string[][], numCols: number): Promise<{ hookC
   };
 }
 
+// Merge continuation rows back into the previous hook.
+// When a hook is written across multiple lines and pasted into Google Sheets,
+// each line becomes a separate row. Rows with text but no format/URL are
+// continuations — join them onto the previous hook with a newline.
+function mergeRows(rows: string[][], hookCol: number, formatCol: number, refCol: number): string[][] {
+  if (formatCol < 0) return rows; // no format column detected — can't tell continuations from hooks
+  const merged: string[][] = [];
+  for (const row of rows) {
+    const hookText = row[hookCol]?.trim() ?? "";
+    const formatVal = formatCol >= 0 ? row[formatCol]?.trim() ?? "" : "";
+    const refVal = refCol >= 0 ? row[refCol]?.trim() ?? "" : "";
+    const hasFormat = matchFormat(formatVal) !== null;
+    const hasRef = looksLikeUrl(refVal);
+    const hasText = hookText.length > 0;
+    // Continuation: has text but no format and no URL — merge into previous hook
+    if (!hasFormat && !hasRef && hasText && merged.length > 0) {
+      const prev = [...merged[merged.length - 1]];
+      prev[hookCol] = (prev[hookCol] ?? "") + "\n" + hookText;
+      merged[merged.length - 1] = prev;
+    } else {
+      merged.push(row);
+    }
+  }
+  return merged;
+}
+
 function buildHooks(rows: string[][], hookCol: number, formatCol: number, refCol: number) {
-  return rows
+  const processedRows = mergeRows(rows, hookCol, formatCol, refCol);
+
+  return processedRows
     .map((r) => {
       const hookText = r[hookCol]?.trim() ?? "";
       if (hookText.length < 5) return null;

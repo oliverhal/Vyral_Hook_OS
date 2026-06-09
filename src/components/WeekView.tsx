@@ -16,6 +16,7 @@ import PreviousHooksPicker from "./PreviousHooksPicker";
 import ExportPanel from "./ExportPanel";
 import ValidatedPicker from "./ValidatedPicker";
 import WeekHistoryPanel from "./WeekHistoryPanel";
+import { HOOK_FORMATS, FORMAT_COLORS } from "@/types";
 import type { Hook, WeekWithHooks, WeekMode } from "@/types";
 import CampaignLogo from "./CampaignLogo";
 
@@ -27,6 +28,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>("all");
   const [filterContributor, setFilterContributor] = useState<string | null>(null);
+  const [filterFormat, setFilterFormat] = useState<string>("");
   const [showForm, setShowForm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -204,6 +206,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
 
   const filteredHooks = week.hooks.filter((h) => {
     if (filterContributor && h.submitterName !== filterContributor) return false;
+    if (filterFormat && h.format !== filterFormat) return false;
     if (filter === "mine") return h.submitterName === currentUser?.name;
     if (filter === "selected") return h.isSelected;
     return true;
@@ -579,7 +582,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
 
         {/* Right: hooks list */}
         <div className="col-span-3">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-slate-200 w-fit">
               {(["all", "mine", "selected"] as FilterType[]).map((f) => (
                 <button
@@ -600,6 +603,46 @@ export default function WeekView({ weekId }: { weekId: string }) {
               {filterContributor ? `${filterContributor}'s hooks` : "Experimental hooks"}
             </span>
           </div>
+
+          {/* Format filter pills */}
+          {(() => {
+            const formatsInUse = [...new Set(week.hooks.map((h) => h.format))];
+            if (formatsInUse.length <= 1) return null;
+            return (
+              <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+                <button
+                  onClick={() => setFilterFormat("")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                    !filterFormat ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
+                  )}
+                >
+                  All formats
+                </button>
+                {formatsInUse.map((fmt) => {
+                  const count = week.hooks.filter((h) => h.format === fmt).length;
+                  const colorClass = FORMAT_COLORS[fmt] ?? "bg-slate-100 text-slate-600";
+                  const isActive = filterFormat === fmt;
+                  return (
+                    <button
+                      key={fmt}
+                      onClick={() => setFilterFormat(isActive ? "" : fmt)}
+                      className={cn(
+                        "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                        isActive
+                          ? "ring-2 ring-offset-1 ring-slate-400 " + colorClass
+                          : colorClass + " border-transparent hover:opacity-80"
+                      )}
+                    >
+                      {fmt}
+                      <span className="opacity-60">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
 
           {filteredHooks.length === 0 ? (
             <div className="card p-12 text-center">

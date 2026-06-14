@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const RC_BASE = "https://api.revenuecat.com";
 
 async function rcFetch(path: string) {

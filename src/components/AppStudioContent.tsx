@@ -154,14 +154,18 @@ function MetricCard({
   );
 }
 
-function RevenueChart({ points }: { points: RevenuePoint[] }) {
+function RevenueChart({ points, unit = "USD" }: { points: RevenuePoint[]; unit?: string }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
   if (points.length < 2) return null;
+
   const w = 600;
-  const h = 160;
-  const padL = 56;
-  const padR = 16;
-  const padT = 12;
-  const padB = 28;
+  const h = 190;
+  const padL = 62;
+  const padR = 20;
+  const padT = 16;
+  const padB = 36;
   const values = points.map((p) => p.value);
   const max = Math.max(...values, 1);
   const xs = points.map((_, i) => padL + (i / (points.length - 1)) * (w - padL - padR));
@@ -171,37 +175,90 @@ function RevenueChart({ points }: { points: RevenuePoint[] }) {
   const yTicks = 4;
   const xStep = Math.max(1, Math.floor(points.length / 6));
 
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const scaleX = w / rect.width;
+    const mx = (e.clientX - rect.left) * scaleX;
+    let closest = 0;
+    let minDist = Infinity;
+    xs.forEach((x, i) => {
+      const d = Math.abs(x - mx);
+      if (d < minDist) { minDist = d; closest = i; }
+    });
+    setHoverIdx(closest);
+  }
+
+  const hovered = hoverIdx !== null ? points[hoverIdx] : null;
+  const tooltipX = hoverIdx !== null ? xs[hoverIdx] : 0;
+  const tooltipY = hoverIdx !== null ? ys[hoverIdx] : 0;
+  const tipOnLeft = tooltipX > w * 0.6;
+  const tooltipW = 104;
+  const tooltipH = 44;
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }}>
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${w} ${h}`}
+      className="w-full cursor-crosshair select-none"
+      style={{ height: h }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHoverIdx(null)}
+    >
       <defs>
         <linearGradient id="revenue-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.18" />
           <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
         </linearGradient>
       </defs>
+
       {Array.from({ length: yTicks + 1 }, (_, i) => {
         const y = padT + (i / yTicks) * (h - padT - padB);
         const val = max * (1 - i / yTicks);
+        const label = isCurrencyUnit(unit)
+          ? (val >= 1000 ? `$${(val / 1000).toFixed(0)}k` : `$${val.toFixed(0)}`)
+          : (val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0));
         return (
           <g key={i}>
             <line x1={padL} y1={y} x2={w - padR} y2={y} stroke="#e2e8f0" strokeWidth="1" />
-            <text x={padL - 6} y={y + 4} textAnchor="end" fontSize="10" fill="#94a3b8">
-              ${val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0)}
-            </text>
+            <text x={padL - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{label}</text>
           </g>
         );
       })}
+
       {points.map((p, i) => {
         if (i % xStep !== 0 && i !== points.length - 1) return null;
         return (
-          <text key={i} x={xs[i]} y={h - padB + 14} textAnchor="middle" fontSize="10" fill="#94a3b8">
+          <text key={i} x={xs[i]} y={h - padB + 18} textAnchor="middle" fontSize="10" fill="#94a3b8">
             {String(p.date).slice(0, 7)}
           </text>
         );
       })}
+
       <path d={area} fill="url(#revenue-grad)" />
       <path d={line} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r="4" fill="#3b82f6" />
+
+      {hoverIdx !== null ? (
+        <>
+          <line
+            x1={tooltipX} y1={padT}
+            x2={tooltipX} y2={h - padB}
+            stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.45"
+          />
+          <circle cx={tooltipX} cy={tooltipY} r="5.5" fill="white" stroke="#3b82f6" strokeWidth="2" />
+          <circle cx={tooltipX} cy={tooltipY} r="3" fill="#3b82f6" />
+          <g transform={`translate(${tipOnLeft ? tooltipX - tooltipW - 10 : tooltipX + 10},${Math.max(padT, Math.min(tooltipY - tooltipH / 2, h - padB - tooltipH))})`}>
+            <rect rx="7" ry="7" width={tooltipW} height={tooltipH} fill="#1e293b" />
+            <text x="10" y="15" fontSize="10" fill="#94a3b8">{String(hovered?.date ?? "").slice(0, 7)}</text>
+            <text x="10" y="32" fontSize="13" fontWeight="bold" fill="white">
+              {isCurrencyUnit(unit) ? formatCurrency(hovered?.value ?? 0, unit) : formatNumber(hovered?.value ?? 0)}
+            </text>
+          </g>
+        </>
+      ) : (
+        <circle cx={xs[xs.length - 1]} cy={ys[ys.length - 1]} r="4" fill="#3b82f6" />
+      )}
     </svg>
   );
 }
@@ -271,6 +328,8 @@ export default function AppStudioContent() {
   const revenue = findMetric(metrics, "revenue") ?? findMetric(metrics, "monthly_revenue");
   const newCustomers = findMetric(metrics, "new_paying_customers") ?? findMetric(metrics, "new_customers");
   const churn = findMetric(metrics, "churned_paying_customers") ?? findMetric(metrics, "churn_rate");
+
+  const revenueUnit = mrr?.unit ?? revenue?.unit ?? "USD";
 
   if (!loading && !data?.configured) {
     return (
@@ -429,8 +488,11 @@ export default function AppStudioContent() {
 
       {revenuePoints.length > 1 && (
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-4">
-          <h2 className="text-sm font-semibold text-slate-900 mb-4">Monthly Revenue (12 months)</h2>
-          <RevenueChart points={revenuePoints} />
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-900">Monthly Revenue</h2>
+            <span className="text-xs text-slate-400">Hover to explore</span>
+          </div>
+          <RevenueChart points={revenuePoints} unit={revenueUnit} />
         </div>
       )}
 

@@ -12,10 +12,10 @@ const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/app-studio", label: "App Studio", icon: BarChart3 },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/admin/team", label: "Team", icon: Users },
   { href: "/help", label: "How it works", icon: BookOpen },
+  { href: "/app-studio", label: "App Studio", icon: BarChart3 },
 ];
 
 export default function Sidebar() {

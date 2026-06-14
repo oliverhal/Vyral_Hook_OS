@@ -630,8 +630,8 @@ export default function WeekView({ weekId }: { weekId: string }) {
                       className={cn(
                         "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
                         isActive
-                          ? "ring-2 ring-offset-1 ring-slate-400 " + colorClass
-                          : colorClass + " border-transparent hover:opacity-80"
+                          ? "ring-2 ring-offset-1 ring-slate-500 " + colorClass
+                          : colorClass + " hover:opacity-80"
                       )}
                     >
                       {fmt}

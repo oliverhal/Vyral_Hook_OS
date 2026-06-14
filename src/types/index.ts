@@ -10,14 +10,14 @@ export type HookFormat = "Faceless" | "Snapchat" | "Talking head" | "Voiceover" 
 export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Other"];
 
 export const FORMAT_COLORS: Record<string, string> = {
-  Faceless: "bg-yellow-100 text-yellow-800",
-  Snapchat: "bg-green-100 text-green-800",
-  "Talking head": "bg-blue-100 text-blue-800",
-  Voiceover: "bg-purple-100 text-purple-800",
-  "Text-only": "bg-slate-100 text-slate-700",
-  "Long text": "bg-pink-100 text-pink-800",
-  "Short text": "bg-teal-100 text-teal-800",
-  Other: "bg-orange-100 text-orange-800",
+  Faceless: "bg-amber-100 text-amber-800 border-amber-300",
+  Snapchat: "bg-lime-100 text-lime-800 border-lime-300",
+  "Talking head": "bg-blue-100 text-blue-800 border-blue-300",
+  Voiceover: "bg-violet-100 text-violet-800 border-violet-300",
+  "Text-only": "bg-slate-100 text-slate-700 border-slate-300",
+  "Long text": "bg-rose-100 text-rose-800 border-rose-300",
+  "Short text": "bg-cyan-100 text-cyan-800 border-cyan-300",
+  Other: "bg-orange-100 text-orange-800 border-orange-300",
 };
 
 export interface CampaignMember {

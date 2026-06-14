@@ -35,17 +35,28 @@ function findMetric(metrics: RCMetric[], id: string): RCMetric | undefined {
   return metrics.find((m) => m.id === id);
 }
 
-function formatCurrency(value: number, unit = "USD") {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: unit,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+function safeNum(v: unknown): number {
+  const n = Number(v);
+  return isNaN(n) ? 0 : n;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US").format(Math.round(value));
+function formatCurrency(value: unknown, unit = "USD") {
+  try {
+    const n = safeNum(value);
+    const currency = typeof unit === "string" && unit.length === 3 ? unit : "USD";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(n);
+  } catch {
+    return `$${safeNum(value).toFixed(0)}`;
+  }
+}
+
+function formatNumber(value: unknown) {
+  return new Intl.NumberFormat("en-US").format(Math.round(safeNum(value)));
 }
 
 function Sparkline({ points, color = "#3b82f6" }: { points: number[]; color?: string }) {
@@ -97,7 +108,7 @@ function MetricCard({
   sparkPoints?: number[];
   loading?: boolean;
 }) {
-  const isPositive = (change ?? 0) >= 0;
+  const isPositive = safeNum(change ?? 0) >= 0;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col gap-3">
@@ -108,7 +119,7 @@ function MetricCard({
         {change !== undefined && (
           <span className={cn("flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full", isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
             {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-            {Math.abs(change).toFixed(1)}%
+            {Math.abs(safeNum(change)).toFixed(1)}%
           </span>
         )}
       </div>
@@ -402,7 +413,7 @@ export default function AppStudioContent() {
                 {churn.id === "churn_rate" ? "Churn rate" : "Churned customers (30d)"}
               </div>
               <div className="text-3xl font-bold text-slate-900">
-                {churn.id === "churn_rate" ? `${(churn.value * 100).toFixed(2)}%` : formatNumber(churn.value)}
+                {churn.id === "churn_rate" ? `${(safeNum(churn.value) * 100).toFixed(2)}%` : formatNumber(churn.value)}
               </div>
             </div>
           )}
@@ -427,15 +438,15 @@ export default function AppStudioContent() {
                 <span className="text-sm text-slate-600">{m.name}</span>
                 <div className="flex items-center gap-3">
                   {m.change_percentage !== undefined && (
-                    <span className={cn("text-xs font-medium", m.change_percentage >= 0 ? "text-emerald-600" : "text-red-500")}>
-                      {m.change_percentage >= 0 ? "+" : ""}{m.change_percentage.toFixed(1)}%
+                    <span className={cn("text-xs font-medium", safeNum(m.change_percentage) >= 0 ? "text-emerald-600" : "text-red-500")}>
+                      {safeNum(m.change_percentage) >= 0 ? "+" : ""}{safeNum(m.change_percentage).toFixed(1)}%
                     </span>
                   )}
                   <span className="text-sm font-semibold text-slate-900">
                     {m.unit
                       ? formatCurrency(m.value, m.unit)
                       : m.id.includes("rate") || m.id.includes("percentage")
-                      ? `${(m.value * 100).toFixed(2)}%`
+                      ? `${(safeNum(m.value) * 100).toFixed(2)}%`
                       : formatNumber(m.value)}
                   </span>
                 </div>

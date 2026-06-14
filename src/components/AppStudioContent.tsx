@@ -40,10 +40,17 @@ function safeNum(v: unknown): number {
   return isNaN(n) ? 0 : n;
 }
 
+const CURRENCY_UNITS = new Set(["USD", "EUR", "GBP", "AUD", "CAD", "JPY", "CHF", "SEK", "NOK", "DKK", "NZD", "SGD", "HKD", "MXN", "BRL", "INR", "KRW"]);
+
+function isCurrencyUnit(unit: string | undefined): boolean {
+  if (!unit) return false;
+  return CURRENCY_UNITS.has(unit.toUpperCase());
+}
+
 function formatCurrency(value: unknown, unit = "USD") {
   try {
     const n = safeNum(value);
-    const currency = typeof unit === "string" && unit.length === 3 ? unit : "USD";
+    const currency = CURRENCY_UNITS.has((unit ?? "").toUpperCase()) ? unit.toUpperCase() : "USD";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency,
@@ -359,7 +366,7 @@ export default function AppStudioContent() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <MetricCard
           label="Monthly Recurring Revenue"
-          value={cardLoading ? "—" : mrr ? formatCurrency(mrr.value, mrr.unit) : "—"}
+          value={cardLoading ? "—" : mrr ? (isCurrencyUnit(mrr.unit) ? formatCurrency(mrr.value, mrr.unit) : formatNumber(mrr.value)) : "—"}
           subLabel="MRR"
           icon={DollarSign}
           colorClass="bg-blue-100 text-blue-600"
@@ -379,7 +386,7 @@ export default function AppStudioContent() {
         />
         <MetricCard
           label="Annual Recurring Revenue"
-          value={cardLoading ? "—" : arr ? formatCurrency(arr.value, arr.unit) : "—"}
+          value={cardLoading ? "—" : arr ? (isCurrencyUnit(arr.unit) ? formatCurrency(arr.value, arr.unit) : formatNumber(arr.value)) : "—"}
           subLabel="ARR"
           icon={TrendingUp}
           colorClass="bg-violet-100 text-violet-600"
@@ -389,7 +396,7 @@ export default function AppStudioContent() {
         />
         <MetricCard
           label="Revenue (period)"
-          value={cardLoading ? "—" : revenue ? formatCurrency(revenue.value, revenue.unit) : "—"}
+          value={cardLoading ? "—" : revenue ? (isCurrencyUnit(revenue.unit) ? formatCurrency(revenue.value, revenue.unit) : formatNumber(revenue.value)) : "—"}
           subLabel={revenue?.period ?? "current period"}
           icon={BarChart3}
           colorClass="bg-amber-100 text-amber-600"
@@ -443,7 +450,7 @@ export default function AppStudioContent() {
                     </span>
                   )}
                   <span className="text-sm font-semibold text-slate-900">
-                    {m.unit
+                    {isCurrencyUnit(m.unit)
                       ? formatCurrency(m.value, m.unit)
                       : m.id.includes("rate") || m.id.includes("percentage")
                       ? `${(safeNum(m.value) * 100).toFixed(2)}%`

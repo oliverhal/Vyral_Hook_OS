@@ -251,8 +251,6 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 <Clock className="w-3.5 h-3.5" />
                 {formatDeadline(deadline)}
               </span>
-              <span className="text-slate-300">·</span>
-              <span>{totalSelected} / {totalTarget} hooks selected</span>
             </div>
           </div>
 
@@ -346,30 +344,37 @@ export default function WeekView({ weekId }: { weekId: string }) {
       )}
 
       {/* Progress bar */}
-      <div className="mb-6">
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex">
-          <div
-            className="h-full bg-blue-500 transition-all duration-700"
-            style={{ width: `${(Math.min(selectedHooks.length, expTarget) / totalTarget) * 100}%` }}
-          />
-          <div
-            className="h-full bg-orange-500 transition-all duration-700"
-            style={{ width: `${(Math.min(selectedValidated.length, valTarget) / totalTarget) * 100}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-          <span>
-            <span className="text-blue-500">●</span> {selectedHooks.length}/{expTarget} experimental
+      {(() => {
+        const expPct = totalTarget > 0 ? (Math.min(selectedHooks.length, expTarget) / totalTarget) * 100 : 0;
+        const valPct = totalTarget > 0 ? (Math.min(selectedValidated.length, valTarget) / totalTarget) * 100 : 0;
+        const done = totalSelected >= totalTarget && totalTarget > 0;
+        return (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-slate-500 font-medium">
+                {totalSelected} / {totalTarget} selected
+              </span>
+              {done && <span className="text-xs font-semibold text-emerald-600">✓ Target reached</span>}
+            </div>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex">
+              <div
+                className={cn("h-full transition-all duration-700", done ? "bg-emerald-500" : "bg-blue-500")}
+                style={{ width: `${expPct}%` }}
+              />
+              <div
+                className={cn("h-full transition-all duration-700", done ? "bg-emerald-400" : "bg-orange-400")}
+                style={{ width: `${valPct}%` }}
+              />
+            </div>
             {valTarget > 0 && (
-              <>
-                {" · "}
-                <span className="text-orange-500">●</span> {selectedValidated.length}/{valTarget} validated
-              </>
+              <div className="flex gap-3 text-[11px] text-slate-400 mt-1">
+                <span><span className={cn(done ? "text-emerald-500" : "text-blue-500")}>●</span> {selectedHooks.length}/{expTarget} experimental</span>
+                <span><span className={cn(done ? "text-emerald-400" : "text-orange-400")}>●</span> {selectedValidated.length}/{valTarget} validated</span>
+              </div>
             )}
-          </span>
-          <span>Total target: {totalTarget}</span>
-        </div>
-      </div>
+          </div>
+        );
+      })()}
 
       <div className="grid grid-cols-5 gap-6">
         {/* Left panel */}
@@ -628,14 +633,14 @@ export default function WeekView({ weekId }: { weekId: string }) {
                       key={fmt}
                       onClick={() => setFilterFormat(isActive ? "" : fmt)}
                       className={cn(
-                        "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
                         isActive
-                          ? "ring-2 ring-offset-1 ring-slate-500 " + colorClass
+                          ? "ring-2 ring-offset-1 ring-slate-500 shadow-sm " + colorClass
                           : colorClass + " hover:opacity-80"
                       )}
                     >
                       {fmt}
-                      <span className="opacity-60">{count}</span>
+                      <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-white/60 text-[10px] font-bold">{count}</span>
                     </button>
                   );
                 })}

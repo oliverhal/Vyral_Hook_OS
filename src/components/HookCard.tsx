@@ -10,6 +10,7 @@ import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { FORMAT_COLORS, HOOK_FORMATS } from "@/types";
 import type { Hook, Campaign, HookComment } from "@/types";
 import MentionInput, { renderWithMentions } from "./MentionInput";
+import UserAvatar from "./UserAvatar";
 
 interface HookCardProps {
   hook: Hook;
@@ -40,6 +41,7 @@ export default function HookCard({
 }: HookCardProps) {
   const { data: session } = useSession();
   const [expanded, setExpanded] = useState(false);
+  const [textExpanded, setTextExpanded] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<HookComment[]>([]);
@@ -164,8 +166,8 @@ export default function HookCard({
     <div
       className={cn(
         "card p-4 transition-all duration-200",
-        hook.isSelected && "ring-2 ring-blue-500 shadow-md",
-        hook.wentViral && "ring-1 ring-orange-300",
+        hook.isSelected && "ring-2 ring-blue-500 bg-blue-50/30 shadow-md",
+        hook.wentViral && !hook.isSelected && "ring-1 ring-orange-300",
         !hook.isSelected && selectable && "hover:shadow-md cursor-pointer"
       )}
       onClick={() => selectable && onSelect?.(hook.id, !hook.isSelected)}
@@ -175,25 +177,30 @@ export default function HookCard({
           <button
             onClick={(e) => { e.stopPropagation(); onSelect?.(hook.id, !hook.isSelected); }}
             className={cn(
-              "flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-150 mt-0.5",
+              "flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-200 mt-0.5",
               hook.isSelected
-                ? "bg-blue-600 border-blue-600 text-white"
-                : "border-slate-300 text-transparent hover:border-blue-400"
+                ? "bg-blue-600 border-blue-600 text-white scale-110 shadow-sm shadow-blue-200"
+                : "border-slate-300 text-transparent hover:border-blue-400 hover:scale-105"
             )}
           >
             {rank ? (
               <span className="text-xs font-bold">{rank}</span>
             ) : (
-              <Check className="w-3.5 h-3.5" />
+              <Check className={cn("w-3.5 h-3.5 transition-all duration-200", hook.isSelected ? "opacity-100 scale-100" : "opacity-0 scale-75")} />
             )}
           </button>
         )}
 
         <div className="flex-1 min-w-0">
-          {/* Format badge + viral badge + actions */}
+          {/* Format badge + viral badge + selected badge + actions */}
           <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className={cn("badge text-xs", formatColor)}>{hook.format}</span>
+              {hook.isSelected && (
+                <span className="badge text-xs bg-emerald-100 text-emerald-700 flex items-center gap-1 animate-in fade-in slide-in-from-left-1 duration-200">
+                  <Check className="w-3 h-3" /> Selected
+                </span>
+              )}
               {hook.wentViral && (
                 <span className="badge text-xs bg-orange-100 text-orange-700 flex items-center gap-1">
                   <Flame className="w-3 h-3" /> Viral
@@ -342,7 +349,21 @@ export default function HookCard({
           )}
 
           {/* Hook text */}
-          {!editing && <p className="font-semibold text-slate-900 text-sm leading-snug mb-2">{hook.hookText}</p>}
+          {!editing && (
+            <div className="mb-2">
+              <p className={cn("font-semibold text-slate-900 text-sm leading-snug", !textExpanded && "line-clamp-3")}>
+                {hook.hookText}
+              </p>
+              {hook.hookText.length > 120 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setTextExpanded(!textExpanded); }}
+                  className="text-[11px] text-blue-500 hover:text-blue-700 font-medium mt-0.5 transition-colors"
+                >
+                  {textExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
+            </div>
+          )}
 
           {/* AI caption */}
           {!editing && hook.aiCaption && (
@@ -435,13 +456,13 @@ export default function HookCard({
 
             {/* Submitter */}
             {showSubmitter && (
-              <div className="flex items-center gap-1.5 ml-1">
-                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center">
-                  <span className="text-xs font-medium text-slate-600">
-                    {hook.submitterName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <span className="text-xs text-slate-500">{hook.submitterName}</span>
+              <div className="flex items-center gap-1.5 ml-1" title={hook.submitterName}>
+                <UserAvatar
+                  name={hook.submitterName}
+                  avatarUrl={hook.submitterAvatarUrl ?? null}
+                  size="xs"
+                />
+                <span className="text-xs text-slate-500">{hook.submitterName.split(" ")[0]}</span>
               </div>
             )}
           </div>

@@ -87,6 +87,7 @@ export interface Hook {
   week?: Week;
   submittedById: string | null;
   submitterName: string;
+  submitterAvatarUrl?: string | null;
   hookText: string;
   format: HookFormat;
   caption: string;

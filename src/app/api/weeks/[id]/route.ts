@@ -12,6 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         include: {
           votes: true,
           _count: { select: { comments: true } },
+          submittedBy: { select: { avatarUrl: true } },
         },
       },
       selectedValidated: {
@@ -23,9 +24,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   if (!week) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const hooks = week.hooks.map(({ _count, ...hook }) => ({
+  const hooks = week.hooks.map(({ _count, submittedBy, ...hook }) => ({
     ...hook,
     commentCount: _count.comments,
+    submitterAvatarUrl: submittedBy?.avatarUrl ?? null,
   }));
 
   return NextResponse.json({ ...week, hooks });

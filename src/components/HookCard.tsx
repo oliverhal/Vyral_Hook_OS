@@ -460,6 +460,7 @@ export default function HookCard({
                 <UserAvatar
                   name={hook.submitterName}
                   avatarUrl={hook.submitterAvatarUrl ?? null}
+                  color="blue"
                   size="xs"
                 />
                 <span className="text-xs text-slate-500">{hook.submitterName.split(" ")[0]}</span>

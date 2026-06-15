@@ -214,18 +214,45 @@ function RevenueChart({ points, unit = "USD", period }: { points: RevenuePoint[]
     );
   }
 
-  const w = 600, h = 190, padL = 62, padR = 20, padT = 16, padB = 36;
+  const w = 600, h = 200, padL = 64, padR = 20, padT = 16, padB = 40;
   const values = points.map((p) => p.value);
-  const max = Math.max(...values, 1);
+  const rawMax = Math.max(...values, 1);
+
+  // Round up to a clean y-axis max
+  function niceMax(v: number): number {
+    const exp = Math.pow(10, Math.floor(Math.log10(v)));
+    const normed = v / exp;
+    const nice = normed <= 1 ? 1 : normed <= 2 ? 2 : normed <= 5 ? 5 : 10;
+    return nice * exp * 1.05; // 5% headroom
+  }
+  const max = niceMax(rawMax);
+
+  // Nice y-axis step
+  function niceStep(maxVal: number, ticks: number): number {
+    const rough = maxVal / ticks;
+    const exp = Math.pow(10, Math.floor(Math.log10(rough)));
+    const normed = rough / exp;
+    return (normed <= 1 ? 1 : normed <= 2 ? 2 : normed <= 5 ? 5 : 10) * exp;
+  }
+  const yStep = niceStep(max, 4);
+  const yTickValues: number[] = [];
+  for (let v = 0; v <= max * 1.01; v += yStep) yTickValues.push(v);
+
   const xs = points.map((_, i) => padL + (i / (points.length - 1)) * (w - padL - padR));
   const ys = points.map((p) => padT + (1 - p.value / max) * (h - padT - padB));
   const line = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
   const area = `${line} L${xs[xs.length - 1].toFixed(1)},${h - padB} L${xs[0].toFixed(1)},${h - padB} Z`;
-  const yTicks = 4;
 
-  // How many x-axis labels to show based on point count
-  const maxLabels = 7;
-  const xStep = Math.max(1, Math.floor(points.length / maxLabels));
+  // Pick x-axis label positions — evenly spaced, skip last if too close to previous
+  const minLabelGap = 52;
+  const targetLabels = Math.min(7, Math.floor((w - padL - padR) / minLabelGap));
+  const xStep = Math.max(1, Math.floor(points.length / targetLabels));
+  const labeledSet = new Set<number>();
+  for (let i = 0; i < points.length; i += xStep) labeledSet.add(i);
+  // Add last point only if it's far enough from the previous label
+  const lastI = points.length - 1;
+  const prevLabelI = Math.floor(lastI / xStep) * xStep;
+  if (xs[lastI] - xs[prevLabelI] > minLabelGap) labeledSet.add(lastI);
 
   // Format x-axis label based on period
   function xLabel(date: string): string {
@@ -285,9 +312,8 @@ function RevenueChart({ points, unit = "USD", period }: { points: RevenuePoint[]
         </linearGradient>
       </defs>
 
-      {Array.from({ length: yTicks + 1 }, (_, i) => {
-        const y = padT + (i / yTicks) * (h - padT - padB);
-        const val = max * (1 - i / yTicks);
+      {yTickValues.map((val, i) => {
+        const y = padT + (1 - val / max) * (h - padT - padB);
         const label = isCurrencyUnit(unit)
           ? (val >= 1000 ? `$${(val / 1000).toFixed(0)}k` : `$${val.toFixed(0)}`)
           : (val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val.toFixed(0));
@@ -300,9 +326,9 @@ function RevenueChart({ points, unit = "USD", period }: { points: RevenuePoint[]
       })}
 
       {points.map((p, i) => {
-        if (i % xStep !== 0 && i !== points.length - 1) return null;
+        if (!labeledSet.has(i)) return null;
         return (
-          <text key={i} x={xs[i]} y={h - padB + 18} textAnchor="middle" fontSize="10" fill="#94a3b8">
+          <text key={i} x={xs[i]} y={h - padB + 16} textAnchor="middle" fontSize="10" fill="#94a3b8">
             {xLabel(p.date)}
           </text>
         );

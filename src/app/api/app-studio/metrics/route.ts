@@ -26,26 +26,26 @@ type Period = "7d" | "30d" | "3m" | "12m";
 function getDateRange(period: Period): { start: string; end: string; resolution: string } {
   const end = new Date();
   const start = new Date();
-  let resolution = "daily";
+  let resolution = "DAY";
 
   switch (period) {
     case "7d":
       start.setDate(start.getDate() - 7);
-      resolution = "daily";
+      resolution = "DAY";
       break;
     case "30d":
       start.setDate(start.getDate() - 30);
-      resolution = "daily";
+      resolution = "DAY";
       break;
     case "3m":
       start.setMonth(start.getMonth() - 3);
       start.setDate(1);
-      resolution = "weekly";
+      resolution = "WEEK";
       break;
     case "12m":
       start.setMonth(start.getMonth() - 12);
       start.setDate(1);
-      resolution = "monthly";
+      resolution = "MONTH";
       break;
   }
 

@@ -5,6 +5,15 @@ import { format } from "date-fns";
 import { TrendingUp, Users, DollarSign, BarChart3, RefreshCw, AlertCircle, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type Period = "7d" | "30d" | "3m" | "12m";
+
+const PERIOD_LABELS: Record<Period, string> = {
+  "7d": "7D",
+  "30d": "30D",
+  "3m": "3M",
+  "12m": "12M",
+};
+
 interface RCMetric {
   id: string;
   name: string;
@@ -29,6 +38,7 @@ interface MetricsResponse {
   configured: boolean;
   projects?: ProjectData[];
   error?: string;
+  period?: Period;
 }
 
 function findMetric(metrics: RCMetric[], id: string): RCMetric | undefined {
@@ -40,7 +50,11 @@ function safeNum(v: unknown): number {
   return isNaN(n) ? 0 : n;
 }
 
-const CURRENCY_UNITS = new Set(["USD", "EUR", "GBP", "AUD", "CAD", "JPY", "CHF", "SEK", "NOK", "DKK", "NZD", "SGD", "HKD", "MXN", "BRL", "INR", "KRW"]);
+const CURRENCY_UNITS = new Set([
+  "USD", "EUR", "GBP", "AUD", "CAD", "JPY", "CHF",
+  "SEK", "NOK", "DKK", "NZD", "SGD", "HKD", "MXN",
+  "BRL", "INR", "KRW",
+]);
 
 function isCurrencyUnit(unit: string | undefined): boolean {
   if (!unit) return false;
@@ -66,11 +80,69 @@ function formatNumber(value: unknown) {
   return new Intl.NumberFormat("en-US").format(Math.round(safeNum(value)));
 }
 
+// Robustly extract revenue data points from whatever RevenueCat actually returns.
+// Tries every known response shape so we don't silently return [].
+function extractRevenuePoints(revenue: unknown): RevenuePoint[] {
+  try {
+    if (!revenue || typeof revenue !== "object") return [];
+    const r = revenue as Record<string, unknown>;
+
+    // Shape 1: { items: [{ date, value }] }
+    if (Array.isArray(r.items) && r.items.length > 0) {
+      const first = r.items[0] as Record<string, unknown>;
+      if (first.date !== undefined) {
+        return r.items.map((i: Record<string, unknown>) => ({
+          date: String(i.date ?? i.period ?? ""),
+          value: safeNum(i.value ?? i.revenue ?? i.net_revenue ?? i.amount ?? 0),
+        }));
+      }
+    }
+
+    // Shape 2: { values: [{ date, value }] } (direct array)
+    if (Array.isArray(r.values) && r.values.length > 0) {
+      const first = r.values[0] as Record<string, unknown>;
+      if (first.date !== undefined || first.period !== undefined) {
+        return r.values.map((i: Record<string, unknown>) => ({
+          date: String(i.date ?? i.period ?? ""),
+          value: safeNum(i.value ?? i.revenue ?? i.net_revenue ?? i.amount ?? 0),
+        }));
+      }
+    }
+
+    // Shape 3: { summaries: [...] }
+    if (Array.isArray(r.summaries)) {
+      return r.summaries.map((s: Record<string, unknown>) => ({
+        date: String(s.date ?? s.period ?? ""),
+        value: safeNum(s.value ?? s.revenue ?? 0),
+      }));
+    }
+
+    // Shape 4: { values: { summaries: [...] } }
+    const vObj = r.values as Record<string, unknown> | undefined;
+    if (vObj && typeof vObj === "object" && Array.isArray(vObj.summaries)) {
+      return vObj.summaries.map((s: Record<string, unknown>) => ({
+        date: String(s.date ?? s.period ?? ""),
+        value: safeNum(s.value ?? s.revenue ?? 0),
+      }));
+    }
+
+    // Shape 5: { data: [...] }
+    if (Array.isArray(r.data)) {
+      return r.data.map((i: Record<string, unknown>) => ({
+        date: String(i.date ?? i.period ?? ""),
+        value: safeNum(i.value ?? i.revenue ?? i.net_revenue ?? 0),
+      }));
+    }
+
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 function Sparkline({ points, color = "#3b82f6" }: { points: number[]; color?: string }) {
   if (points.length < 2) return null;
-  const w = 120;
-  const h = 36;
-  const pad = 2;
+  const w = 120, h = 36, pad = 2;
   const min = Math.min(...points);
   const max = Math.max(...points);
   const range = max - min || 1;
@@ -79,7 +151,6 @@ function Sparkline({ points, color = "#3b82f6" }: { points: number[]; color?: st
   const line = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
   const area = `${line} L${xs[xs.length - 1].toFixed(1)},${h} L${xs[0].toFixed(1)},${h} Z`;
   const gradId = `grad-${color.replace("#", "")}`;
-
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="overflow-visible">
       <defs>
@@ -95,28 +166,12 @@ function Sparkline({ points, color = "#3b82f6" }: { points: number[]; color?: st
 }
 
 function MetricCard({
-  label,
-  value,
-  subLabel,
-  icon: Icon,
-  colorClass,
-  hexColor,
-  change,
-  sparkPoints,
-  loading,
+  label, value, subLabel, icon: Icon, colorClass, hexColor, change, sparkPoints, loading,
 }: {
-  label: string;
-  value: string;
-  subLabel?: string;
-  icon: React.ElementType;
-  colorClass: string;
-  hexColor: string;
-  change?: number;
-  sparkPoints?: number[];
-  loading?: boolean;
+  label: string; value: string; subLabel?: string; icon: React.ElementType;
+  colorClass: string; hexColor: string; change?: number; sparkPoints?: number[]; loading?: boolean;
 }) {
   const isPositive = safeNum(change ?? 0) >= 0;
-
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -124,13 +179,13 @@ function MetricCard({
           <Icon className="w-4 h-4" />
         </div>
         {change !== undefined && (
-          <span className={cn("flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full", isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
+          <span className={cn("flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full",
+            isPositive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
             {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
             {Math.abs(safeNum(change)).toFixed(1)}%
           </span>
         )}
       </div>
-
       {loading ? (
         <div className="space-y-2 animate-pulse">
           <div className="h-7 w-28 bg-slate-100 rounded" />
@@ -142,30 +197,27 @@ function MetricCard({
           {subLabel && <div className="text-xs text-slate-500 mt-1">{subLabel}</div>}
         </div>
       )}
-
       {sparkPoints && sparkPoints.length > 1 && (
-        <div className="mt-auto">
-          <Sparkline points={sparkPoints} color={hexColor} />
-        </div>
+        <div className="mt-auto"><Sparkline points={sparkPoints} color={hexColor} /></div>
       )}
-
       <div className="text-xs font-medium text-slate-500 -mt-1">{label}</div>
     </div>
   );
 }
 
-function RevenueChart({ points, unit = "USD" }: { points: RevenuePoint[]; unit?: string }) {
+function RevenueChart({ points, unit = "USD", period }: { points: RevenuePoint[]; unit?: string; period: Period }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  if (points.length < 2) return null;
+  if (points.length < 2) {
+    return (
+      <div className="flex items-center justify-center h-40 text-slate-400 text-sm">
+        No chart data available for this period
+      </div>
+    );
+  }
 
-  const w = 600;
-  const h = 190;
-  const padL = 62;
-  const padR = 20;
-  const padT = 16;
-  const padB = 36;
+  const w = 600, h = 190, padL = 62, padR = 20, padT = 16, padB = 36;
   const values = points.map((p) => p.value);
   const max = Math.max(...values, 1);
   const xs = points.map((_, i) => padL + (i / (points.length - 1)) * (w - padL - padR));
@@ -173,16 +225,40 @@ function RevenueChart({ points, unit = "USD" }: { points: RevenuePoint[]; unit?:
   const line = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
   const area = `${line} L${xs[xs.length - 1].toFixed(1)},${h - padB} L${xs[0].toFixed(1)},${h - padB} Z`;
   const yTicks = 4;
-  const xStep = Math.max(1, Math.floor(points.length / 6));
+
+  // How many x-axis labels to show based on point count
+  const maxLabels = 7;
+  const xStep = Math.max(1, Math.floor(points.length / maxLabels));
+
+  // Format x-axis label based on period
+  function xLabel(date: string): string {
+    if (period === "7d" || period === "30d") {
+      // Daily: show "Jun 3"
+      try {
+        const d = new Date(date);
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      } catch { return date.slice(5, 10); }
+    }
+    if (period === "3m") {
+      // Weekly: show "Jun 3"
+      try {
+        const d = new Date(date);
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      } catch { return date.slice(5, 10); }
+    }
+    // Monthly: show "Jun '24"
+    try {
+      const d = new Date(date + (date.length === 7 ? "-01" : ""));
+      return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+    } catch { return date.slice(0, 7); }
+  }
 
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     const svg = svgRef.current;
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
-    const scaleX = w / rect.width;
-    const mx = (e.clientX - rect.left) * scaleX;
-    let closest = 0;
-    let minDist = Infinity;
+    const mx = (e.clientX - rect.left) * (w / rect.width);
+    let closest = 0, minDist = Infinity;
     xs.forEach((x, i) => {
       const d = Math.abs(x - mx);
       if (d < minDist) { minDist = d; closest = i; }
@@ -194,8 +270,7 @@ function RevenueChart({ points, unit = "USD" }: { points: RevenuePoint[]; unit?:
   const tooltipX = hoverIdx !== null ? xs[hoverIdx] : 0;
   const tooltipY = hoverIdx !== null ? ys[hoverIdx] : 0;
   const tipOnLeft = tooltipX > w * 0.6;
-  const tooltipW = 104;
-  const tooltipH = 44;
+  const tooltipW = 120, tooltipH = 48;
 
   return (
     <svg
@@ -231,7 +306,7 @@ function RevenueChart({ points, unit = "USD" }: { points: RevenuePoint[]; unit?:
         if (i % xStep !== 0 && i !== points.length - 1) return null;
         return (
           <text key={i} x={xs[i]} y={h - padB + 18} textAnchor="middle" fontSize="10" fill="#94a3b8">
-            {String(p.date).slice(0, 7)}
+            {xLabel(p.date)}
           </text>
         );
       })}
@@ -242,16 +317,15 @@ function RevenueChart({ points, unit = "USD" }: { points: RevenuePoint[]; unit?:
       {hoverIdx !== null ? (
         <>
           <line
-            x1={tooltipX} y1={padT}
-            x2={tooltipX} y2={h - padB}
+            x1={tooltipX} y1={padT} x2={tooltipX} y2={h - padB}
             stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.45"
           />
           <circle cx={tooltipX} cy={tooltipY} r="5.5" fill="white" stroke="#3b82f6" strokeWidth="2" />
           <circle cx={tooltipX} cy={tooltipY} r="3" fill="#3b82f6" />
           <g transform={`translate(${tipOnLeft ? tooltipX - tooltipW - 10 : tooltipX + 10},${Math.max(padT, Math.min(tooltipY - tooltipH / 2, h - padB - tooltipH))})`}>
             <rect rx="7" ry="7" width={tooltipW} height={tooltipH} fill="#1e293b" />
-            <text x="10" y="15" fontSize="10" fill="#94a3b8">{String(hovered?.date ?? "").slice(0, 7)}</text>
-            <text x="10" y="32" fontSize="13" fontWeight="bold" fill="white">
+            <text x="10" y="17" fontSize="10" fill="#94a3b8">{xLabel(hovered?.date ?? "")}</text>
+            <text x="10" y="35" fontSize="14" fontWeight="bold" fill="white">
               {isCurrencyUnit(unit) ? formatCurrency(hovered?.value ?? 0, unit) : formatNumber(hovered?.value ?? 0)}
             </text>
           </g>
@@ -269,31 +343,20 @@ function extractMetrics(overview: ProjectData["overview"]): RCMetric[] {
   return Array.isArray(arr) ? arr : [];
 }
 
-function extractRevenuePoints(revenue: unknown): RevenuePoint[] {
-  try {
-    if (!revenue || typeof revenue !== "object") return [];
-    const rev = revenue as Record<string, unknown>;
-    const summaries = (rev.summaries ?? (rev.values as Record<string, unknown> | undefined)?.summaries) as { date: string; value: number }[] | undefined;
-    if (!Array.isArray(summaries)) return [];
-    return summaries.map((s) => ({ date: String(s.date ?? ""), value: Number(s.value ?? 0) }));
-  } catch {
-    return [];
-  }
-}
-
 export default function AppStudioContent() {
   const [data, setData] = useState<MetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period>("30d");
   const selectedProjectRef = useRef<string | null>(null);
 
-  const fetchMetrics = async (silent = false) => {
+  const fetchMetrics = async (silent = false, p: Period = period) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const res = await fetch("/api/app-studio/metrics");
+      const res = await fetch(`/api/app-studio/metrics?period=${p}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: MetricsResponse = await res.json();
       setData(json);
@@ -315,8 +378,13 @@ export default function AppStudioContent() {
     fetchMetrics();
     const interval = setInterval(() => fetchMetrics(true), 60_000);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function handlePeriodChange(p: Period) {
+    setPeriod(p);
+    fetchMetrics(false, p);
+  }
 
   const currentProject = data?.projects?.find((p) => p.project.id === selectedProject) ?? data?.projects?.[0];
   const metrics = extractMetrics(currentProject?.overview ?? null);
@@ -328,7 +396,6 @@ export default function AppStudioContent() {
   const revenue = findMetric(metrics, "revenue") ?? findMetric(metrics, "monthly_revenue");
   const newCustomers = findMetric(metrics, "new_paying_customers") ?? findMetric(metrics, "new_customers");
   const churn = findMetric(metrics, "churned_paying_customers") ?? findMetric(metrics, "churn_rate");
-
   const revenueUnit = mrr?.unit ?? revenue?.unit ?? "USD";
 
   if (!loading && !data?.configured) {
@@ -378,15 +445,14 @@ export default function AppStudioContent() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
+      {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">App Studio Performance</h1>
           <p className="text-slate-500 text-sm mt-1">
             Live data from RevenueCat
             {lastUpdated && (
-              <span className="ml-2 text-slate-400">
-                · Updated {format(lastUpdated, "h:mm:ss a")}
-              </span>
+              <span className="ml-2 text-slate-400">· Updated {format(lastUpdated, "h:mm:ss a")}</span>
             )}
           </p>
         </div>
@@ -400,15 +466,13 @@ export default function AppStudioContent() {
         </button>
       </div>
 
+      {/* Project switcher */}
       {(data?.projects?.length ?? 0) > 1 && (
         <div className="flex gap-2 mb-6 flex-wrap">
           {data!.projects!.map((p) => (
             <button
               key={p.project.id}
-              onClick={() => {
-                selectedProjectRef.current = p.project.id;
-                setSelectedProject(p.project.id);
-              }}
+              onClick={() => { selectedProjectRef.current = p.project.id; setSelectedProject(p.project.id); }}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
                 selectedProject === p.project.id
@@ -422,49 +486,31 @@ export default function AppStudioContent() {
         </div>
       )}
 
+      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <MetricCard
-          label="Monthly Recurring Revenue"
-          value={cardLoading ? "—" : mrr ? (isCurrencyUnit(mrr.unit) ? formatCurrency(mrr.value, mrr.unit) : formatNumber(mrr.value)) : "—"}
-          subLabel="MRR"
-          icon={DollarSign}
-          colorClass="bg-blue-100 text-blue-600"
-          hexColor="#3b82f6"
-          change={mrr?.change_percentage}
-          loading={cardLoading}
+          label="Monthly Recurring Revenue" value={cardLoading ? "—" : mrr ? (isCurrencyUnit(mrr.unit) ? formatCurrency(mrr.value, mrr.unit) : formatNumber(mrr.value)) : "—"}
+          subLabel="MRR" icon={DollarSign} colorClass="bg-blue-100 text-blue-600" hexColor="#3b82f6"
+          change={mrr?.change_percentage} loading={cardLoading}
         />
         <MetricCard
-          label="Active Subscriptions"
-          value={cardLoading ? "—" : activeSubs ? formatNumber(activeSubs.value) : "—"}
-          subLabel="subscribers"
-          icon={Users}
-          colorClass="bg-emerald-100 text-emerald-600"
-          hexColor="#10b981"
-          change={activeSubs?.change_percentage}
-          loading={cardLoading}
+          label="Active Subscriptions" value={cardLoading ? "—" : activeSubs ? formatNumber(activeSubs.value) : "—"}
+          subLabel="subscribers" icon={Users} colorClass="bg-emerald-100 text-emerald-600" hexColor="#10b981"
+          change={activeSubs?.change_percentage} loading={cardLoading}
         />
         <MetricCard
-          label="Annual Recurring Revenue"
-          value={cardLoading ? "—" : arr ? (isCurrencyUnit(arr.unit) ? formatCurrency(arr.value, arr.unit) : formatNumber(arr.value)) : "—"}
-          subLabel="ARR"
-          icon={TrendingUp}
-          colorClass="bg-violet-100 text-violet-600"
-          hexColor="#8b5cf6"
-          change={arr?.change_percentage}
-          loading={cardLoading}
+          label="Annual Recurring Revenue" value={cardLoading ? "—" : arr ? (isCurrencyUnit(arr.unit) ? formatCurrency(arr.value, arr.unit) : formatNumber(arr.value)) : "—"}
+          subLabel="ARR" icon={TrendingUp} colorClass="bg-violet-100 text-violet-600" hexColor="#8b5cf6"
+          change={arr?.change_percentage} loading={cardLoading}
         />
         <MetricCard
-          label="Revenue (period)"
-          value={cardLoading ? "—" : revenue ? (isCurrencyUnit(revenue.unit) ? formatCurrency(revenue.value, revenue.unit) : formatNumber(revenue.value)) : "—"}
-          subLabel={revenue?.period ?? "current period"}
-          icon={BarChart3}
-          colorClass="bg-amber-100 text-amber-600"
-          hexColor="#f59e0b"
-          change={revenue?.change_percentage}
-          loading={cardLoading}
+          label="Revenue (period)" value={cardLoading ? "—" : revenue ? (isCurrencyUnit(revenue.unit) ? formatCurrency(revenue.value, revenue.unit) : formatNumber(revenue.value)) : "—"}
+          subLabel={revenue?.period ?? "current period"} icon={BarChart3} colorClass="bg-amber-100 text-amber-600" hexColor="#f59e0b"
+          change={revenue?.change_percentage} loading={cardLoading}
         />
       </div>
 
+      {/* New customers / churn */}
       {(newCustomers || churn) && (
         <div className="grid grid-cols-2 gap-4 mb-6">
           {newCustomers && (
@@ -486,16 +532,39 @@ export default function AppStudioContent() {
         </div>
       )}
 
-      {revenuePoints.length > 1 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-900">Monthly Revenue</h2>
-            <span className="text-xs text-slate-400">Hover to explore</span>
+      {/* Revenue chart with period selector */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-4">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-sm font-semibold text-slate-900">Revenue</h2>
+          <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+            {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => handlePeriodChange(p)}
+                disabled={loading}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-semibold transition-all",
+                  period === p
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
           </div>
-          <RevenueChart points={revenuePoints} unit={revenueUnit} />
         </div>
-      )}
 
+        {loading ? (
+          <div className="animate-pulse">
+            <div className="h-44 bg-slate-50 rounded-xl" />
+          </div>
+        ) : (
+          <RevenueChart points={revenuePoints} unit={revenueUnit} period={period} />
+        )}
+      </div>
+
+      {/* All metrics table */}
       {metrics.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200">
           <div className="px-6 py-4 border-b border-slate-100">

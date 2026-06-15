@@ -23,44 +23,50 @@ async function rcFetch(path: string) {
 
 type Period = "7d" | "30d" | "3m" | "12m";
 
-function getDateRange(period: Period): { start: string; end: string; resolution: string } {
+function getDateRange(period: Period): { start: string; end: string } {
   const end = new Date();
   const start = new Date();
-  let resolution = "DAY";
 
   switch (period) {
-    case "7d":
-      start.setDate(start.getDate() - 7);
-      resolution = "DAY";
-      break;
-    case "30d":
-      start.setDate(start.getDate() - 30);
-      resolution = "DAY";
-      break;
-    case "3m":
-      start.setMonth(start.getMonth() - 3);
-      start.setDate(1);
-      resolution = "WEEK";
-      break;
-    case "12m":
-      start.setMonth(start.getMonth() - 12);
-      start.setDate(1);
-      resolution = "MONTH";
-      break;
+    case "7d":  start.setDate(start.getDate() - 7); break;
+    case "30d": start.setDate(start.getDate() - 30); break;
+    case "3m":  start.setMonth(start.getMonth() - 3); start.setDate(1); break;
+    case "12m": start.setMonth(start.getMonth() - 12); start.setDate(1); break;
   }
 
   return {
     start: start.toISOString().split("T")[0],
     end: end.toISOString().split("T")[0],
-    resolution,
   };
 }
 
-async function fetchRevenueChart(projectId: string, resolution: string, start: string, end: string) {
-  // Try the charts/revenue endpoint, surface the error in the response so we can debug
+// RevenueCat resolution values to try in order (P1D=daily, P7D=weekly, P1M=monthly)
+const RESOLUTION_BY_PERIOD: Record<Period, string[]> = {
+  "7d":  ["P1D", "day", "daily"],
+  "30d": ["P1D", "day", "daily"],
+  "3m":  ["P7D", "week", "weekly"],
+  "12m": ["P1M", "month", "monthly"],
+};
+
+async function fetchRevenueChart(projectId: string, period: Period, start: string, end: string) {
+  const candidates = RESOLUTION_BY_PERIOD[period];
+
+  // Try each resolution candidate until one works
+  for (const resolution of candidates) {
+    try {
+      const data = await rcFetch(
+        `/v2/projects/${projectId}/charts/revenue?resolution=${resolution}&start_time=${start}&end_time=${end}`
+      );
+      return data;
+    } catch {
+      // try next
+    }
+  }
+
+  // Also try without resolution param
   try {
     return await rcFetch(
-      `/v2/projects/${projectId}/charts/revenue?resolution=${resolution}&start_time=${start}&end_time=${end}`
+      `/v2/projects/${projectId}/charts/revenue?start_time=${start}&end_time=${end}`
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -76,7 +82,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = req.nextUrl;
   const period = (searchParams.get("period") ?? "30d") as Period;
-  const { start, end, resolution } = getDateRange(period);
+  const { start, end } = getDateRange(period);
 
   try {
     const projectsData = await rcFetch("/v2/projects?limit=10");
@@ -91,7 +97,7 @@ export async function GET(req: NextRequest) {
         try {
           const [overview, revenue] = await Promise.all([
             rcFetch(`/v2/projects/${project.id}/metrics/overview`),
-            fetchRevenueChart(project.id, resolution, start, end),
+            fetchRevenueChart(project.id, period, start, end),
           ]);
           return { project, overview, revenue };
         } catch {

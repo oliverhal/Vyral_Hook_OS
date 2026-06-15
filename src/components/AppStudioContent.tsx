@@ -84,57 +84,50 @@ function formatNumber(value: unknown) {
   return new Intl.NumberFormat("en-US").format(Math.round(safeNum(value)));
 }
 
-// Robustly extract revenue data points from whatever RevenueCat actually returns.
-// Tries every known response shape so we don't silently return [].
+// Extract revenue points from RevenueCat's actual chart response shape:
+// { values: [{ cohort: unixTimestampSeconds, measure: 0|1, value: number }], resolution: "day" }
+// measure 0 = Revenue, measure 1 = Transactions
 function extractRevenuePoints(revenue: unknown): RevenuePoint[] {
   try {
     if (!revenue || typeof revenue !== "object") return [];
     const r = revenue as Record<string, unknown>;
 
-    // Shape 1: { items: [{ date, value }] }
-    if (Array.isArray(r.items) && r.items.length > 0) {
-      const first = r.items[0] as Record<string, unknown>;
-      if (first.date !== undefined) {
-        return r.items.map((i: Record<string, unknown>) => ({
-          date: String(i.date ?? i.period ?? ""),
-          value: safeNum(i.value ?? i.revenue ?? i.net_revenue ?? i.amount ?? 0),
-        }));
-      }
-    }
-
-    // Shape 2: { values: [{ date, value }] } (direct array)
+    // RevenueCat chart format: values[] with cohort (unix seconds) + measure index
     if (Array.isArray(r.values) && r.values.length > 0) {
       const first = r.values[0] as Record<string, unknown>;
+
+      if (first.cohort !== undefined && first.measure !== undefined) {
+        // Filter to measure=0 (Revenue only), dedupe by cohort, skip incomplete tail
+        return r.values
+          .filter((i: Record<string, unknown>) => safeNum(i.measure) === 0 && !i.incomplete)
+          .map((i: Record<string, unknown>) => ({
+            date: new Date(safeNum(i.cohort) * 1000).toISOString().split("T")[0],
+            value: safeNum(i.value),
+          }));
+      }
+
+      // Fallback: { values: [{ date, value }] }
       if (first.date !== undefined || first.period !== undefined) {
         return r.values.map((i: Record<string, unknown>) => ({
           date: String(i.date ?? i.period ?? ""),
-          value: safeNum(i.value ?? i.revenue ?? i.net_revenue ?? i.amount ?? 0),
+          value: safeNum(i.value ?? i.revenue ?? 0),
         }));
       }
     }
 
-    // Shape 3: { summaries: [...] }
+    // { items: [{ date, value }] }
+    if (Array.isArray(r.items) && r.items.length > 0) {
+      return r.items.map((i: Record<string, unknown>) => ({
+        date: String(i.date ?? i.period ?? ""),
+        value: safeNum(i.value ?? i.revenue ?? 0),
+      }));
+    }
+
+    // { summaries: [...] }
     if (Array.isArray(r.summaries)) {
       return r.summaries.map((s: Record<string, unknown>) => ({
         date: String(s.date ?? s.period ?? ""),
         value: safeNum(s.value ?? s.revenue ?? 0),
-      }));
-    }
-
-    // Shape 4: { values: { summaries: [...] } }
-    const vObj = r.values as Record<string, unknown> | undefined;
-    if (vObj && typeof vObj === "object" && Array.isArray(vObj.summaries)) {
-      return vObj.summaries.map((s: Record<string, unknown>) => ({
-        date: String(s.date ?? s.period ?? ""),
-        value: safeNum(s.value ?? s.revenue ?? 0),
-      }));
-    }
-
-    // Shape 5: { data: [...] }
-    if (Array.isArray(r.data)) {
-      return r.data.map((i: Record<string, unknown>) => ({
-        date: String(i.date ?? i.period ?? ""),
-        value: safeNum(i.value ?? i.revenue ?? i.net_revenue ?? 0),
       }));
     }
 

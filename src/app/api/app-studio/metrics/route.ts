@@ -56,6 +56,18 @@ function getDateRange(period: Period): { start: string; end: string; resolution:
   };
 }
 
+async function fetchRevenueChart(projectId: string, resolution: string, start: string, end: string) {
+  // Try the charts/revenue endpoint, surface the error in the response so we can debug
+  try {
+    return await rcFetch(
+      `/v2/projects/${projectId}/charts/revenue?resolution=${resolution}&start_time=${start}&end_time=${end}`
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { _error: msg };
+  }
+}
+
 export async function GET(req: NextRequest) {
   const key = process.env.REVENUECAT_SECRET_KEY;
   if (!key) {
@@ -79,24 +91,8 @@ export async function GET(req: NextRequest) {
         try {
           const [overview, revenue] = await Promise.all([
             rcFetch(`/v2/projects/${project.id}/metrics/overview`),
-            rcFetch(
-              `/v2/projects/${project.id}/charts/revenue?resolution=${resolution}&start_time=${start}&end_time=${end}`
-            ).catch(() => null),
+            fetchRevenueChart(project.id, resolution, start, end),
           ]);
-
-          // Log raw revenue shape so we can see what RevenueCat actually returns
-          if (revenue) {
-            console.log(
-              `[app-studio] revenue shape for ${project.id} (period=${period}):`,
-              JSON.stringify(Object.keys(revenue))
-            );
-            const firstItem = revenue.items?.[0] ?? revenue.values?.[0] ?? revenue.summaries?.[0];
-            if (firstItem) {
-              console.log(`[app-studio] first revenue item keys:`, JSON.stringify(Object.keys(firstItem)));
-              console.log(`[app-studio] first revenue item:`, JSON.stringify(firstItem));
-            }
-          }
-
           return { project, overview, revenue };
         } catch {
           return { project, overview: null, revenue: null };

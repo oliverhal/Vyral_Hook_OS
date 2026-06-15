@@ -58,13 +58,17 @@ const CURRENCY_UNITS = new Set([
 
 function isCurrencyUnit(unit: string | undefined): boolean {
   if (!unit) return false;
+  if (unit === "$" || unit === "€" || unit === "£") return true;
   return CURRENCY_UNITS.has(unit.toUpperCase());
 }
+
+const SYMBOL_TO_ISO: Record<string, string> = { "$": "USD", "€": "EUR", "£": "GBP" };
 
 function formatCurrency(value: unknown, unit = "USD") {
   try {
     const n = safeNum(value);
-    const currency = CURRENCY_UNITS.has((unit ?? "").toUpperCase()) ? unit.toUpperCase() : "USD";
+    const resolved = SYMBOL_TO_ISO[unit] ?? unit;
+    const currency = CURRENCY_UNITS.has(resolved.toUpperCase()) ? resolved.toUpperCase() : "USD";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency,

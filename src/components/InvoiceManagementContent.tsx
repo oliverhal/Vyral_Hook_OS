@@ -4,9 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Plus, Trash2, Edit2, Download, Upload, Check, X,
   AlertCircle, Clock, TrendingUp, Repeat, ExternalLink,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Pencil,
 } from "lucide-react";
-import RevolutPL from "./RevolutPL";
 import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -497,17 +496,22 @@ function ClientForm({ client, onSave, onCancel }: ClientFormProps) {
 export default function InvoiceManagementContent() {
   const [clients, setClients] = useState<Client[]>([]);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<"overview" | "clients" | "pl">("overview");
+  const [tab, setTab] = useState<"overview" | "clients">("overview");
   const [clientFilter, setClientFilter] = useState<"active" | "ended" | "all">("active");
   const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(new Date()));
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [monthlyBurn, setMonthlyBurn] = useState(25000);
+  const [editingBurn, setEditingBurn] = useState(false);
+  const [burnInput, setBurnInput] = useState("25000");
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       setClients(saved ? JSON.parse(saved) : SEED_CLIENTS);
+      const savedBurn = localStorage.getItem("vyral-monthly-burn");
+      if (savedBurn) { const v = Number(savedBurn); if (!isNaN(v)) { setMonthlyBurn(v); setBurnInput(String(v)); } }
     } catch {
       setClients(SEED_CLIENTS);
     }
@@ -679,7 +683,7 @@ export default function InvoiceManagementContent() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-5 gap-4 mb-8">
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center">
@@ -719,26 +723,60 @@ export default function InvoiceManagementContent() {
           <p className="text-xs text-slate-400 mt-1">Revenue + creator pass-through</p>
         </div>
 
-        <div className="card p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center">
-              <Clock className="w-4 h-4 text-slate-500" />
+        {/* Monthly Burn — editable */}
+        <div className="card p-5 border-red-100">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-red-100 rounded-xl flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-red-500 rotate-180" />
+              </div>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Monthly Burn</span>
             </div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">This Month</span>
+            <button onClick={() => { setEditingBurn(true); setBurnInput(String(monthlyBurn)); }}
+              className="p-1 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 transition-colors">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{monthInvoices.length}</p>
-          <div className="flex gap-2 mt-1 flex-wrap">
-            {monthInvoices.filter(i => i.status === "pending").length > 0 && (
-              <span className="badge bg-amber-50 text-amber-700 border border-amber-200">{monthInvoices.filter(i => i.status === "pending").length} pending</span>
-            )}
-            {monthInvoices.filter(i => i.status === "sent").length > 0 && (
-              <span className="badge bg-blue-50 text-blue-700 border border-blue-200">{monthInvoices.filter(i => i.status === "sent").length} sent</span>
-            )}
-            {monthInvoices.filter(i => i.status === "paid").length > 0 && (
-              <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">{monthInvoices.filter(i => i.status === "paid").length} paid</span>
-            )}
-          </div>
+          {editingBurn ? (
+            <form onSubmit={e => {
+              e.preventDefault();
+              const v = Number(burnInput.replace(/[^0-9]/g, ""));
+              if (!isNaN(v) && v > 0) { setMonthlyBurn(v); localStorage.setItem("vyral-monthly-burn", String(v)); }
+              setEditingBurn(false);
+            }} className="flex items-center gap-2">
+              <span className="text-slate-400 font-bold">€</span>
+              <input autoFocus type="text" value={burnInput}
+                onChange={e => setBurnInput(e.target.value)}
+                onBlur={() => { const v = Number(burnInput.replace(/[^0-9]/g, "")); if (!isNaN(v) && v > 0) { setMonthlyBurn(v); localStorage.setItem("vyral-monthly-burn", String(v)); } setEditingBurn(false); }}
+                className="input py-1 text-xl font-bold w-full" />
+            </form>
+          ) : (
+            <p className="text-2xl font-bold text-red-600 cursor-pointer" onClick={() => { setEditingBurn(true); setBurnInput(String(monthlyBurn)); }}>
+              {fmtEur(monthlyBurn)}
+            </p>
+          )}
+          <p className="text-xs text-slate-400 mt-1">Est. — click to update</p>
         </div>
+
+        {/* Est. Profit */}
+        {(() => {
+          const profit = stats.totalRev - monthlyBurn;
+          const isPositive = profit >= 0;
+          return (
+            <div className={cn("card p-5", isPositive ? "border-emerald-200 bg-emerald-50/50" : "border-red-200 bg-red-50/50")}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center", isPositive ? "bg-emerald-100" : "bg-red-100")}>
+                  <TrendingUp className={cn("w-4 h-4", isPositive ? "text-emerald-600" : "text-red-500")} />
+                </div>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Est. Profit</span>
+              </div>
+              <p className={cn("text-2xl font-bold", isPositive ? "text-emerald-700" : "text-red-600")}>
+                {isPositive ? "+" : "−"}{fmtEur(Math.abs(profit))}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">Revenue − burn</p>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Tabs */}
@@ -754,12 +792,6 @@ export default function InvoiceManagementContent() {
             tab === "clients" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
           )}>
           Clients ({clients.length})
-        </button>
-        <button onClick={() => setTab("pl")}
-          className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5",
-            tab === "pl" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-          )}>
-          P&amp;L
         </button>
       </div>
 
@@ -876,11 +908,6 @@ export default function InvoiceManagementContent() {
           })}
           </div>
         </div>
-      )}
-
-      {/* P&L tab */}
-      {tab === "pl" && (
-        <RevolutPL selectedMonth={selectedMonth} monthRevenue={stats.totalRev} />
       )}
 
       {/* Modal */}

@@ -396,15 +396,34 @@ function ClientForm({ client, onSave, onCancel }: ClientFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Early End Date <span className="text-red-400 normal-case font-normal">(stops all invoices)</span></label>
-          <input type="date" value={form.contractEndDate ?? ""} onChange={e => setForm(f => ({ ...f, contractEndDate: e.target.value }))} className="input border-red-200 bg-red-50/50" />
+      {/* Contract end date — prominent, easy to set */}
+      <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+        <label className="label text-red-700">Contract End Date <span className="normal-case font-normal text-red-400">(marks client inactive, stops all invoices)</span></label>
+        <div className="flex gap-2 items-center">
+          <input type="date" value={form.contractEndDate ?? ""} onChange={e => setForm(f => ({ ...f, contractEndDate: e.target.value }))} className="input flex-1 border-red-200 bg-white" />
+          <button type="button"
+            onClick={() => setForm(f => ({ ...f, contractEndDate: new Date().toISOString().split("T")[0] }))}
+            className="btn-secondary text-xs whitespace-nowrap border-red-200 text-red-600 hover:bg-red-100">
+            Set today
+          </button>
+          {form.contractEndDate && (
+            <button type="button"
+              onClick={() => setForm(f => ({ ...f, contractEndDate: "" }))}
+              className="btn-secondary text-xs text-slate-400 border-slate-200">
+              Clear
+            </button>
+          )}
         </div>
-        <div>
-          <label className="label">Contract Link</label>
-          <input type="url" value={form.contractLink ?? ""} onChange={e => setForm(f => ({ ...f, contractLink: e.target.value }))} className="input" placeholder="https://..." />
-        </div>
+        {form.contractEndDate && (
+          <p className="text-xs text-red-500 font-medium mt-2">
+            ⚠ Contract ends {fmtDate(new Date(form.contractEndDate))} — invoices after this date will be hidden
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="label">Contract Link</label>
+        <input type="url" value={form.contractLink ?? ""} onChange={e => setForm(f => ({ ...f, contractLink: e.target.value }))} className="input" placeholder="https://..." />
       </div>
 
       {/* Creator payment */}
@@ -478,6 +497,7 @@ export default function InvoiceManagementContent() {
   const [clients, setClients] = useState<Client[]>([]);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<"overview" | "clients">("overview");
+  const [clientFilter, setClientFilter] = useState<"active" | "ended" | "all">("active");
   const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(new Date()));
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -750,18 +770,50 @@ export default function InvoiceManagementContent() {
 
       {/* Clients tab */}
       {tab === "clients" && (
-        <div className="space-y-3">
-          {clients.map(client => {
+        <div>
+          {/* Active / Ended filter */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+              {(["active", "ended", "all"] as const).map(f => {
+                const count = f === "all" ? clients.length
+                  : f === "active" ? clients.filter(c => !c.contractEndDate || new Date(c.contractEndDate) >= new Date()).length
+                  : clients.filter(c => c.contractEndDate && new Date(c.contractEndDate) < new Date()).length;
+                return (
+                  <button key={f} onClick={() => setClientFilter(f)}
+                    className={cn("px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5",
+                      clientFilter === f ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    )}>
+                    {f === "active" && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />}
+                    {f === "ended" && <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />}
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                    <span className="text-xs text-slate-400 font-normal">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-3">
+          {clients
+            .filter(c => {
+              const isEnded = c.contractEndDate ? new Date(c.contractEndDate) < new Date() : false;
+              if (clientFilter === "active") return !isEnded;
+              if (clientFilter === "ended") return isEnded;
+              return true;
+            })
+            .map(client => {
             const isEnded = client.contractEndDate ? new Date(client.contractEndDate) < new Date() : false;
             const thisMonth = monthInvoices.filter(i => i.clientId === client.id);
             const monthTotal = thisMonth.reduce((s, i) => s + i.amount, 0);
             return (
-              <div key={client.id} className={cn("card p-5", isEnded && "opacity-60")}>
+              <div key={client.id} className={cn("card p-5", isEnded && "border-slate-200 bg-slate-50/50")}>
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-bold text-slate-900">{client.name}</h3>
-                      {isEnded && <span className="badge bg-slate-100 text-slate-500 border border-slate-200">Ended {client.contractEndDate ? fmtDate(new Date(client.contractEndDate)) : ""}</span>}
+                      {isEnded
+                        ? <span className="badge bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />Ended {client.contractEndDate ? fmtDate(new Date(client.contractEndDate)) : ""}</span>
+                        : <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Active</span>
+                      }
                       {monthTotal > 0 && <span className="badge bg-blue-50 text-blue-700 border border-blue-200 font-semibold">{fmtEur(monthTotal)} this month</span>}
                     </div>
                     <p className="text-xs text-slate-400 mt-1">
@@ -811,6 +863,7 @@ export default function InvoiceManagementContent() {
               </div>
             );
           })}
+          </div>
         </div>
       )}
 

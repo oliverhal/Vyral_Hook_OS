@@ -502,16 +502,25 @@ export default function InvoiceManagementContent() {
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const [monthlyBurn, setMonthlyBurn] = useState(25000);
+  const [burnByMonth, setBurnByMonth] = useState<Record<string, number>>({});
   const [editingBurn, setEditingBurn] = useState(false);
   const [burnInput, setBurnInput] = useState("25000");
+
+  const DEFAULT_BURN = 25000;
+  const monthlyBurn = burnByMonth[selectedMonth] ?? DEFAULT_BURN;
+
+  function saveBurn(month: string, value: number) {
+    const updated = { ...burnByMonth, [month]: value };
+    setBurnByMonth(updated);
+    localStorage.setItem("vyral-monthly-burn-v2", JSON.stringify(updated));
+  }
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       setClients(saved ? JSON.parse(saved) : SEED_CLIENTS);
-      const savedBurn = localStorage.getItem("vyral-monthly-burn");
-      if (savedBurn) { const v = Number(savedBurn); if (!isNaN(v)) { setMonthlyBurn(v); setBurnInput(String(v)); } }
+      const savedBurn = localStorage.getItem("vyral-monthly-burn-v2");
+      if (savedBurn) setBurnByMonth(JSON.parse(savedBurn));
     } catch {
       setClients(SEED_CLIENTS);
     }
@@ -664,15 +673,15 @@ export default function InvoiceManagementContent() {
       {/* Month nav */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <button disabled={monthIdx <= 0} onClick={() => setSelectedMonth(allMonths[monthIdx - 1])}
+          <button disabled={monthIdx <= 0} onClick={() => { setSelectedMonth(allMonths[monthIdx - 1]); setEditingBurn(false); }}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+          <select value={selectedMonth} onChange={e => { setSelectedMonth(e.target.value); setEditingBurn(false); }}
             className="input py-1.5 text-sm font-semibold min-w-[180px] text-center">
             {allMonths.map(m => <option key={m} value={m}>{fmtMonthLong(m)}</option>)}
           </select>
-          <button disabled={monthIdx >= allMonths.length - 1} onClick={() => setSelectedMonth(allMonths[monthIdx + 1])}
+          <button disabled={monthIdx >= allMonths.length - 1} onClick={() => { setSelectedMonth(allMonths[monthIdx + 1]); setEditingBurn(false); }}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 transition-colors">
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -723,7 +732,7 @@ export default function InvoiceManagementContent() {
           <p className="text-xs text-slate-400 mt-1">Revenue + creator pass-through</p>
         </div>
 
-        {/* Monthly Burn — editable */}
+        {/* Monthly Burn — editable per month */}
         <div className="card p-5 border-red-100">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -741,13 +750,13 @@ export default function InvoiceManagementContent() {
             <form onSubmit={e => {
               e.preventDefault();
               const v = Number(burnInput.replace(/[^0-9]/g, ""));
-              if (!isNaN(v) && v > 0) { setMonthlyBurn(v); localStorage.setItem("vyral-monthly-burn", String(v)); }
+              if (!isNaN(v) && v > 0) saveBurn(selectedMonth, v);
               setEditingBurn(false);
             }} className="flex items-center gap-2">
               <span className="text-slate-400 font-bold">€</span>
               <input autoFocus type="text" value={burnInput}
                 onChange={e => setBurnInput(e.target.value)}
-                onBlur={() => { const v = Number(burnInput.replace(/[^0-9]/g, "")); if (!isNaN(v) && v > 0) { setMonthlyBurn(v); localStorage.setItem("vyral-monthly-burn", String(v)); } setEditingBurn(false); }}
+                onBlur={() => { const v = Number(burnInput.replace(/[^0-9]/g, "")); if (!isNaN(v) && v > 0) saveBurn(selectedMonth, v); setEditingBurn(false); }}
                 className="input py-1 text-xl font-bold w-full" />
             </form>
           ) : (
@@ -755,7 +764,9 @@ export default function InvoiceManagementContent() {
               {fmtEur(monthlyBurn)}
             </p>
           )}
-          <p className="text-xs text-slate-400 mt-1">Est. — click to update</p>
+          <p className="text-xs text-slate-400 mt-1">
+            {burnByMonth[selectedMonth] ? "Set for this month" : "Default — click to set"}
+          </p>
         </div>
 
         {/* Est. Profit */}

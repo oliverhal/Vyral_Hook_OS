@@ -1,10 +1,13 @@
 import AppShell from "@/components/AppShell";
+import InvoicePasswordGate from "@/components/InvoicePasswordGate";
 import InvoiceManagementContent from "@/components/InvoiceManagementContent";
 
 export default function InvoicesPage() {
   return (
     <AppShell>
-      <InvoiceManagementContent />
+      <InvoicePasswordGate>
+        <InvoiceManagementContent />
+      </InvoicePasswordGate>
     </AppShell>
   );
 }

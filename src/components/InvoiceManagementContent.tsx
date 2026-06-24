@@ -528,7 +528,7 @@ export default function InvoiceManagementContent() {
     const paidRev = ms.filter(i => i.status === "paid").reduce((s, i) => s + i.amount, 0);
     const totalCr = cr.reduce((s, i) => s + i.amount, 0);
     const paidCr = cr.filter(i => i.status === "paid").reduce((s, i) => s + i.amount, 0);
-    return { totalRev, paidRev, pendingRev: totalRev - paidRev, totalCr, paidCr, pendingCr: totalCr - paidCr, net: totalRev - totalCr };
+    return { totalRev, paidRev, pendingRev: totalRev - paidRev, totalCr, paidCr, pendingCr: totalCr - paidCr, totalBilled: totalRev + totalCr };
   }, [monthInvoices]);
 
   const overdueCount = useMemo(
@@ -687,17 +687,15 @@ export default function InvoiceManagementContent() {
           </p>
         </div>
 
-        <div className={cn("card p-5", stats.net >= 0 ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50")}>
+        <div className="card p-5 border-blue-200 bg-blue-50">
           <div className="flex items-center gap-2 mb-3">
-            <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center", stats.net >= 0 ? "bg-emerald-100" : "bg-red-100")}>
-              <TrendingUp className={cn("w-4 h-4", stats.net >= 0 ? "text-emerald-600" : "text-red-500")} />
+            <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-blue-600" />
             </div>
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Net Revenue</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Billed</span>
           </div>
-          <p className={cn("text-2xl font-bold", stats.net >= 0 ? "text-emerald-700" : "text-red-600")}>
-            {stats.net >= 0 ? "+" : ""}{fmtEur(stats.net)}
-          </p>
-          <p className="text-xs text-slate-400 mt-1">Revenue minus creator costs</p>
+          <p className="text-2xl font-bold text-blue-700">{fmtEur(stats.totalBilled)}</p>
+          <p className="text-xs text-slate-400 mt-1">Revenue + creator pass-through</p>
         </div>
 
         <div className="card p-5">

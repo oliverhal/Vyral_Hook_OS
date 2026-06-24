@@ -6,6 +6,7 @@ import {
   AlertCircle, Clock, TrendingUp, Repeat, ExternalLink,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
+import RevolutPL from "./RevolutPL";
 import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -496,7 +497,7 @@ function ClientForm({ client, onSave, onCancel }: ClientFormProps) {
 export default function InvoiceManagementContent() {
   const [clients, setClients] = useState<Client[]>([]);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<"overview" | "clients">("overview");
+  const [tab, setTab] = useState<"overview" | "clients" | "pl">("overview");
   const [clientFilter, setClientFilter] = useState<"active" | "ended" | "all">("active");
   const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(new Date()));
   const [showForm, setShowForm] = useState(false);
@@ -742,14 +743,24 @@ export default function InvoiceManagementContent() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
-        {(["overview", "clients"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
-              tab === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}>
-            {t === "overview" ? "Overview" : `Clients (${clients.length})`}
-          </button>
-        ))}
+        <button onClick={() => setTab("overview")}
+          className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
+            tab === "overview" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          )}>
+          Overview
+        </button>
+        <button onClick={() => setTab("clients")}
+          className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
+            tab === "clients" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          )}>
+          Clients ({clients.length})
+        </button>
+        <button onClick={() => setTab("pl")}
+          className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5",
+            tab === "pl" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          )}>
+          P&amp;L
+        </button>
       </div>
 
       {/* Overview tab */}
@@ -865,6 +876,11 @@ export default function InvoiceManagementContent() {
           })}
           </div>
         </div>
+      )}
+
+      {/* P&L tab */}
+      {tab === "pl" && (
+        <RevolutPL selectedMonth={selectedMonth} monthRevenue={stats.totalRev} />
       )}
 
       {/* Modal */}

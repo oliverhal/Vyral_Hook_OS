@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen, CalendarDays, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen, CalendarDays, BarChart3, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
 import UserAvatar from "./UserAvatar";
@@ -16,6 +16,7 @@ const nav = [
   { href: "/admin/team", label: "Team", icon: Users },
   { href: "/help", label: "How it works", icon: BookOpen },
   { href: "/app-studio", label: "App Studio", icon: BarChart3 },
+  { href: "/invoices", label: "Invoices", icon: Receipt },
 ];
 
 export default function Sidebar() {

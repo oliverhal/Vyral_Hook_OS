@@ -52,7 +52,7 @@ interface Invoice {
   monthKey: string;
 }
 
-// ── Seed data (exported 2026-06-24) ───────────────────────────────────────────
+// ── Seed data (exported 2026-06-24) ──────────────────────────────────────────
 
 const SEED_CLIENTS: Client[] = [
   {
@@ -62,10 +62,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 5000,
     creatorDurationMonths: 0,
     creatorStatuses: { "2026-01": "paid", "2026-02": "paid", "2026-03": "paid", "2026-04": "paid", "2026-05": "paid" },
-    milestones: [{
-      id: "1770155749128-97vpk54yj", name: "M1", amount: 8500, startsMonth: 1, durationMonths: 0,
-      statuses: { "2026-01": "paid", "2026-02": "paid", "2026-03": "paid", "2026-04": "paid", "2026-05": "paid", "2026-06": "paid" },
-    }],
+    milestones: [{ id: "1770155749128-97vpk54yj", name: "M1", amount: 8500, startsMonth: 1, durationMonths: 0, statuses: { "2026-01": "paid", "2026-02": "paid", "2026-03": "paid", "2026-04": "paid", "2026-05": "paid", "2026-06": "paid" } }],
     contractStartDate: "2025-10-08", contractDuration: 0, notes: "",
   },
   {
@@ -75,12 +72,8 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 5000,
     creatorDurationMonths: 3,
     creatorStatuses: {},
-    milestones: [{
-      id: "1770227983088-ht7wwcfcc", name: "M1", amount: 4750, startsMonth: 1, durationMonths: 1,
-      statuses: { "2026-02": "paid" },
-    }],
-    contractDuration: 2, contractStartDate: "2026-02-04",
-    contractEndDate: "2026-02-22", finalPaymentNote: "4750", notes: "",
+    milestones: [{ id: "1770227983088-ht7wwcfcc", name: "M1", amount: 4750, startsMonth: 1, durationMonths: 1, statuses: { "2026-02": "paid" } }],
+    contractDuration: 2, contractStartDate: "2026-02-04", contractEndDate: "2026-02-22", finalPaymentNote: "4750", notes: "",
   },
   {
     id: "1770228247273",
@@ -90,14 +83,8 @@ const SEED_CLIENTS: Client[] = [
     creatorDurationMonths: 12,
     creatorStatuses: {},
     milestones: [
-      {
-        id: "1770228247273-sse5pfqf8", name: "M1", amount: 1683, startsMonth: 1, durationMonths: 2,
-        statuses: { "2026-01": "paid", "2026-02": "paid", "2026-03": "sent" },
-      },
-      {
-        id: "1774461410764-1bsugsl9i", name: "M2", amount: 800, startsMonth: 3, durationMonths: 1,
-        statuses: { "2026-03": "paid" },
-      },
+      { id: "1770228247273-sse5pfqf8", name: "M1", amount: 1683, startsMonth: 1, durationMonths: 2, statuses: { "2026-01": "paid", "2026-02": "paid", "2026-03": "sent" } },
+      { id: "1774461410764-1bsugsl9i", name: "M2", amount: 800, startsMonth: 3, durationMonths: 1, statuses: { "2026-03": "paid" } },
     ],
     contractDuration: 3, contractStartDate: "2026-01-15", notes: "",
   },
@@ -108,10 +95,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 5000,
     creatorDurationMonths: 0,
     creatorStatuses: { "2026-02": "paid", "2026-03": "paid", "2026-04": "paid", "2026-05": "paid" },
-    milestones: [{
-      id: "1770228990944-v9et7ajz5", name: "M1", amount: 8500, startsMonth: 2, durationMonths: 2,
-      statuses: { "2026-03": "paid", "2026-04": "paid" },
-    }],
+    milestones: [{ id: "1770228990944-v9et7ajz5", name: "M1", amount: 8500, startsMonth: 2, durationMonths: 2, statuses: { "2026-03": "paid", "2026-04": "paid" } }],
     contractStartDate: "2026-02-03", notes: "",
   },
   {
@@ -121,10 +105,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 10000,
     creatorDurationMonths: 12,
     creatorStatuses: { "2026-02": "paid", "2026-03": "paid", "2026-04": "paid", "2026-05": "paid" },
-    milestones: [{
-      id: "1771509014397-ss3awx6er", name: "M1", amount: 17000, startsMonth: 2, durationMonths: 0,
-      statuses: { "2026-03": "paid", "2026-04": "paid", "2026-05": "paid" },
-    }],
+    milestones: [{ id: "1771509014397-ss3awx6er", name: "M1", amount: 17000, startsMonth: 2, durationMonths: 0, statuses: { "2026-03": "paid", "2026-04": "paid", "2026-05": "paid" } }],
     contractStartDate: "2026-02-23", contractDuration: 0,
     contractLink: "https://docs.google.com/document/d/1HK63Oma_OJROALs4nh3zq84uzY6t0Tam/edit",
     finalPaymentNote: "", notes: "",
@@ -136,10 +117,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 0,
     creatorDurationMonths: 12,
     creatorStatuses: {},
-    milestones: [{
-      id: "1772708562316-tn30e3exf", name: "M1", amount: 7000, startsMonth: 3, durationMonths: 0,
-      statuses: { "2026-04": "paid", "2026-05": "paid", "2026-06": "paid" },
-    }],
+    milestones: [{ id: "1772708562316-tn30e3exf", name: "M1", amount: 7000, startsMonth: 3, durationMonths: 0, statuses: { "2026-04": "paid", "2026-05": "paid", "2026-06": "paid" } }],
     contractStartDate: "2026-03-17", contractDuration: 0,
     contractLink: "https://docs.google.com/document/d/1JyBWnTKwdEb8jgd3A_mrCwwEfkqNG-qQwOll58ry80U/edit?tab=t.0",
     notes: "",
@@ -151,10 +129,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 5000,
     creatorDurationMonths: 2,
     creatorStatuses: { "2026-04": "paid", "2026-05": "paid" },
-    milestones: [{
-      id: "1775126876996-1v3vyeebw", name: "M1", amount: 8500, startsMonth: 2, durationMonths: 2,
-      statuses: { "2026-05": "paid", "2026-06": "paid" },
-    }],
+    milestones: [{ id: "1775126876996-1v3vyeebw", name: "M1", amount: 8500, startsMonth: 2, durationMonths: 2, statuses: { "2026-05": "paid", "2026-06": "paid" } }],
     contractStartDate: "2026-04-13", contractDuration: 2, notes: "",
   },
   {
@@ -164,10 +139,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 5000,
     creatorDurationMonths: 12,
     creatorStatuses: { "2026-04": "paid", "2026-05": "paid", "2026-06": "paid" },
-    milestones: [{
-      id: "1775127640928-ltiih0u86", name: "M1", amount: 8660, startsMonth: 2, durationMonths: 2,
-      statuses: { "2026-05": "paid", "2026-06": "paid" },
-    }],
+    milestones: [{ id: "1775127640928-ltiih0u86", name: "M1", amount: 8660, startsMonth: 2, durationMonths: 2, statuses: { "2026-05": "paid", "2026-06": "paid" } }],
     contractStartDate: "2026-04-01", contractDuration: 2, notes: "",
   },
   {
@@ -177,10 +149,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 0,
     creatorDurationMonths: 12,
     creatorStatuses: {},
-    milestones: [{
-      id: "1778568821388-96qu7lr60", name: "M1", amount: 8500, startsMonth: 2, durationMonths: 12,
-      statuses: {},
-    }],
+    milestones: [{ id: "1778568821388-96qu7lr60", name: "M1", amount: 8500, startsMonth: 2, durationMonths: 12, statuses: {} }],
     contractStartDate: "2026-05-12", contractDuration: 2, finalPaymentNote: "8500", notes: "",
   },
   {
@@ -190,10 +159,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 0,
     creatorDurationMonths: 12,
     creatorStatuses: {},
-    milestones: [{
-      id: "1778569126031-x8ik1lwe9", name: "M1", amount: 8500, startsMonth: 1, durationMonths: 12,
-      statuses: { "2026-05": "paid", "2026-06": "sent" },
-    }],
+    milestones: [{ id: "1778569126031-x8ik1lwe9", name: "M1", amount: 8500, startsMonth: 1, durationMonths: 12, statuses: { "2026-05": "paid", "2026-06": "sent" } }],
     contractStartDate: "2026-04-16", contractDuration: 3, notes: "",
   },
   {
@@ -203,10 +169,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 7000,
     creatorDurationMonths: 2,
     creatorStatuses: {},
-    milestones: [{
-      id: "1779193926479-p9evlcolw", name: "M1", amount: 8500, startsMonth: 2, durationMonths: 2,
-      statuses: {},
-    }],
+    milestones: [{ id: "1779193926479-p9evlcolw", name: "M1", amount: 8500, startsMonth: 2, durationMonths: 2, statuses: {} }],
     contractStartDate: "2026-06-01", contractDuration: 12, notes: "",
   },
   {
@@ -216,10 +179,7 @@ const SEED_CLIENTS: Client[] = [
     creatorPaymentAmount: 7361,
     creatorDurationMonths: 2,
     creatorStatuses: {},
-    milestones: [{
-      id: "1781148811559-q3vaqcaeg", name: "M1", amount: 8660, startsMonth: 1, durationMonths: 2,
-      statuses: {},
-    }],
+    milestones: [{ id: "1781148811559-q3vaqcaeg", name: "M1", amount: 8660, startsMonth: 1, durationMonths: 2, statuses: {} }],
     contractStartDate: "2026-06-11", contractDuration: 2, notes: "",
   },
 ];
@@ -251,16 +211,15 @@ function getDaysUntil(date: Date): number {
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function formatDate(date: Date | string): string {
-  const d = new Date(date);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+function fmtDate(date: Date | string): string {
+  return new Date(date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function formatMonthLabel(monthKey: string): string {
-  return new Date(monthKey + "-01").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+function fmtMonthLong(key: string): string {
+  return new Date(key + "-01").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 }
 
-function fmt(n: number): string {
+function fmtEur(n: number): string {
   return `€${n.toLocaleString("en-GB")}`;
 }
 
@@ -275,53 +234,27 @@ function generateInvoices(clients: Client[]): Invoice[] {
     const firstPost = new Date(client.firstPostDate);
     const contractEnd = client.contractEndDate ? new Date(client.contractEndDate) : null;
 
-    // Creator payments (monthly, EOM)
     if (client.creatorPaymentAmount > 0) {
       const maxMonths = client.creatorDurationMonths === 0 ? MAX_MONTHS : client.creatorDurationMonths;
       for (let i = 0; i < maxMonths; i++) {
         const dueDate = getEndOfMonth(addMonths(firstPost, i));
         if (contractEnd && dueDate > contractEnd) continue;
         const monthKey = getMonthKey(dueDate);
-        const nextEOM = getEndOfMonth(addMonths(firstPost, i + 1));
-        const isLastBeforeEnd = contractEnd && nextEOM > contractEnd;
+        const isLastBeforeEnd = contractEnd && getEndOfMonth(addMonths(firstPost, i + 1)) > contractEnd;
         const amount = (isLastBeforeEnd && client.finalPaymentNote)
           ? parseFloat(client.finalPaymentNote) || client.creatorPaymentAmount
           : client.creatorPaymentAmount;
-        invoices.push({
-          id: `${client.id}-creator-${monthKey}`,
-          clientId: client.id,
-          clientName: client.name,
-          type: "creator",
-          milestoneName: "Creator Payment",
-          dueDate,
-          amount,
-          status: client.creatorStatuses?.[monthKey] ?? "pending",
-          monthKey,
-        });
+        invoices.push({ id: `${client.id}-creator-${monthKey}`, clientId: client.id, clientName: client.name, type: "creator", milestoneName: "Creator Payment", dueDate, amount, status: client.creatorStatuses?.[monthKey] ?? "pending", monthKey });
       }
     }
 
-    // Milestone invoices (monthly)
-    for (const milestone of client.milestones ?? []) {
-      const startsAt = milestone.startsMonth ?? 1;
-      const maxMonths = milestone.durationMonths === 0 ? MAX_MONTHS : milestone.durationMonths;
+    for (const m of client.milestones ?? []) {
+      const maxMonths = m.durationMonths === 0 ? MAX_MONTHS : m.durationMonths;
       for (let i = 0; i < maxMonths; i++) {
-        const offset = startsAt - 1 + i;
-        const dueDate = addMonths(firstPost, offset);
+        const dueDate = addMonths(firstPost, (m.startsMonth ?? 1) - 1 + i);
         if (contractEnd && dueDate > contractEnd) continue;
         const monthKey = getMonthKey(dueDate);
-        invoices.push({
-          id: `${client.id}-milestone-${milestone.id}-${monthKey}`,
-          clientId: client.id,
-          clientName: client.name,
-          type: "milestone",
-          milestoneName: milestone.name,
-          milestoneId: milestone.id,
-          dueDate,
-          amount: milestone.amount,
-          status: milestone.statuses?.[monthKey] ?? "pending",
-          monthKey,
-        });
+        invoices.push({ id: `${client.id}-milestone-${m.id}-${monthKey}`, clientId: client.id, clientName: client.name, type: "milestone", milestoneName: m.name, milestoneId: m.id, dueDate, amount: m.amount, status: m.statuses?.[monthKey] ?? "pending", monthKey });
       }
     }
   }
@@ -329,20 +262,22 @@ function generateInvoices(clients: Client[]): Invoice[] {
   return invoices.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Status badge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: Status }) {
   const styles: Record<Status, string> = {
-    pending: "bg-amber-100 text-amber-800 border-amber-200",
-    sent: "bg-blue-100 text-blue-800 border-blue-200",
-    paid: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    pending: "bg-amber-50 text-amber-700 border-amber-200",
+    sent: "bg-blue-50 text-blue-700 border-blue-200",
+    paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
   };
   return (
-    <span className={cn("px-2 py-0.5 text-xs font-medium rounded-full border", styles[status])}>
+    <span className={cn("badge border", styles[status])}>
       {status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
   );
 }
+
+// ── Invoice card ──────────────────────────────────────────────────────────────
 
 interface InvoiceCardProps {
   invoice: Invoice;
@@ -357,45 +292,46 @@ function InvoiceCard({ invoice, onStatusChange, onEditClient }: InvoiceCardProps
 
   return (
     <div className={cn(
-      "p-4 rounded-xl border bg-white",
-      isOverdue ? "border-red-300 bg-red-50" : isUrgent ? "border-amber-300 bg-amber-50" : "border-slate-200"
+      "card p-4 flex flex-col gap-3",
+      isOverdue && "border-red-300 bg-red-50",
+      isUrgent && !isOverdue && "border-amber-300 bg-amber-50"
     )}>
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <p className="font-semibold text-slate-900 text-sm">{invoice.clientName}</p>
-          <p className="text-xs text-slate-500 mt-0.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-semibold text-slate-900 text-sm truncate">{invoice.clientName}</p>
+          <p className="text-xs text-slate-400 mt-0.5">
             {invoice.type === "creator" ? "💰 Creator Payment" : `📄 ${invoice.milestoneName}`}
           </p>
         </div>
-        <StatusBadge status={isOverdue ? "pending" : invoice.status} />
+        <StatusBadge status={invoice.status} />
       </div>
 
-      <p className="text-lg font-bold text-slate-900 mb-2">{fmt(invoice.amount)}</p>
-
-      <p className="text-xs text-slate-500 mb-3">
-        Due {formatDate(invoice.dueDate)}
-        {invoice.status !== "paid" && (
-          <span className={cn("ml-2 font-medium", isOverdue ? "text-red-600" : isUrgent ? "text-amber-600" : "text-slate-400")}>
-            {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? "Today!" : `${days}d`}
-          </span>
-        )}
-      </p>
+      <div>
+        <p className="text-xl font-bold text-slate-900">{fmtEur(invoice.amount)}</p>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Due {fmtDate(invoice.dueDate)}
+          {invoice.status !== "paid" && days !== undefined && (
+            <span className={cn("ml-2 font-medium",
+              isOverdue ? "text-red-600" : isUrgent ? "text-amber-600" : "text-slate-400"
+            )}>
+              · {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? "today" : `${days}d`}
+            </span>
+          )}
+        </p>
+      </div>
 
       <div className="flex items-center gap-2">
         <select
           value={invoice.status}
-          onChange={(e) => onStatusChange(invoice.id, e.target.value as Status)}
-          className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-700 flex-1"
+          onChange={e => onStatusChange(invoice.id, e.target.value as Status)}
+          className="flex-1 text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 font-medium"
         >
           <option value="pending">Pending</option>
           <option value="sent">Sent</option>
           <option value="paid">Paid</option>
         </select>
-        <button
-          onClick={() => onEditClient(invoice.clientId)}
-          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-          title="Edit client"
-        >
+        <button onClick={() => onEditClient(invoice.clientId)}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Edit client">
           <Edit2 className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -403,15 +339,15 @@ function InvoiceCard({ invoice, onStatusChange, onEditClient }: InvoiceCardProps
   );
 }
 
-// ── Client Form ───────────────────────────────────────────────────────────────
+// ── Duration options ──────────────────────────────────────────────────────────
 
-const BLANK_CLIENT: Omit<Client, "id"> = {
-  name: "", firstPostDate: "",
-  creatorPaymentAmount: 0, creatorDurationMonths: 0, creatorStatuses: {},
-  milestones: [{ id: "", name: "M1", amount: 0, startsMonth: 1, durationMonths: 0, statuses: {} }],
-  contractStartDate: "", contractDuration: 0, contractEndDate: "",
-  contractLink: "", contractNotes: "", finalPaymentNote: "", notes: "",
-};
+const DURATIONS = [
+  { v: 0, label: "Ongoing" }, { v: 1, label: "1 month" }, { v: 2, label: "2 months" },
+  { v: 3, label: "3 months" }, { v: 6, label: "6 months" }, { v: 12, label: "12 months" },
+  { v: 18, label: "18 months" }, { v: 24, label: "24 months" },
+];
+
+// ── Client form ───────────────────────────────────────────────────────────────
 
 interface ClientFormProps {
   client: Client | null;
@@ -420,25 +356,11 @@ interface ClientFormProps {
 }
 
 function ClientForm({ client, onSave, onCancel }: ClientFormProps) {
-  const [form, setForm] = useState<Omit<Client, "id">>(
-    client ? { ...client } : { ...BLANK_CLIENT, milestones: [{ id: "", name: "M1", amount: 0, startsMonth: 1, durationMonths: 0, statuses: {} }] }
-  );
+  const blank = { name: "", firstPostDate: "", creatorPaymentAmount: 0, creatorDurationMonths: 0, creatorStatuses: {} as StatusMap, milestones: [{ id: "", name: "M1", amount: 0, startsMonth: 1, durationMonths: 0, statuses: {} as StatusMap }], contractStartDate: "", contractDuration: 0, contractEndDate: "", contractLink: "", contractNotes: "", finalPaymentNote: "", notes: "" };
+  const [form, setForm] = useState<Omit<Client, "id">>(client ? { ...client } : blank);
 
   function updateMilestone(idx: number, key: keyof Milestone, value: unknown) {
-    const updated = form.milestones.map((m, i) => i === idx ? { ...m, [key]: value } : m);
-    setForm(f => ({ ...f, milestones: updated }));
-  }
-
-  function addMilestone() {
-    const n = form.milestones.length + 1;
-    setForm(f => ({
-      ...f,
-      milestones: [...f.milestones, { id: "", name: `M${n}`, amount: 0, startsMonth: n, durationMonths: 0, statuses: {} }],
-    }));
-  }
-
-  function removeMilestone(idx: number) {
-    setForm(f => ({ ...f, milestones: f.milestones.filter((_, i) => i !== idx) }));
+    setForm(f => ({ ...f, milestones: f.milestones.map((m, i) => i === idx ? { ...m, [key]: value } : m) }));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -456,161 +378,111 @@ function ClientForm({ client, onSave, onCancel }: ClientFormProps) {
     });
   }
 
-  const dur = [
-    { v: 0, label: "Ongoing" }, { v: 1, label: "1 month" }, { v: 2, label: "2 months" },
-    { v: 3, label: "3 months" }, { v: 6, label: "6 months" }, { v: 12, label: "12 months" },
-    { v: 18, label: "18 months" }, { v: 24, label: "24 months" },
-  ];
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Client Name *</label>
-        <input required type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Acme Corp" />
+        <label className="label">Client Name *</label>
+        <input required type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="input" placeholder="Acme Corp" />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">First Post Date *</label>
-          <input required type="date" value={form.firstPostDate} onChange={e => setForm(f => ({ ...f, firstPostDate: e.target.value }))}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+          <label className="label">First Post Date *</label>
+          <input required type="date" value={form.firstPostDate} onChange={e => setForm(f => ({ ...f, firstPostDate: e.target.value }))} className="input" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Contract Start</label>
-          <input type="date" value={form.contractStartDate ?? ""} onChange={e => setForm(f => ({ ...f, contractStartDate: e.target.value }))}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+          <label className="label">Contract Start</label>
+          <input type="date" value={form.contractStartDate ?? ""} onChange={e => setForm(f => ({ ...f, contractStartDate: e.target.value }))} className="input" />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Early End Date <span className="text-red-400">(stops all invoices)</span></label>
-          <input type="date" value={form.contractEndDate ?? ""} onChange={e => setForm(f => ({ ...f, contractEndDate: e.target.value }))}
-            className="w-full px-3 py-2 border border-red-200 bg-red-50 rounded-lg text-sm" />
+          <label className="label">Early End Date <span className="text-red-400 normal-case font-normal">(stops all invoices)</span></label>
+          <input type="date" value={form.contractEndDate ?? ""} onChange={e => setForm(f => ({ ...f, contractEndDate: e.target.value }))} className="input border-red-200 bg-red-50/50" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Contract Link</label>
-          <input type="url" value={form.contractLink ?? ""} onChange={e => setForm(f => ({ ...f, contractLink: e.target.value }))}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="https://..." />
+          <label className="label">Contract Link</label>
+          <input type="url" value={form.contractLink ?? ""} onChange={e => setForm(f => ({ ...f, contractLink: e.target.value }))} className="input" placeholder="https://..." />
         </div>
       </div>
 
       {/* Creator payment */}
-      <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
-        <label className="block text-xs font-semibold text-amber-800 mb-2">💰 Creator Payment (monthly, EOM)</label>
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <p className="text-xs font-semibold text-amber-800 mb-3 uppercase tracking-wide">💰 Creator Payment — monthly, end of month</p>
         <div className="grid grid-cols-2 gap-2">
-          <input type="number" value={form.creatorPaymentAmount || ""} onChange={e => setForm(f => ({ ...f, creatorPaymentAmount: Number(e.target.value) }))}
-            className="px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white" placeholder="Amount €" />
-          <select value={form.creatorDurationMonths} onChange={e => setForm(f => ({ ...f, creatorDurationMonths: Number(e.target.value) }))}
-            className="px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white">
-            {dur.map(d => <option key={d.v} value={d.v}>{d.label}</option>)}
+          <input type="number" value={form.creatorPaymentAmount || ""} onChange={e => setForm(f => ({ ...f, creatorPaymentAmount: Number(e.target.value) }))} className="input" placeholder="Amount €" />
+          <select value={form.creatorDurationMonths} onChange={e => setForm(f => ({ ...f, creatorDurationMonths: Number(e.target.value) }))} className="input">
+            {DURATIONS.map(d => <option key={d.v} value={d.v}>{d.label}</option>)}
           </select>
         </div>
         {form.contractEndDate && (
-          <div className="mt-2">
-            <label className="block text-xs text-amber-700 mb-1">Final payment amount (if different)</label>
-            <input type="number" value={form.finalPaymentNote ?? ""} onChange={e => setForm(f => ({ ...f, finalPaymentNote: e.target.value }))}
-              className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white" placeholder="e.g. 4750" />
+          <div className="mt-3">
+            <label className="label">Final payment amount (if different)</label>
+            <input type="number" value={form.finalPaymentNote ?? ""} onChange={e => setForm(f => ({ ...f, finalPaymentNote: e.target.value }))} className="input" placeholder="e.g. 4750" />
           </div>
         )}
       </div>
 
       {/* Milestones */}
       <div>
-        <label className="block text-xs font-semibold text-slate-700 mb-2">📄 Client Invoice Milestones (monthly, recurring)</label>
+        <p className="text-xs font-semibold text-slate-600 mb-3 uppercase tracking-wide">📄 Client Invoice Milestones — monthly, recurring</p>
         <div className="space-y-2 mb-2">
           {form.milestones.map((m, idx) => (
-            <div key={idx} className="p-3 bg-blue-50 rounded-xl border border-blue-200 space-y-2">
+            <div key={idx} className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
               <div className="flex gap-2 items-center">
-                <input type="text" value={m.name} onChange={e => updateMilestone(idx, "name", e.target.value)}
-                  className="w-16 px-2 py-1.5 border border-blue-200 rounded-lg text-xs bg-white" />
-                <input type="number" value={m.amount || ""} onChange={e => updateMilestone(idx, "amount", Number(e.target.value))}
-                  className="flex-1 px-2 py-1.5 border border-blue-200 rounded-lg text-xs bg-white" placeholder="Amount €" />
+                <input type="text" value={m.name} onChange={e => updateMilestone(idx, "name", e.target.value)} className="input w-16 py-1.5 text-xs" />
+                <input type="number" value={m.amount || ""} onChange={e => updateMilestone(idx, "amount", Number(e.target.value))} className="input flex-1 py-1.5 text-xs" placeholder="Amount €" />
                 {form.milestones.length > 1 && (
-                  <button type="button" onClick={() => removeMilestone(idx)} className="text-red-400 hover:text-red-600 p-1">
+                  <button type="button" onClick={() => setForm(f => ({ ...f, milestones: f.milestones.filter((_, i) => i !== idx) }))} className="text-red-400 hover:text-red-600 p-1">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
-              <div className="flex gap-3 text-xs">
-                <span className="text-slate-500 self-center">Starts:</span>
-                <select value={m.startsMonth} onChange={e => updateMilestone(idx, "startsMonth", Number(e.target.value))}
-                  className="px-2 py-1 border border-blue-200 rounded text-xs bg-white">
+              <div className="flex items-center gap-3 text-xs text-slate-500">
+                <span>Starts:</span>
+                <select value={m.startsMonth} onChange={e => updateMilestone(idx, "startsMonth", Number(e.target.value))} className="input py-1 text-xs w-24">
                   {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>Month {n}</option>)}
                 </select>
-                <span className="text-slate-500 self-center">Duration:</span>
-                <select value={m.durationMonths} onChange={e => updateMilestone(idx, "durationMonths", Number(e.target.value))}
-                  className="px-2 py-1 border border-blue-200 rounded text-xs bg-white">
-                  {dur.map(d => <option key={d.v} value={d.v}>{d.label}</option>)}
+                <span>Duration:</span>
+                <select value={m.durationMonths} onChange={e => updateMilestone(idx, "durationMonths", Number(e.target.value))} className="input py-1 text-xs w-28">
+                  {DURATIONS.map(d => <option key={d.v} value={d.v}>{d.label}</option>)}
                 </select>
               </div>
             </div>
           ))}
         </div>
-        <button type="button" onClick={addMilestone} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+        <button type="button"
+          onClick={() => setForm(f => ({ ...f, milestones: [...f.milestones, { id: "", name: `M${f.milestones.length + 1}`, amount: 0, startsMonth: f.milestones.length + 1, durationMonths: 0, statuses: {} }] }))}
+          className="btn-ghost text-blue-600 hover:bg-blue-50 text-xs flex items-center gap-1">
           <Plus className="w-3 h-3" /> Add milestone
         </button>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
-        <textarea value={form.notes ?? ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" rows={2} />
+        <label className="label">Notes</label>
+        <textarea value={form.notes ?? ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="textarea" rows={2} />
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg">
-          Cancel
-        </button>
-        <button type="submit" className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">
-          {client ? "Save Changes" : "Add Client"}
-        </button>
+      <div className="flex justify-end gap-2 pt-1">
+        <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
+        <button type="submit" className="btn-primary">{client ? "Save Changes" : "Add Client"}</button>
       </div>
     </form>
   );
 }
 
-// ── Month Navigator ───────────────────────────────────────────────────────────
-
-interface MonthNavProps {
-  months: string[];
-  selected: string;
-  onChange: (m: string) => void;
-}
-
-function MonthNav({ months, selected, onChange }: MonthNavProps) {
-  const idx = months.indexOf(selected);
-  return (
-    <div className="flex items-center gap-2">
-      <button disabled={idx <= 0} onClick={() => onChange(months[idx - 1])}
-        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30">
-        <ChevronLeft className="w-4 h-4" />
-      </button>
-      <select value={selected} onChange={e => onChange(e.target.value)}
-        className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 bg-white min-w-[160px] text-center">
-        {months.map(m => <option key={m} value={m}>{formatMonthLabel(m)}</option>)}
-      </select>
-      <button disabled={idx >= months.length - 1} onClick={() => onChange(months[idx + 1])}
-        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30">
-        <ChevronRight className="w-4 h-4" />
-      </button>
-    </div>
-  );
-}
-
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function InvoiceManagementContent() {
   const [clients, setClients] = useState<Client[]>([]);
   const [ready, setReady] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "clients">("overview");
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => getMonthKey(new Date()));
+  const [tab, setTab] = useState<"overview" | "clients">("overview");
+  const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(new Date()));
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [notification, setNotification] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  // Load from localStorage, seed if empty
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -621,100 +493,83 @@ export default function InvoiceManagementContent() {
     setReady(true);
   }, []);
 
-  // Persist
   useEffect(() => {
     if (ready) localStorage.setItem(STORAGE_KEY, JSON.stringify(clients));
   }, [clients, ready]);
 
   function notify(msg: string, ok = true) {
-    setNotification({ msg, ok });
-    setTimeout(() => setNotification(null), 3000);
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
   }
 
-  // All generated invoices
   const allInvoices = useMemo(() => generateInvoices(clients), [clients]);
 
-  // All months that have invoices
   const allMonths = useMemo(() => {
     const s = new Set(allInvoices.map(inv => inv.monthKey));
     return Array.from(s).sort();
   }, [allInvoices]);
 
-  // Ensure selectedMonth is always in the list
   useEffect(() => {
-    if (allMonths.length > 0 && !allMonths.includes(selectedMonth)) {
-      const current = getMonthKey(new Date());
-      setSelectedMonth(allMonths.includes(current) ? current : allMonths[0]);
+    if (allMonths.length && !allMonths.includes(selectedMonth)) {
+      const cur = getMonthKey(new Date());
+      setSelectedMonth(allMonths.includes(cur) ? cur : allMonths[0]);
     }
   }, [allMonths, selectedMonth]);
 
-  // Invoices for the selected month
   const monthInvoices = useMemo(
     () => allInvoices.filter(inv => inv.monthKey === selectedMonth),
     [allInvoices, selectedMonth]
   );
 
-  // Monthly stats
   const stats = useMemo(() => {
-    const milestones = monthInvoices.filter(inv => inv.type === "milestone");
-    const creators = monthInvoices.filter(inv => inv.type === "creator");
-    const totalRevenue = milestones.reduce((s, i) => s + i.amount, 0);
-    const paidRevenue = milestones.filter(i => i.status === "paid").reduce((s, i) => s + i.amount, 0);
-    const pendingRevenue = totalRevenue - paidRevenue;
-    const totalCreator = creators.reduce((s, i) => s + i.amount, 0);
-    const paidCreator = creators.filter(i => i.status === "paid").reduce((s, i) => s + i.amount, 0);
-    const pendingCreator = totalCreator - paidCreator;
-    return { totalRevenue, paidRevenue, pendingRevenue, totalCreator, paidCreator, pendingCreator, net: totalRevenue - totalCreator };
+    const ms = monthInvoices.filter(i => i.type === "milestone");
+    const cr = monthInvoices.filter(i => i.type === "creator");
+    const totalRev = ms.reduce((s, i) => s + i.amount, 0);
+    const paidRev = ms.filter(i => i.status === "paid").reduce((s, i) => s + i.amount, 0);
+    const totalCr = cr.reduce((s, i) => s + i.amount, 0);
+    const paidCr = cr.filter(i => i.status === "paid").reduce((s, i) => s + i.amount, 0);
+    return { totalRev, paidRev, pendingRev: totalRev - paidRev, totalCr, paidCr, pendingCr: totalCr - paidCr, net: totalRev - totalCr };
   }, [monthInvoices]);
 
-  const overdueInvoices = useMemo(
-    () => allInvoices.filter(inv => inv.status !== "paid" && getDaysUntil(inv.dueDate) < 0),
+  const overdueCount = useMemo(
+    () => allInvoices.filter(i => i.status !== "paid" && getDaysUntil(i.dueDate) < 0).length,
     [allInvoices]
   );
 
-  // Status change handler
   function handleStatusChange(invoiceId: string, status: Status) {
     const parts = invoiceId.split("-");
     const clientId = parts[0];
     const type = parts[1];
     const monthKey = parts.slice(-2).join("-");
-
     setClients(prev => prev.map(c => {
       if (c.id !== clientId) return c;
-      if (type === "creator") {
-        return { ...c, creatorStatuses: { ...c.creatorStatuses, [monthKey]: status } };
-      }
-      // milestone: id is between type and monthKey
+      if (type === "creator") return { ...c, creatorStatuses: { ...c.creatorStatuses, [monthKey]: status } };
       const milestoneId = parts.slice(2, -2).join("-");
-      return {
-        ...c,
-        milestones: c.milestones.map(m =>
-          m.id === milestoneId ? { ...m, statuses: { ...m.statuses, [monthKey]: status } } : m
-        ),
-      };
+      return { ...c, milestones: c.milestones.map(m => m.id === milestoneId ? { ...m, statuses: { ...m.statuses, [monthKey]: status } } : m) };
     }));
   }
 
   function handleSaveClient(client: Client) {
-    setClients(prev => {
-      const exists = prev.find(c => c.id === client.id);
-      return exists ? prev.map(c => c.id === client.id ? client : c) : [...prev, client];
-    });
+    setClients(prev => prev.find(c => c.id === client.id) ? prev.map(c => c.id === client.id ? client : c) : [...prev, client]);
     notify(editingClient ? "Client updated" : "Client added");
     setShowForm(false);
     setEditingClient(null);
   }
 
-  function handleDeleteClient(id: string) {
-    if (!confirm("Delete this client and all their invoice history?")) return;
+  function handleDelete(id: string) {
+    if (!confirm("Delete this client and all their invoice data?")) return;
     setClients(prev => prev.filter(c => c.id !== id));
     notify("Client deleted");
   }
 
+  function openEdit(clientId: string) {
+    const c = clients.find(x => x.id === clientId);
+    if (c) { setEditingClient(c); setShowForm(true); }
+  }
+
   function handleExport() {
-    const blob = new Blob([JSON.stringify(clients, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(clients, null, 2)], { type: "application/json" }));
     a.download = `vyral-invoices-${new Date().toISOString().split("T")[0]}.json`;
     a.click();
     notify("Exported");
@@ -725,254 +580,253 @@ export default function InvoiceManagementContent() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        setClients(parsed);
-        notify("Imported successfully");
-      } catch {
-        notify("Import failed — invalid JSON", false);
-      }
+      try { setClients(JSON.parse(ev.target?.result as string)); notify("Imported"); }
+      catch { notify("Invalid JSON", false); }
     };
     reader.readAsText(file);
     e.target.value = "";
   }
 
-  function openEdit(clientId: string) {
-    const c = clients.find(x => x.id === clientId);
-    if (c) { setEditingClient(c); setShowForm(true); }
-  }
+  const monthIdx = allMonths.indexOf(selectedMonth);
 
-  if (!ready) return null;
-
-  const tabs = [
-    { id: "overview" as const, label: "Overview" },
-    { id: "clients" as const, label: `Clients (${clients.length})` },
-  ];
+  if (!ready) return (
+    <div className="p-8 animate-pulse space-y-4">
+      {[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-200 rounded-2xl" />)}
+    </div>
+  );
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      {/* Notification */}
-      {notification && (
+
+      {/* Toast */}
+      {toast && (
         <div className={cn(
-          "fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium text-white",
-          notification.ok ? "bg-emerald-600" : "bg-red-600"
+          "fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium text-white",
+          toast.ok ? "bg-emerald-600" : "bg-red-600"
         )}>
-          {notification.ok ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-          {notification.msg}
+          {toast.ok ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {toast.msg}
         </div>
       )}
 
-      {/* Header */}
+      {/* Page header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Invoice Management</h1>
-          <p className="text-slate-500 text-sm mt-1">{clients.length} active clients · {allInvoices.length} invoices generated</p>
+          <h1 className="text-2xl font-bold text-slate-900">Invoices</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            {clients.length} clients · {allInvoices.length} invoices tracked
+            {overdueCount > 0 && (
+              <span className="ml-3 inline-flex items-center gap-1 text-red-600 font-semibold">
+                <AlertCircle className="w-3.5 h-3.5" />{overdueCount} overdue
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          {overdueInvoices.length > 0 && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-700 text-xs font-semibold rounded-lg">
-              <AlertCircle className="w-3.5 h-3.5" />
-              {overdueInvoices.length} overdue
-            </span>
-          )}
-          <label className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+          <label className="btn-secondary flex items-center gap-2 cursor-pointer">
             <Upload className="w-4 h-4" /> Import
             <input type="file" accept=".json" onChange={handleImport} className="hidden" />
           </label>
-          <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50">
+          <button onClick={handleExport} className="btn-secondary flex items-center gap-2">
             <Download className="w-4 h-4" /> Export
           </button>
-          <button onClick={() => { setEditingClient(null); setShowForm(true); }}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium">
+          <button onClick={() => { setEditingClient(null); setShowForm(true); }} className="btn-primary flex items-center gap-2">
             <Plus className="w-4 h-4" /> Add Client
           </button>
         </div>
       </div>
 
-      {/* Month selector */}
+      {/* Month nav */}
       <div className="flex items-center justify-between mb-6">
-        <MonthNav months={allMonths} selected={selectedMonth} onChange={setSelectedMonth} />
+        <div className="flex items-center gap-2">
+          <button disabled={monthIdx <= 0} onClick={() => setSelectedMonth(allMonths[monthIdx - 1])}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+            className="input py-1.5 text-sm font-semibold min-w-[180px] text-center">
+            {allMonths.map(m => <option key={m} value={m}>{fmtMonthLong(m)}</option>)}
+          </select>
+          <button disabled={monthIdx >= allMonths.length - 1} onClick={() => setSelectedMonth(allMonths[monthIdx + 1])}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:opacity-30 transition-colors">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
         <p className="text-xs text-slate-400 font-mono">
-          {monthInvoices.filter(i => i.status === "paid").length}/{monthInvoices.length} paid this month
+          {monthInvoices.filter(i => i.status === "paid").length} / {monthInvoices.length} paid
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
+      {/* Stats row */}
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
+            </div>
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Client Revenue</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{fmt(stats.totalRevenue)}</p>
+          <p className="text-2xl font-bold text-slate-900">{fmtEur(stats.totalRev)}</p>
           <p className="text-xs text-slate-400 mt-1">
-            <span className="text-emerald-600 font-medium">{fmt(stats.paidRevenue)} paid</span>
-            {stats.pendingRevenue > 0 && ` · ${fmt(stats.pendingRevenue)} pending`}
+            <span className="text-emerald-600 font-semibold">{fmtEur(stats.paidRev)}</span> paid
+            {stats.pendingRev > 0 && <span className="text-amber-600 font-semibold ml-1">· {fmtEur(stats.pendingRev)} pending</span>}
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Repeat className="w-4 h-4 text-amber-600" />
+
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center">
+              <Repeat className="w-4 h-4 text-amber-600" />
+            </div>
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Creator Costs</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{fmt(stats.totalCreator)}</p>
+          <p className="text-2xl font-bold text-slate-900">{fmtEur(stats.totalCr)}</p>
           <p className="text-xs text-slate-400 mt-1">
-            <span className="text-emerald-600 font-medium">{fmt(stats.paidCreator)} paid</span>
-            {stats.pendingCreator > 0 && ` · ${fmt(stats.pendingCreator)} pending`}
+            <span className="text-emerald-600 font-semibold">{fmtEur(stats.paidCr)}</span> paid
+            {stats.pendingCr > 0 && <span className="text-amber-600 font-semibold ml-1">· {fmtEur(stats.pendingCr)} pending</span>}
           </p>
         </div>
-        <div className={cn("rounded-2xl border p-4", stats.net >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200")}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Net This Month</span>
+
+        <div className={cn("card p-5", stats.net >= 0 ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50")}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center", stats.net >= 0 ? "bg-emerald-100" : "bg-red-100")}>
+              <TrendingUp className={cn("w-4 h-4", stats.net >= 0 ? "text-emerald-600" : "text-red-500")} />
+            </div>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Net Revenue</span>
           </div>
-          <p className={cn("text-2xl font-bold", stats.net >= 0 ? "text-emerald-700" : "text-red-700")}>
-            {stats.net >= 0 ? "+" : ""}{fmt(stats.net)}
+          <p className={cn("text-2xl font-bold", stats.net >= 0 ? "text-emerald-700" : "text-red-600")}>
+            {stats.net >= 0 ? "+" : ""}{fmtEur(stats.net)}
           </p>
           <p className="text-xs text-slate-400 mt-1">Revenue minus creator costs</p>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Invoices</span>
+
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center">
+              <Clock className="w-4 h-4 text-slate-500" />
+            </div>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">This Month</span>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">{monthInvoices.length}</span>
-            <span className="text-sm text-slate-400">total</span>
-          </div>
-          <p className="text-xs mt-1">
+          <p className="text-2xl font-bold text-slate-900">{monthInvoices.length}</p>
+          <div className="flex gap-2 mt-1 flex-wrap">
             {monthInvoices.filter(i => i.status === "pending").length > 0 && (
-              <span className="text-amber-600 font-medium">{monthInvoices.filter(i => i.status === "pending").length} pending</span>
+              <span className="badge bg-amber-50 text-amber-700 border border-amber-200">{monthInvoices.filter(i => i.status === "pending").length} pending</span>
             )}
             {monthInvoices.filter(i => i.status === "sent").length > 0 && (
-              <span className="text-blue-600 font-medium ml-2">{monthInvoices.filter(i => i.status === "sent").length} sent</span>
+              <span className="badge bg-blue-50 text-blue-700 border border-blue-200">{monthInvoices.filter(i => i.status === "sent").length} sent</span>
             )}
-          </p>
+            {monthInvoices.filter(i => i.status === "paid").length > 0 && (
+              <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">{monthInvoices.filter(i => i.status === "paid").length} paid</span>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors", activeTab === t.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
-            {t.label}
+        {(["overview", "clients"] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
+              tab === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            )}>
+            {t === "overview" ? "Overview" : `Clients (${clients.length})`}
           </button>
         ))}
       </div>
 
       {/* Overview tab */}
-      {activeTab === "overview" && (
-        <div>
-          {monthInvoices.length === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <Clock className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No invoices in {formatMonthLabel(selectedMonth)}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {monthInvoices.map(inv => (
-                <InvoiceCard key={inv.id} invoice={inv} onStatusChange={handleStatusChange} onEditClient={openEdit} />
-              ))}
-            </div>
-          )}
-        </div>
+      {tab === "overview" && (
+        monthInvoices.length === 0 ? (
+          <div className="card p-12 text-center">
+            <Clock className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+            <p className="text-slate-400 text-sm">No invoices in {fmtMonthLong(selectedMonth)}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {monthInvoices.map(inv => (
+              <InvoiceCard key={inv.id} invoice={inv} onStatusChange={handleStatusChange} onEditClient={openEdit} />
+            ))}
+          </div>
+        )
       )}
 
       {/* Clients tab */}
-      {activeTab === "clients" && (
-        <div className="space-y-4">
-          {clients.length === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <p className="text-sm">No clients yet</p>
-            </div>
-          ) : (
-            clients.map(client => {
-              const isEnded = client.contractEndDate ? new Date(client.contractEndDate) < new Date() : false;
-              const clientInvoicesThisMonth = monthInvoices.filter(inv => inv.clientId === client.id);
-              const totalThisMonth = clientInvoicesThisMonth.reduce((s, i) => s + i.amount, 0);
-
-              return (
-                <div key={client.id} className={cn("bg-white rounded-2xl border p-5", isEnded ? "border-slate-200 opacity-70" : "border-slate-200")}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-slate-900">{client.name}</h3>
-                        {isEnded && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                            Ended {client.contractEndDate ? formatDate(new Date(client.contractEndDate)) : ""}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        First post: {client.firstPostDate ? formatDate(new Date(client.firstPostDate)) : "—"}
-                        {client.contractStartDate && ` · Contract: ${formatDate(new Date(client.contractStartDate))}`}
-                        {client.contractDuration ? ` · ${client.contractDuration === 0 ? "Ongoing" : `${client.contractDuration}mo`}` : ""}
-                      </p>
+      {tab === "clients" && (
+        <div className="space-y-3">
+          {clients.map(client => {
+            const isEnded = client.contractEndDate ? new Date(client.contractEndDate) < new Date() : false;
+            const thisMonth = monthInvoices.filter(i => i.clientId === client.id);
+            const monthTotal = thisMonth.reduce((s, i) => s + i.amount, 0);
+            return (
+              <div key={client.id} className={cn("card p-5", isEnded && "opacity-60")}>
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-slate-900">{client.name}</h3>
+                      {isEnded && <span className="badge bg-slate-100 text-slate-500 border border-slate-200">Ended {client.contractEndDate ? fmtDate(new Date(client.contractEndDate)) : ""}</span>}
+                      {monthTotal > 0 && <span className="badge bg-blue-50 text-blue-700 border border-blue-200 font-semibold">{fmtEur(monthTotal)} this month</span>}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {totalThisMonth > 0 && (
-                        <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg font-semibold border border-blue-100">
-                          {fmt(totalThisMonth)} this month
-                        </span>
-                      )}
-                      {client.contractLink && (
-                        <a href={client.contractLink} target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="View contract">
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                      <button onClick={() => openEdit(client.id)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleDeleteClient(client.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      First post: {client.firstPostDate ? fmtDate(new Date(client.firstPostDate)) : "—"}
+                      {client.contractStartDate && ` · Contract from ${fmtDate(new Date(client.contractStartDate))}`}
+                      {client.contractDuration !== undefined && ` · ${client.contractDuration === 0 ? "Ongoing" : `${client.contractDuration}mo`}`}
+                    </p>
                   </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {client.creatorPaymentAmount > 0 && (
-                      <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
-                        <p className="text-xs font-semibold text-amber-700 flex items-center gap-1">
-                          <Repeat className="w-3 h-3" /> Creator Payment
-                        </p>
-                        <p className="text-sm font-bold text-slate-900 mt-1">{fmt(client.creatorPaymentAmount)}/mo</p>
-                        <p className="text-xs text-slate-400">{client.creatorDurationMonths === 0 ? "Ongoing" : `${client.creatorDurationMonths}mo`} · EOM</p>
-                      </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {client.contractLink && (
+                      <a href={client.contractLink} target="_blank" rel="noopener noreferrer"
+                        className="btn-ghost p-1.5 text-slate-400 hover:text-purple-600" title="View contract">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
                     )}
-                    {client.milestones?.map((m, i) => (
-                      <div key={i} className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-                        <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">
-                          <Repeat className="w-3 h-3" /> {m.name}
-                        </p>
-                        <p className="text-sm font-bold text-slate-900 mt-1">{fmt(m.amount)}/mo</p>
-                        <p className="text-xs text-slate-400">Starts mo.{m.startsMonth} · {m.durationMonths === 0 ? "Ongoing" : `${m.durationMonths}mo`}</p>
-                      </div>
-                    ))}
+                    <button onClick={() => openEdit(client.id)} className="btn-ghost p-1.5 text-slate-400 hover:text-blue-600">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => handleDelete(client.id)} className="btn-ghost p-1.5 text-slate-400 hover:text-red-600">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-
-                  {client.notes && <p className="text-xs text-slate-400 mt-3">{client.notes}</p>}
                 </div>
-              );
-            })
-          )}
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {client.creatorPaymentAmount > 0 && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-amber-700 flex items-center gap-1 mb-1">
+                        <Repeat className="w-3 h-3" /> Creator
+                      </p>
+                      <p className="text-sm font-bold text-slate-900">{fmtEur(client.creatorPaymentAmount)}<span className="font-normal text-slate-400">/mo</span></p>
+                      <p className="text-xs text-slate-400">{client.creatorDurationMonths === 0 ? "Ongoing" : `${client.creatorDurationMonths}mo`} · EOM</p>
+                    </div>
+                  )}
+                  {client.milestones?.map((m, i) => (
+                    <div key={i} className="bg-blue-50 border border-blue-100 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-blue-700 flex items-center gap-1 mb-1">
+                        <Repeat className="w-3 h-3" /> {m.name}
+                      </p>
+                      <p className="text-sm font-bold text-slate-900">{fmtEur(m.amount)}<span className="font-normal text-slate-400">/mo</span></p>
+                      <p className="text-xs text-slate-400">Mo.{m.startsMonth} · {m.durationMonths === 0 ? "Ongoing" : `${m.durationMonths}mo`}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {client.notes && <p className="text-xs text-slate-400 mt-3">{client.notes}</p>}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Add/Edit modal */}
+      {/* Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <h2 className="text-base font-bold text-slate-900">{editingClient ? "Edit Client" : "Add Client"}</h2>
-              <button onClick={() => { setShowForm(false); setEditingClient(null); }}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
-                <X className="w-5 h-5" />
+              <button onClick={() => { setShowForm(false); setEditingClient(null); }} className="btn-ghost p-1.5">
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-5">
+            <div className="p-6">
               <ClientForm client={editingClient} onSave={handleSaveClient} onCancel={() => { setShowForm(false); setEditingClient(null); }} />
             </div>
           </div>

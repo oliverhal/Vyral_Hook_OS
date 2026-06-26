@@ -37,8 +37,12 @@ export default function ArchiveContent() {
   const [showArchivedCampaigns, setShowArchivedCampaigns] = useState(true);
 
   useEffect(() => {
-    fetch("/api/campaigns").then((r) => r.json()).then((data) => setCampaigns(data));
-    fetch("/api/campaigns/archived").then((r) => r.json()).then((data) => setArchivedCampaigns(data));
+    // Auto-archive first (via the campaigns fetch), then load archived list
+    fetch("/api/campaigns/auto-archive", { method: "POST" })
+      .finally(() => {
+        fetch("/api/campaigns").then((r) => r.json()).then((data) => setCampaigns(data));
+        fetch("/api/campaigns/archived").then((r) => r.json()).then((data) => setArchivedCampaigns(data));
+      });
   }, []);
 
   // Fetch weeks when campaign changes

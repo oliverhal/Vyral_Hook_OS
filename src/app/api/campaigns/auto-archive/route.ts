@@ -26,7 +26,12 @@ export async function POST() {
         },
         select: { id: true, name: true, clientName: true },
       }).then(campaigns =>
-        campaigns.filter(c => endedNames.includes(c.clientName.toLowerCase().trim()))
+        campaigns.filter(c => {
+          const cName = c.clientName.toLowerCase().trim();
+          // Match if names are equal, or one starts with the other
+          // e.g. campaign "MeetCiao" matches calendar "MeetCiao Extension"
+          return endedNames.some(n => n === cName || n.startsWith(cName) || cName.startsWith(n));
+        })
       )
     : [];
 

@@ -1,7 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+async function autoArchiveExpired() {
+  const now = new Date();
+
+  // 1. Campaigns with explicit contractEndDate
+  const directExpired = await prisma.campaign.findMany({
+    where: { active: true, contractEndDate: { lte: now } },
+    select: { id: true, clientName: true },
+  });
+
+  // 2. Match via CalendarClient.contractEnd by name
+  const endedClients = await prisma.calendarClient.findMany({
+    where: { contractEnd: { lte: now } },
+    select: { name: true },
+  });
+  const endedNames = endedClients.map(c => c.name.toLowerCase().trim());
+
+  const calendarExpired = endedNames.length > 0
+    ? (await prisma.campaign.findMany({
+        where: { active: true, contractEndDate: null },
+        select: { id: true, clientName: true },
+      })).filter(c => {
+        const n = c.clientName.toLowerCase().trim();
+        return endedNames.some(en => en === n || en.startsWith(n) || n.startsWith(en));
+      })
+    : [];
+
+  const ids = Array.from(new Set([...directExpired, ...calendarExpired].map(c => c.id)));
+  if (ids.length > 0) {
+    await prisma.campaign.updateMany({ where: { id: { in: ids } }, data: { active: false } });
+  }
+}
+
 export async function GET() {
+  await autoArchiveExpired();
+
   const campaigns = await prisma.campaign.findMany({
     where: { active: true },
     include: {

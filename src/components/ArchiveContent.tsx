@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Search, Flame, ExternalLink, Check, Loader2, ChevronDown, ChevronUp, Archive } from "lucide-react";
+import { Search, Flame, ExternalLink, Check, Loader2, ChevronDown, ChevronUp, Archive, RotateCcw } from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { FORMAT_COLORS, HOOK_FORMATS } from "@/types";
 import type { Hook, Campaign, Week } from "@/types";
@@ -35,6 +35,18 @@ export default function ArchiveContent() {
 
   const [archivedCampaigns, setArchivedCampaigns] = useState<(Campaign & { _count: { weeks: number } })[]>([]);
   const [showArchivedCampaigns, setShowArchivedCampaigns] = useState(true);
+  const [restoring, setRestoring] = useState<string | null>(null);
+
+  async function restoreCampaign(id: string) {
+    setRestoring(id);
+    await fetch(`/api/campaigns/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: true, contractEndDate: null }),
+    });
+    setArchivedCampaigns(prev => prev.filter(c => c.id !== id));
+    setRestoring(null);
+  }
 
   useEffect(() => {
     // Auto-archive first (via the campaigns fetch), then load archived list
@@ -121,20 +133,28 @@ export default function ArchiveContent() {
               {archivedCampaigns.map(c => {
                 const colors = CAMPAIGN_COLORS[c.color] || CAMPAIGN_COLORS.blue;
                 return (
-                  <Link
-                    key={c.id}
-                    href={`/campaigns/${c.id}`}
-                    className="card p-4 flex items-center gap-3 hover:shadow-md transition-shadow opacity-70 hover:opacity-100"
-                  >
-                    <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0", colors.bg)}>
-                      {c.emoji}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{c.name}</p>
-                      <p className="text-xs text-slate-400 truncate">{c.clientName} · {c._count.weeks} weeks</p>
-                    </div>
-                    <span className="badge bg-slate-100 text-slate-500 border border-slate-200 flex-shrink-0">ended</span>
-                  </Link>
+                  <div key={c.id} className="card p-4 flex items-center gap-3 opacity-70 hover:opacity-100 transition-opacity">
+                    <Link href={`/campaigns/${c.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0", colors.bg)}>
+                        {c.emoji}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{c.name}</p>
+                        <p className="text-xs text-slate-400 truncate">{c.clientName} · {c._count.weeks} weeks</p>
+                      </div>
+                    </Link>
+                    <button
+                      onClick={() => restoreCampaign(c.id)}
+                      disabled={restoring === c.id}
+                      title="Restore campaign"
+                      className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 transition-colors disabled:opacity-50"
+                    >
+                      {restoring === c.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <RotateCcw className="w-3.5 h-3.5" />}
+                      Restore
+                    </button>
+                  </div>
                 );
               })}
             </div>

@@ -39,6 +39,7 @@ model Campaign {
   hashtags           String?
   validatedSheetUrl  String?
   logoUrl            String?
+  contractEndDate    DateTime?
   weeks              Week[]
   members            CampaignMember[]
   validatedHooks     ValidatedHook[]

@@ -31,7 +31,19 @@ export default function CampaignsContent() {
       .then((data) => { setCampaigns(data); setLoading(false); });
   }
 
-  useEffect(() => { fetchCampaigns(); }, []);
+  useEffect(() => {
+    fetch("/api/campaigns/auto-archive", { method: "POST" })
+      .then(r => r.json())
+      .then(({ archived }) => {
+        if (archived?.length > 0) {
+          // Campaigns were auto-archived — refresh the list
+          fetchCampaigns();
+        } else {
+          fetchCampaigns();
+        }
+      })
+      .catch(() => fetchCampaigns());
+  }, []);
 
   if (loading) {
     return <div className="p-8 animate-pulse space-y-4">

@@ -42,6 +42,7 @@ export interface Campaign {
   hashtags: string | null;
   validatedSheetUrl: string | null;
   logoUrl: string | null;
+  contractEndDate: string | null;
   members?: CampaignMember[];
   createdAt: string;
   updatedAt: string;

@@ -41,6 +41,7 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
     hooksTarget: campaign.hooksTarget,
     validatedTarget: campaign.validatedTarget,
     hashtags: campaign.hashtags ?? "",
+    contractEndDate: campaign.contractEndDate ? campaign.contractEndDate.slice(0, 10) : "",
   });
 
   // Team state
@@ -96,6 +97,7 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
           hooksTarget: form.hooksTarget,
           validatedTarget: form.validatedTarget,
           hashtags: form.hashtags || null,
+          contractEndDate: form.contractEndDate ? new Date(form.contractEndDate).toISOString() : null,
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
@@ -307,6 +309,22 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
                   <select className="input" value={form.validatedTarget} onChange={(e) => setField("validatedTarget", parseInt(e.target.value))}>
                     {[0, 3, 5, 7, 10].map((n) => <option key={n} value={n}>{n === 0 ? "0 (none)" : n}</option>)}
                   </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="label">Contract end date <span className="font-normal text-slate-400 normal-case">(auto-archives when reached)</span></label>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      className="input flex-1"
+                      value={form.contractEndDate}
+                      onChange={e => setField("contractEndDate", e.target.value)}
+                    />
+                    {form.contractEndDate && (
+                      <button type="button" onClick={() => setField("contractEndDate", "")} className="btn-secondary text-xs text-slate-400">
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <label className="label">Emoji</label>

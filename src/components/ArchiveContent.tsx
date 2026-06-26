@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Search, Flame, ExternalLink, Check, Loader2 } from "lucide-react";
+import { Search, Flame, ExternalLink, Check, Loader2, ChevronDown, ChevronUp, Archive } from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { FORMAT_COLORS, HOOK_FORMATS } from "@/types";
 import type { Hook, Campaign, Week } from "@/types";
@@ -33,8 +33,12 @@ export default function ArchiveContent() {
 
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
 
+  const [archivedCampaigns, setArchivedCampaigns] = useState<(Campaign & { _count: { weeks: number } })[]>([]);
+  const [showArchivedCampaigns, setShowArchivedCampaigns] = useState(true);
+
   useEffect(() => {
     fetch("/api/campaigns").then((r) => r.json()).then((data) => setCampaigns(data));
+    fetch("/api/campaigns/archived").then((r) => r.json()).then((data) => setArchivedCampaigns(data));
   }, []);
 
   // Fetch weeks when campaign changes
@@ -96,6 +100,43 @@ export default function ArchiveContent() {
         <h1 className="text-2xl font-bold text-slate-900 mb-1">Hook Archive</h1>
         <p className="text-sm text-slate-500">Every hook ever submitted across all campaigns</p>
       </div>
+
+      {/* Archived campaigns */}
+      {archivedCampaigns.length > 0 && (
+        <div className="mb-8">
+          <button
+            onClick={() => setShowArchivedCampaigns(v => !v)}
+            className="flex items-center gap-2 mb-3 group"
+          >
+            <Archive className="w-4 h-4 text-slate-400" />
+            <span className="text-sm font-semibold text-slate-600">Archived campaigns ({archivedCampaigns.length})</span>
+            {showArchivedCampaigns ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+          </button>
+          {showArchivedCampaigns && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {archivedCampaigns.map(c => {
+                const colors = CAMPAIGN_COLORS[c.color] || CAMPAIGN_COLORS.blue;
+                return (
+                  <Link
+                    key={c.id}
+                    href={`/campaigns/${c.id}`}
+                    className="card p-4 flex items-center gap-3 hover:shadow-md transition-shadow opacity-70 hover:opacity-100"
+                  >
+                    <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0", colors.bg)}>
+                      {c.emoji}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{c.name}</p>
+                      <p className="text-xs text-slate-400 truncate">{c.clientName} · {c._count.weeks} weeks</p>
+                    </div>
+                    <span className="badge bg-slate-100 text-slate-500 border border-slate-200 flex-shrink-0">ended</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">

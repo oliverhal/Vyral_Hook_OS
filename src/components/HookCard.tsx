@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   Check, ChevronDown, ChevronUp, ExternalLink, Sparkles, Trash2,
-  ThumbsUp, ThumbsDown, MessageSquare, Flame, Send, X, Pencil, Loader2
+  ThumbsUp, ThumbsDown, Minus, MessageSquare, Flame, Send, X, Pencil, Loader2
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { FORMAT_COLORS, HOOK_FORMATS } from "@/types";
@@ -69,7 +69,8 @@ export default function HookCard({
   const currentUserId = (session?.user as { id?: string })?.id;
 
   const voteScore = votes.reduce((sum, v) => sum + v.value, 0);
-  const myVote = votes.find((v) => v.userId === currentUserId)?.value ?? 0;
+  const myVoteRecord = votes.find((v) => v.userId === currentUserId);
+  const myVote = myVoteRecord ? myVoteRecord.value : null;
 
   async function handleGenerateCaption() {
     if (!onGenerateCaption) return;
@@ -79,11 +80,11 @@ export default function HookCard({
   }
 
   async function handleVote(value: number) {
-    const newValue = myVote === value ? 0 : value;
-    // Optimistic update
+    // Toggle off (clicking same button again) → null removes the vote
+    const newValue = myVote === value ? null : value;
     setVotes((prev) => {
       const without = prev.filter((v) => v.userId !== currentUserId);
-      if (newValue === 0) return without;
+      if (newValue === null) return without;
       return [...without, { id: "temp", hookId: hook.id, userId: currentUserId!, value: newValue, createdAt: new Date().toISOString() }];
     });
     await fetch(`/api/hooks/${hook.id}/vote`, {
@@ -417,6 +418,19 @@ export default function HookCard({
               )}
             >
               <ThumbsUp className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Neutral */}
+            <button
+              onClick={() => handleVote(0)}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors",
+                myVote === 0
+                  ? "bg-slate-200 text-slate-600"
+                  : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              )}
+            >
+              <Minus className="w-3.5 h-3.5" />
             </button>
 
             {/* Score */}

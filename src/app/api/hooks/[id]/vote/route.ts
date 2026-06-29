@@ -8,9 +8,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = (session.user as { id: string }).id;
-  const { value } = await req.json(); // 1, -1, or 0 (remove)
+  const { value } = await req.json(); // 1, 0 (neutral), -1, or null (remove)
 
-  if (value === 0) {
+  if (value === null || value === undefined) {
     await prisma.hookVote.deleteMany({ where: { hookId: params.id, userId } });
     return NextResponse.json({ ok: true });
   }

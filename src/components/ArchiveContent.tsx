@@ -89,19 +89,27 @@ export default function ArchiveContent() {
     if (!isAdmin || validating || validated.has(hook.id)) return;
     setValidating(hook.id);
     try {
-      await fetch(`/api/campaigns/${hook.week.campaignId}/validated`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hookText: hook.hookText,
-          format: hook.format,
-          caption: hook.caption,
-          referenceVideo: hook.referenceVideo,
-          recordingNotes: hook.recordingNotes,
-          sourceHookId: hook.id,
+      await Promise.all([
+        fetch(`/api/campaigns/${hook.week.campaignId}/validated`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hookText: hook.hookText,
+            format: hook.format,
+            caption: hook.caption,
+            referenceVideo: hook.referenceVideo,
+            recordingNotes: hook.recordingNotes,
+            sourceHookId: hook.id,
+          }),
         }),
-      });
+        fetch(`/api/hooks/${hook.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wentViral: true }),
+        }),
+      ]);
       setValidated((prev) => { const next = new Set(prev); next.add(hook.id); return next; });
+      setHooks(prev => prev.map(h => h.id === hook.id ? { ...h, wentViral: true } : h));
     } catch {}
     setValidating(null);
   }

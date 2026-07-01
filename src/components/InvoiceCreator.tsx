@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Printer, ChevronDown, ChevronUp, RotateCcw, Save, Check } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Plus, Trash2, Download, ChevronDown, ChevronUp, RotateCcw, Save, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Vyral Labs sender defaults ────────────────────────────────────────────────
@@ -212,12 +212,12 @@ interface PreviewProps {
   notes: string;
 }
 
-function InvoicePreview(p: PreviewProps) {
+const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function InvoicePreview(p, ref) {
   const total = p.lineItems.reduce((s, i) => s + parseAmt(i.amount), 0);
   const visibleCreators = p.creatorLines.filter(c => c.name);
 
   return (
-    <div className="invoice-print-area bg-white rounded-2xl shadow-xl p-12 font-sans" style={{ minHeight: 900 }}>
+    <div ref={ref} className="bg-white rounded-2xl shadow-xl p-12 font-sans" style={{ minHeight: 900 }}>
       {/* Header */}
       <div className="flex items-start justify-between mb-12">
         <InvoiceLogo large />
@@ -348,7 +348,7 @@ function InvoicePreview(p: PreviewProps) {
       </div>
     </div>
   );
-}
+});
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -472,9 +472,41 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
     }
   }
 
-  function handlePrint() {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    if (!previewRef.current) return;
+    setDownloading(true);
     if (invoiceNumber) saveCounter(invoiceNumber);
-    window.print();
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+      const el = previewRef.current;
+      const canvas = await html2canvas(el, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * pageW) / canvas.width;
+      // If invoice is taller than one page, scale to fit
+      if (imgH <= pageH) {
+        pdf.addImage(imgData, "PNG", 0, 0, pageW, imgH);
+      } else {
+        pdf.addImage(imgData, "PNG", 0, 0, pageW, pageH);
+      }
+      const filename = invoiceNumber ? `${invoiceNumber}.pdf` : "invoice.pdf";
+      pdf.save(filename);
+    } catch (err) {
+      console.error("PDF generation failed", err);
+    } finally {
+      setDownloading(false);
+    }
   }
 
   function resetForm() {
@@ -493,25 +525,6 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
 
   return (
     <>
-      {/* Print CSS — only invoice-print-area visible when printing */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          .invoice-print-area, .invoice-print-area * { visibility: visible !important; }
-          .invoice-print-area {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            max-width: none !important;
-            padding: 48px !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            overflow: visible !important;
-          }
-        }
-      `}</style>
-
       <div className="flex gap-8 items-start">
 
         {/* ── LEFT: Form ────────────────────────────────────────────────── */}
@@ -733,14 +746,12 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
               className="btn-secondary flex items-center gap-2 flex-shrink-0">
               <RotateCcw className="w-4 h-4" /> Reset
             </button>
-            <button onClick={handlePrint}
-              className="btn-primary flex-1 flex items-center justify-center gap-2">
-              <Printer className="w-4 h-4" /> Print / Save PDF
+            <button onClick={handleDownload} disabled={downloading}
+              className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60">
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {downloading ? "Generating…" : "Download PDF"}
             </button>
           </div>
-          <p className="text-xs text-slate-400 text-center -mt-2">
-            Opens browser print dialog → Save as PDF
-          </p>
         </div>
 
         {/* ── RIGHT: Invoice preview ─────────────────────────────────────── */}
@@ -748,12 +759,14 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
           <div className="sticky top-6">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Preview</p>
-              <button onClick={handlePrint}
-                className="btn-primary flex items-center gap-2 text-sm">
-                <Printer className="w-4 h-4" /> Print / Save PDF
+              <button onClick={handleDownload} disabled={downloading}
+                className="btn-primary flex items-center gap-2 text-sm disabled:opacity-60">
+                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {downloading ? "Generating…" : "Download PDF"}
               </button>
             </div>
             <InvoicePreview
+              ref={previewRef}
               fromCompany={fromCompany}
               fromAddress={fromAddress}
               fromVatId={fromVatId}

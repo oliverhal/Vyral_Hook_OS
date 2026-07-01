@@ -205,7 +205,7 @@ function Field({ label, children, className }: { label: string; children: React.
 // ── Invoice preview ───────────────────────────────────────────────────────────
 
 interface PreviewProps {
-  fromCompany: string; fromAddress: string; fromIban: string; fromBic: string; fromIntBic: string;
+  fromCompany: string; fromAddress: string; fromVatId: string; fromIban: string; fromBic: string; fromIntBic: string;
   invoiceNumber: string; invoiceDate: string; dueDate: string;
   toCompany: string; toAddress: string; toVatId: string; toContact: string;
   lineItems: LineItem[]; showCreators: boolean; creatorLines: CreatorLine[];
@@ -246,6 +246,7 @@ function InvoicePreview(p: PreviewProps) {
           {p.fromAddress.split("\n").map((l, i) => (
             <p key={i} className="text-sm text-slate-500">{l}</p>
           ))}
+          {p.fromVatId && <p className="text-sm text-slate-500 mt-1">VAT: {p.fromVatId}</p>}
         </div>
         <div>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Bill To</p>
@@ -385,6 +386,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
   const [fromIban, setFromIban] = useState(VYRAL.iban);
   const [fromBic, setFromBic] = useState(VYRAL.bic);
   const [fromIntBic, setFromIntBic] = useState(VYRAL.intermediaryBic);
+  const [fromVatId, setFromVatId] = useState("");
   const [showFromEditor, setShowFromEditor] = useState(false);
 
   // Invoice meta
@@ -548,6 +550,9 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
                 </Field>
                 <Field label="Address (one line per row)">
                   <textarea className="textarea" rows={3} value={fromAddress} onChange={e => setFromAddress(e.target.value)} />
+                </Field>
+                <Field label="VAT number (optional)">
+                  <input className="input" value={fromVatId} onChange={e => setFromVatId(e.target.value)} placeholder="e.g. GB123456789" />
                 </Field>
                 <Field label="IBAN">
                   <input className="input font-mono" value={fromIban} onChange={e => setFromIban(e.target.value)} />
@@ -739,6 +744,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
             <InvoicePreview
               fromCompany={fromCompany}
               fromAddress={fromAddress}
+              fromVatId={fromVatId}
               fromIban={fromIban}
               fromBic={fromBic}
               fromIntBic={fromIntBic}

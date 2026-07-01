@@ -209,11 +209,14 @@ interface PreviewProps {
   invoiceNumber: string; invoiceDate: string; dueDate: string;
   toCompany: string; toAddress: string; toVatId: string; toContact: string;
   lineItems: LineItem[]; showCreators: boolean; creatorLines: CreatorLine[];
+  vatMode: "none" | "vat20" | "reverse_charge";
   notes: string;
 }
 
 const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function InvoicePreview(p, ref) {
-  const total = p.lineItems.reduce((s, i) => s + parseAmt(i.amount), 0);
+  const subtotal = p.lineItems.reduce((s, i) => s + parseAmt(i.amount), 0);
+  const vatAmount = p.vatMode === "vat20" ? subtotal * 0.2 : 0;
+  const total = subtotal + vatAmount;
   const visibleCreators = p.creatorLines.filter(c => c.name);
 
   return (
@@ -311,11 +314,32 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
         </div>
       )}
 
-      {/* Total */}
+      {/* VAT / Total */}
       <div className="flex justify-end mt-8 mb-10">
-        <div className="bg-slate-900 text-white rounded-2xl px-8 py-5 text-right">
-          <p className="text-xs font-semibold uppercase tracking-widest opacity-50 mb-1">Total Due</p>
-          <p className="text-3xl font-black">{fmtEur(total)}</p>
+        <div className="text-right space-y-2 min-w-[220px]">
+          {p.vatMode === "vat20" && (
+            <>
+              <div className="flex justify-between gap-12 text-sm text-slate-600">
+                <span>Subtotal</span>
+                <span className="font-semibold">{fmtEur(subtotal)}</span>
+              </div>
+              <div className="flex justify-between gap-12 text-sm text-slate-600">
+                <span>VAT (20%)</span>
+                <span className="font-semibold">{fmtEur(vatAmount)}</span>
+              </div>
+              <div className="h-px bg-slate-200 my-1" />
+            </>
+          )}
+          {p.vatMode === "reverse_charge" && (
+            <div className="flex justify-between gap-12 text-sm text-slate-500">
+              <span>VAT</span>
+              <span>Reverse Charge</span>
+            </div>
+          )}
+          <div className="bg-slate-900 text-white rounded-2xl px-8 py-5 text-right">
+            <p className="text-xs font-semibold uppercase tracking-widest opacity-50 mb-1">Total Due</p>
+            <p className="text-3xl font-black">{fmtEur(total)}</p>
+          </div>
         </div>
       </div>
 
@@ -342,8 +366,13 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
             </div>
           )}
         </div>
+        {p.vatMode === "reverse_charge" && (
+          <p className="text-xs text-slate-500 mt-4 leading-relaxed border-t border-slate-100 pt-4">
+            This supply is outside the scope of UK VAT. The services are subject to the Reverse Charge Mechanism.
+          </p>
+        )}
         {p.notes && (
-          <p className="text-xs text-slate-400 mt-5 leading-relaxed">{p.notes}</p>
+          <p className="text-xs text-slate-400 mt-3 leading-relaxed">{p.notes}</p>
         )}
       </div>
     </div>
@@ -420,6 +449,9 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
   // Creator breakdown
   const [showCreators, setShowCreators] = useState(false);
   const [creatorLines, setCreatorLines] = useState<CreatorLine[]>([blankCreator()]);
+
+  // VAT
+  const [vatMode, setVatMode] = useState<"none" | "vat20" | "reverse_charge">("none");
 
   // Notes
   const [notes, setNotes] = useState("Payment due within 7 days of invoice date.\nPlease reference the invoice number when making payment.");
@@ -517,6 +549,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
     setLineItems([blankItem()]);
     setShowCreators(false);
     setCreatorLines([blankCreator()]);
+    setVatMode("none");
     setNotes("Payment due within 7 days of invoice date.\nPlease reference the invoice number when making payment.");
   }
 
@@ -674,6 +707,34 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
             </div>
           </div>
 
+          {/* VAT */}
+          <div className="card p-5">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">VAT</p>
+            <div className="space-y-2">
+              {(["none", "vat20", "reverse_charge"] as const).map(mode => (
+                <label key={mode} className={cn(
+                  "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors",
+                  vatMode === mode ? "border-blue-400 bg-blue-50" : "border-slate-200 hover:bg-slate-50"
+                )}>
+                  <input type="radio" name="vatMode" value={mode} checked={vatMode === mode}
+                    onChange={() => setVatMode(mode)} className="mt-0.5 accent-blue-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {mode === "none" && "No VAT"}
+                      {mode === "vat20" && "Add VAT at 20%"}
+                      {mode === "reverse_charge" && "Reverse Charge"}
+                    </p>
+                    {mode === "reverse_charge" && (
+                      <p className="text-xs text-slate-400 mt-0.5 leading-snug">
+                        Outside scope of UK VAT — customer accounts for VAT
+                      </p>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
           {/* Creator breakdown */}
           <div className="card overflow-hidden">
             <button
@@ -782,6 +843,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
               lineItems={lineItems}
               showCreators={showCreators}
               creatorLines={creatorLines}
+              vatMode={vatMode}
               notes={notes}
             />
           </div>

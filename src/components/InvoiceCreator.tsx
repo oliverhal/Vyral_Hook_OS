@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Trash2, Printer, ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Trash2, Printer, ChevronDown, ChevronUp, RotateCcw, Save, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Vyral Labs sender defaults ────────────────────────────────────────────────
@@ -131,6 +131,24 @@ interface CreatorLine { id: string; name: string; platform: string; amount: stri
 
 const blankItem = (): LineItem => ({ id: uid(), description: "", amount: "" });
 const blankCreator = (): CreatorLine => ({ id: uid(), name: "", platform: "", amount: "" });
+
+const BILLING_KEY = "vyral-client-billing-v1";
+
+function loadSavedBilling(): Record<string, ClientBilling> {
+  try { return JSON.parse(localStorage.getItem(BILLING_KEY) || "{}"); } catch { return {}; }
+}
+
+function saveBillingForClient(clientId: string, billing: ClientBilling) {
+  const saved = loadSavedBilling();
+  saved[clientId] = billing;
+  localStorage.setItem(BILLING_KEY, JSON.stringify(saved));
+}
+
+function getBilling(clientId: string, clientName: string): ClientBilling | null {
+  const saved = loadSavedBilling();
+  if (saved[clientId]) return saved[clientId];
+  return CLIENT_BILLING[clientName] ?? null;
+}
 
 function getNextNumber(series: string): string {
   const counters: Record<string, number> = JSON.parse(
@@ -357,6 +375,8 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
   const [toAddress, setToAddress] = useState("");
   const [toVatId, setToVatId] = useState("");
   const [toContact, setToContact] = useState("");
+  const [toSeries, setToSeries] = useState("");
+  const [billingSaved, setBillingSaved] = useState(false);
 
   // Line items
   const [lineItems, setLineItems] = useState<LineItem[]>([blankItem()]);
@@ -370,24 +390,41 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
 
   function selectClient(clientId: string) {
     setSelectedClientId(clientId);
+    setBillingSaved(false);
     if (!clientId) return;
     const client = clients.find(c => c.id === clientId);
     if (!client) return;
-    const billing = CLIENT_BILLING[client.name];
+    const billing = getBilling(clientId, client.name);
     if (billing) {
       setToCompany(billing.companyName);
       setToAddress(billing.address);
       setToVatId(billing.vatId);
       setToContact(billing.contactName);
-      try {
-        setInvoiceNumber(getNextNumber(billing.series));
-      } catch { /* localStorage may not be available on first render */ }
+      setToSeries(billing.series);
+      try { setInvoiceNumber(getNextNumber(billing.series)); } catch { /* */ }
     } else {
       setToCompany(client.name);
       setToAddress("");
       setToVatId("");
       setToContact("");
+      setToSeries("");
     }
+  }
+
+  function saveBilling() {
+    if (!selectedClientId) return;
+    saveBillingForClient(selectedClientId, {
+      companyName: toCompany,
+      address: toAddress,
+      vatId: toVatId,
+      contactName: toContact,
+      series: toSeries,
+    });
+    if (toSeries) {
+      try { setInvoiceNumber(getNextNumber(toSeries)); } catch { /* */ }
+    }
+    setBillingSaved(true);
+    setTimeout(() => setBillingSaved(false), 2500);
   }
 
   function handleDateChange(val: string) {
@@ -409,7 +446,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
     setInvoiceNumber("");
     setInvoiceDate(todayStr());
     setDueDate(inDaysStr(7));
-    setToCompany(""); setToAddress(""); setToVatId(""); setToContact("");
+    setToCompany(""); setToAddress(""); setToVatId(""); setToContact(""); setToSeries(""); setBillingSaved(false);
     setLineItems([blankItem()]);
     setShowCreators(false);
     setCreatorLines([blankCreator()]);
@@ -506,7 +543,23 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
 
           {/* To details */}
           <div className="card p-5 space-y-3">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Bill To</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Bill To</p>
+              {selectedClientId && (
+                <button
+                  onClick={saveBilling}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+                    billingSaved
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                      : "bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600"
+                  )}
+                >
+                  {billingSaved ? <Check className="w-3 h-3" /> : <Save className="w-3 h-3" />}
+                  {billingSaved ? "Saved!" : "Save details"}
+                </button>
+              )}
+            </div>
             <Field label="Company name">
               <input className="input" value={toCompany} onChange={e => setToCompany(e.target.value)} placeholder="Client Ltd" />
             </Field>
@@ -521,6 +574,12 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
                 <input className="input" value={toContact} onChange={e => setToContact(e.target.value)} placeholder="Optional" />
               </Field>
             </div>
+            <Field label="Invoice series prefix">
+              <input className="input" value={toSeries} onChange={e => setToSeries(e.target.value.toUpperCase())} placeholder="e.g. ECOSIA" />
+            </Field>
+            {!selectedClientId && (
+              <p className="text-xs text-slate-400">Select a client above to enable saving</p>
+            )}
           </div>
 
           {/* Line items */}

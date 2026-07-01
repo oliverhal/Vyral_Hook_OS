@@ -493,13 +493,12 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
-      const imgH = (canvas.height * pageW) / canvas.width;
-      // If invoice is taller than one page, scale to fit
-      if (imgH <= pageH) {
-        pdf.addImage(imgData, "PNG", 0, 0, pageW, imgH);
-      } else {
-        pdf.addImage(imgData, "PNG", 0, 0, pageW, pageH);
-      }
+      const imgAspect = canvas.width / canvas.height;
+      // Always fit to full page height, centred horizontally
+      const drawH = pageH;
+      const drawW = drawH * imgAspect;
+      const xOffset = (pageW - drawW) / 2;
+      pdf.addImage(imgData, "PNG", xOffset, 0, drawW, drawH);
       const filename = invoiceNumber ? `${invoiceNumber}.pdf` : "invoice.pdf";
       pdf.save(filename);
     } catch (err) {

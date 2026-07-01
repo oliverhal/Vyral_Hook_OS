@@ -380,14 +380,25 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
     return out.sort((a, b) => a.name.localeCompare(b.name));
   })();
 
-  // From (Vyral)
-  const [fromCompany, setFromCompany] = useState(VYRAL.company);
-  const [fromAddress, setFromAddress] = useState(VYRAL.address);
-  const [fromIban, setFromIban] = useState(VYRAL.iban);
-  const [fromBic, setFromBic] = useState(VYRAL.bic);
-  const [fromIntBic, setFromIntBic] = useState(VYRAL.intermediaryBic);
-  const [fromVatId, setFromVatId] = useState("");
+  // From (Vyral) — persisted to localStorage
+  const SENDER_KEY = "vyral-sender-details-v1";
+  const savedSender = (() => {
+    try { return JSON.parse(localStorage.getItem(SENDER_KEY) || "{}"); } catch { return {}; }
+  })();
+  const [fromCompany, setFromCompany] = useState<string>(savedSender.company ?? VYRAL.company);
+  const [fromAddress, setFromAddress] = useState<string>(savedSender.address ?? VYRAL.address);
+  const [fromIban, setFromIban] = useState<string>(savedSender.iban ?? VYRAL.iban);
+  const [fromBic, setFromBic] = useState<string>(savedSender.bic ?? VYRAL.bic);
+  const [fromIntBic, setFromIntBic] = useState<string>(savedSender.intermediaryBic ?? VYRAL.intermediaryBic);
+  const [fromVatId, setFromVatId] = useState<string>(savedSender.vatId ?? "");
   const [showFromEditor, setShowFromEditor] = useState(false);
+
+  function saveSenderDetails() {
+    localStorage.setItem(SENDER_KEY, JSON.stringify({
+      company: fromCompany, address: fromAddress, iban: fromIban,
+      bic: fromBic, intermediaryBic: fromIntBic, vatId: fromVatId,
+    }));
+  }
 
   // Invoice meta
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -546,25 +557,26 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
             {showFromEditor && (
               <div className="px-5 pb-5 space-y-3 border-t border-slate-100">
                 <Field label="Company name">
-                  <input className="input" value={fromCompany} onChange={e => setFromCompany(e.target.value)} />
+                  <input className="input" value={fromCompany} onChange={e => { setFromCompany(e.target.value); saveSenderDetails(); }} />
                 </Field>
                 <Field label="Address (one line per row)">
-                  <textarea className="textarea" rows={3} value={fromAddress} onChange={e => setFromAddress(e.target.value)} />
+                  <textarea className="textarea" rows={3} value={fromAddress} onChange={e => { setFromAddress(e.target.value); saveSenderDetails(); }} />
                 </Field>
                 <Field label="VAT number (optional)">
-                  <input className="input" value={fromVatId} onChange={e => setFromVatId(e.target.value)} placeholder="e.g. GB123456789" />
+                  <input className="input" value={fromVatId} onChange={e => { setFromVatId(e.target.value); saveSenderDetails(); }} placeholder="e.g. GB123456789" />
                 </Field>
                 <Field label="IBAN">
-                  <input className="input font-mono" value={fromIban} onChange={e => setFromIban(e.target.value)} />
+                  <input className="input font-mono" value={fromIban} onChange={e => { setFromIban(e.target.value); saveSenderDetails(); }} />
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="BIC">
-                    <input className="input font-mono" value={fromBic} onChange={e => setFromBic(e.target.value)} />
+                    <input className="input font-mono" value={fromBic} onChange={e => { setFromBic(e.target.value); saveSenderDetails(); }} />
                   </Field>
                   <Field label="Intermediary BIC">
-                    <input className="input font-mono" value={fromIntBic} onChange={e => setFromIntBic(e.target.value)} />
+                    <input className="input font-mono" value={fromIntBic} onChange={e => { setFromIntBic(e.target.value); saveSenderDetails(); }} />
                   </Field>
                 </div>
+                <p className="text-xs text-slate-400">Changes save automatically.</p>
               </div>
             )}
           </div>

@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import InvoiceCreator from "./InvoiceCreator";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -496,7 +497,7 @@ function ClientForm({ client, onSave, onCancel }: ClientFormProps) {
 export default function InvoiceManagementContent() {
   const [clients, setClients] = useState<Client[]>([]);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<"overview" | "clients">("overview");
+  const [tab, setTab] = useState<"overview" | "clients" | "create">("overview");
   const [clientFilter, setClientFilter] = useState<"active" | "ended" | "all">("active");
   const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(new Date()));
   const [showForm, setShowForm] = useState(false);
@@ -804,6 +805,12 @@ export default function InvoiceManagementContent() {
           )}>
           Clients ({clients.length})
         </button>
+        <button onClick={() => setTab("create")}
+          className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
+            tab === "create" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          )}>
+          Create Invoice
+        </button>
       </div>
 
       {/* Overview tab */}
@@ -919,6 +926,11 @@ export default function InvoiceManagementContent() {
           })}
           </div>
         </div>
+      )}
+
+      {/* Create Invoice tab */}
+      {tab === "create" && (
+        <InvoiceCreator clients={clients.map(c => ({ id: c.id, name: c.name }))} />
       )}
 
       {/* Modal */}

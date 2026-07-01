@@ -356,6 +356,29 @@ interface InvoiceCreatorProps {
 }
 
 export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
+  // Fetch live campaigns from API and merge with invoice tracker clients
+  const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string; clientName: string }>>([]);
+  useEffect(() => {
+    fetch("/api/campaigns")
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setCampaigns(data); })
+      .catch(() => {});
+  }, []);
+
+  // Merged client list: campaigns take priority, invoice clients fill any gaps
+  const mergedClients = (() => {
+    const seen = new Set<string>();
+    const out: Array<{ id: string; name: string }> = [];
+    for (const c of campaigns) {
+      seen.add(c.clientName.toLowerCase());
+      out.push({ id: c.id, name: c.clientName });
+    }
+    for (const c of clients) {
+      if (!seen.has(c.name.toLowerCase())) out.push(c);
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
   // From (Vyral)
   const [fromCompany, setFromCompany] = useState(VYRAL.company);
   const [fromAddress, setFromAddress] = useState(VYRAL.address);
@@ -392,7 +415,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
     setSelectedClientId(clientId);
     setBillingSaved(false);
     if (!clientId) return;
-    const client = clients.find(c => c.id === clientId);
+    const client = mergedClients.find(c => c.id === clientId);
     if (!client) return;
     const billing = getBilling(clientId, client.name);
     if (billing) {
@@ -490,7 +513,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
               className="input w-full mb-3"
             >
               <option value="">Select client…</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {mergedClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Invoice #">

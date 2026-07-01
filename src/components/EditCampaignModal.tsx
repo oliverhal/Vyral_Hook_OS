@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { X, Loader2, Plus, Trash2, Calendar, Settings, Upload, ImageOff, Users, Crown, Check } from "lucide-react";
+import { X, Loader2, Plus, Trash2, Calendar, Settings, Upload, ImageOff, Users, Crown, Check, Receipt } from "lucide-react";
 import { format } from "date-fns";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import type { Campaign, Week, Hook, CampaignMember } from "@/types";
@@ -25,7 +25,7 @@ interface EditCampaignModalProps {
 }
 
 export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCampaignModalProps) {
-  const [tab, setTab] = useState<"settings" | "weeks" | "team">("settings");
+  const [tab, setTab] = useState<"settings" | "weeks" | "team" | "billing">("settings");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(campaign.logoUrl ?? null);
@@ -53,6 +53,33 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
     campaign.members?.filter(m => m.role === "supporter").map(m => m.userId) ?? []
   );
   const [teamSaving, setTeamSaving] = useState(false);
+
+  // Billing details (localStorage, syncs with InvoiceCreator)
+  const BILLING_KEY = "vyral-client-billing-v1";
+  function loadBilling() {
+    try { return JSON.parse(localStorage.getItem(BILLING_KEY) || "{}"); } catch { return {}; }
+  }
+  const existing = typeof window !== "undefined" ? (loadBilling()[campaign.id] ?? {}) : {};
+  const [billingCompany, setBillingCompany] = useState<string>(existing.companyName ?? "");
+  const [billingAddress, setBillingAddress] = useState<string>(existing.address ?? "");
+  const [billingVat, setBillingVat] = useState<string>(existing.vatId ?? "");
+  const [billingContact, setBillingContact] = useState<string>(existing.contactName ?? "");
+  const [billingSeries, setBillingSeries] = useState<string>(existing.series ?? "");
+  const [billingSaved, setBillingSaved] = useState(false);
+
+  function saveBillingDetails() {
+    const all = loadBilling();
+    all[campaign.id] = {
+      companyName: billingCompany,
+      address: billingAddress,
+      vatId: billingVat,
+      contactName: billingContact,
+      series: billingSeries,
+    };
+    localStorage.setItem(BILLING_KEY, JSON.stringify(all));
+    setBillingSaved(true);
+    setTimeout(() => setBillingSaved(false), 2500);
+  }
 
   useEffect(() => {
     fetch("/api/admin/users").then(r => r.json()).then(data => {
@@ -223,10 +250,11 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
             { id: "settings", label: "Campaign settings", icon: Settings },
             { id: "weeks", label: `Weeks (${weeks.length})`, icon: Calendar },
             { id: "team", label: "Team", icon: Users },
+            { id: "billing", label: "Billing", icon: Receipt },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => setTab(id as "settings" | "weeks")}
+              onClick={() => setTab(id as "settings" | "weeks" | "team" | "billing")}
               className={cn(
                 "flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2",
                 tab === id
@@ -518,6 +546,37 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
             </div>
           )}
 
+          {tab === "billing" && (
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700">
+                These details auto-fill in the Invoice Creator when you select this campaign.
+              </div>
+              <div>
+                <label className="label">Legal company name</label>
+                <input className="input" value={billingCompany} onChange={e => setBillingCompany(e.target.value)} placeholder="e.g. Acme Inc." />
+              </div>
+              <div>
+                <label className="label">Billing address <span className="font-normal text-slate-400 normal-case">(one line per row)</span></label>
+                <textarea className="textarea" rows={3} value={billingAddress} onChange={e => setBillingAddress(e.target.value)} placeholder={"123 Street Name\nCity, Country"} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">VAT ID</label>
+                  <input className="input" value={billingVat} onChange={e => setBillingVat(e.target.value)} placeholder="Optional" />
+                </div>
+                <div>
+                  <label className="label">Contact name</label>
+                  <input className="input" value={billingContact} onChange={e => setBillingContact(e.target.value)} placeholder="Optional" />
+                </div>
+              </div>
+              <div>
+                <label className="label">Invoice series prefix</label>
+                <input className="input" value={billingSeries} onChange={e => setBillingSeries(e.target.value.toUpperCase())} placeholder="e.g. ACME" />
+                <p className="text-xs text-slate-400 mt-1">Used to auto-number invoices: ACME-001, ACME-002…</p>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">
               {error}
@@ -556,6 +615,21 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
             >
               {teamSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {teamSaving ? "Saving..." : "Save team"}
+            </button>
+          </div>
+        )}
+        {tab === "billing" && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
+            <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 font-medium">Cancel</button>
+            <button
+              onClick={saveBillingDetails}
+              className={cn(
+                "btn-primary flex items-center gap-2",
+                billingSaved && "bg-emerald-600 hover:bg-emerald-700"
+              )}
+            >
+              {billingSaved ? <Check className="w-4 h-4" /> : null}
+              {billingSaved ? "Saved!" : "Save billing details"}
             </button>
           </div>
         )}

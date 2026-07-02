@@ -119,8 +119,29 @@ function fmtDateLong(s: string) {
     day: "numeric", month: "long", year: "numeric",
   });
 }
-function fmtEur(n: number) {
-  return `€${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const CURRENCIES = [
+  { code: "EUR", symbol: "€", locale: "en-DE" },
+  { code: "USD", symbol: "$", locale: "en-US" },
+  { code: "GBP", symbol: "£", locale: "en-GB" },
+  { code: "SEK", symbol: "kr", locale: "sv-SE" },
+  { code: "CZK", symbol: "Kč", locale: "cs-CZ" },
+  { code: "DKK", symbol: "kr", locale: "da-DK" },
+  { code: "NOK", symbol: "kr", locale: "nb-NO" },
+  { code: "CHF", symbol: "CHF", locale: "de-CH" },
+] as const;
+
+type CurrencyCode = typeof CURRENCIES[number]["code"];
+
+function fmtCurrency(n: number, code: CurrencyCode) {
+  const c = CURRENCIES.find(x => x.code === code) ?? CURRENCIES[0];
+  const num = n.toLocaleString(c.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return code === "SEK" || code === "DKK" || code === "NOK" || code === "CZK"
+    ? `${num} ${c.symbol}`
+    : `${c.symbol}${num}`;
+}
+
+function currencySymbol(code: CurrencyCode) {
+  return CURRENCIES.find(x => x.code === code)?.symbol ?? "€";
 }
 function parseAmt(s: string) { return parseFloat(s.replace(/[^0-9.]/g, "")) || 0; }
 
@@ -210,6 +231,7 @@ interface PreviewProps {
   toCompany: string; toAddress: string; toVatId: string; toContact: string;
   lineItems: LineItem[]; showCreators: boolean; creatorLines: CreatorLine[];
   vatMode: "none" | "vat20" | "reverse_charge";
+  currency: CurrencyCode;
   notes: string;
 }
 
@@ -217,6 +239,7 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
   const subtotal = p.lineItems.reduce((s, i) => s + parseAmt(i.amount), 0);
   const vatAmount = p.vatMode === "vat20" ? subtotal * 0.2 : 0;
   const total = subtotal + vatAmount;
+  const fmt = (n: number) => fmtCurrency(n, p.currency);
   const visibleCreators = p.creatorLines.filter(c => c.name);
 
   return (
@@ -280,7 +303,7 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
                 {item.description || <span className="text-slate-300 italic">Description</span>}
               </td>
               <td className="py-4 text-right text-sm font-semibold text-slate-900">
-                {item.amount ? fmtEur(parseAmt(item.amount)) : <span className="text-slate-300">€0.00</span>}
+                {item.amount ? fmt(parseAmt(item.amount)) : <span className="text-slate-300">0.00</span>}
               </td>
             </tr>
           ))}
@@ -305,7 +328,7 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
                   <td className="py-2.5 pr-4 text-sm text-slate-700">{c.name}</td>
                   <td className="py-2.5 pr-4 text-xs text-slate-400">{c.platform || "—"}</td>
                   <td className="py-2.5 text-right text-sm text-slate-700">
-                    {c.amount ? fmtEur(parseAmt(c.amount)) : "—"}
+                    {c.amount ? fmt(parseAmt(c.amount)) : "—"}
                   </td>
                 </tr>
               ))}
@@ -321,11 +344,11 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
             <>
               <div className="flex justify-between gap-12 text-sm text-slate-600">
                 <span>Subtotal</span>
-                <span className="font-semibold">{fmtEur(subtotal)}</span>
+                <span className="font-semibold">{fmt(subtotal)}</span>
               </div>
               <div className="flex justify-between gap-12 text-sm text-slate-600">
                 <span>VAT (20%)</span>
-                <span className="font-semibold">{fmtEur(vatAmount)}</span>
+                <span className="font-semibold">{fmt(vatAmount)}</span>
               </div>
               <div className="h-px bg-slate-200 my-1" />
             </>
@@ -338,7 +361,7 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
           )}
           <div className="bg-slate-900 text-white rounded-2xl px-8 py-5 text-right">
             <p className="text-xs font-semibold uppercase tracking-widest opacity-50 mb-1">Total Due</p>
-            <p className="text-3xl font-black">{fmtEur(total)}</p>
+            <p className="text-3xl font-black">{fmt(total)}</p>
           </div>
         </div>
       </div>
@@ -450,6 +473,11 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
   const [showCreators, setShowCreators] = useState(false);
   const [creatorLines, setCreatorLines] = useState<CreatorLine[]>([blankCreator()]);
 
+  // Currency
+  const [currency, setCurrency] = useState<CurrencyCode>("EUR");
+  const sym = currencySymbol(currency);
+  const fmtAmt = (n: number) => fmtCurrency(n, currency);
+
   // VAT
   const [vatMode, setVatMode] = useState<"none" | "vat20" | "reverse_charge">("none");
 
@@ -549,6 +577,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
     setLineItems([blankItem()]);
     setShowCreators(false);
     setCreatorLines([blankCreator()]);
+    setCurrency("EUR");
     setVatMode("none");
     setNotes("Payment due within 7 days of invoice date.\nPlease reference the invoice number when making payment.");
   }
@@ -577,7 +606,11 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
               <Field label="Invoice #">
                 <input className="input" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="e.g. SHAMELESS-002" />
               </Field>
-              <div />
+              <Field label="Currency">
+                <select className="input" value={currency} onChange={e => setCurrency(e.target.value as CurrencyCode)}>
+                  {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>)}
+                </select>
+              </Field>
               <Field label="Invoice Date">
                 <input type="date" className="input" value={invoiceDate} onChange={e => handleDateChange(e.target.value)} />
               </Field>
@@ -680,7 +713,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
                     onChange={e => setLineItems(p => p.map(i => i.id === item.id ? { ...i, description: e.target.value } : i))}
                   />
                   <div className="relative flex-shrink-0 w-28">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">€</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">{sym}</span>
                     <input
                       className="input pl-6 text-sm w-full"
                       placeholder="0.00"
@@ -703,7 +736,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
             </button>
             <div className="flex justify-between items-center pt-2 border-t border-slate-100">
               <span className="text-xs font-semibold text-slate-500">Total</span>
-              <span className="text-lg font-black text-slate-900">{fmtEur(total)}</span>
+              <span className="text-lg font-black text-slate-900">{fmtAmt(total)}</span>
             </div>
           </div>
 
@@ -764,7 +797,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
                       onChange={e => setCreatorLines(p => p.map(c => c.id === line.id ? { ...c, platform: e.target.value } : c))}
                     />
                     <div className="relative flex-shrink-0 w-24">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">€</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">{sym}</span>
                       <input
                         className="input pl-6 text-sm w-full"
                         placeholder="0.00"
@@ -844,6 +877,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
               showCreators={showCreators}
               creatorLines={creatorLines}
               vatMode={vatMode}
+              currency={currency}
               notes={notes}
             />
           </div>

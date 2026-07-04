@@ -4,10 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Plus, Trash2, Edit2, Download, Upload, Check, X,
   AlertCircle, Clock, TrendingUp, Repeat, ExternalLink,
-  ChevronLeft, ChevronRight, Pencil,
+  ChevronLeft, ChevronRight, Pencil, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import InvoiceCreator from "./InvoiceCreator";
+import InvoiceCreator, { SavedInvoice, HISTORY_KEY } from "./InvoiceCreator";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -497,7 +497,9 @@ function ClientForm({ client, onSave, onCancel }: ClientFormProps) {
 export default function InvoiceManagementContent() {
   const [clients, setClients] = useState<Client[]>([]);
   const [ready, setReady] = useState(false);
-  const [tab, setTab] = useState<"overview" | "clients" | "create">("overview");
+  const [tab, setTab] = useState<"overview" | "clients" | "create" | "history">("overview");
+  const [pendingLoad, setPendingLoad] = useState<SavedInvoice | null>(null);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const [clientFilter, setClientFilter] = useState<"active" | "ended" | "all">("active");
   const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(new Date()));
   const [showForm, setShowForm] = useState(false);
@@ -620,6 +622,27 @@ export default function InvoiceManagementContent() {
     };
     reader.readAsText(file);
     e.target.value = "";
+  }
+
+  const savedInvoices = useMemo<SavedInvoice[]>(() => {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyVersion, tab]);
+
+  const historyByClient = useMemo(() => {
+    const groups: Record<string, SavedInvoice[]> = {};
+    for (const inv of savedInvoices) {
+      const key = inv.clientName || "Unknown";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(inv);
+    }
+    return groups;
+  }, [savedInvoices]);
+
+  function deleteFromHistory(id: string) {
+    const updated = savedInvoices.filter(i => i.id !== id);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+    setHistoryVersion(v => v + 1);
   }
 
   const monthIdx = allMonths.indexOf(selectedMonth);
@@ -811,6 +834,18 @@ export default function InvoiceManagementContent() {
           )}>
           Create Invoice
         </button>
+        <button onClick={() => setTab("history")}
+          className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5",
+            tab === "history" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          )}>
+          <BookOpen className="w-3.5 h-3.5" />
+          History
+          {savedInvoices.length > 0 && (
+            <span className="text-xs bg-slate-200 text-slate-600 rounded-full px-1.5 py-0.5 font-semibold leading-none">
+              {savedInvoices.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Overview tab */}
@@ -930,7 +965,80 @@ export default function InvoiceManagementContent() {
 
       {/* Create Invoice tab */}
       {tab === "create" && (
-        <InvoiceCreator clients={clients.map(c => ({ id: c.id, name: c.name }))} />
+        <InvoiceCreator
+          clients={clients.map(c => ({ id: c.id, name: c.name }))}
+          loadData={pendingLoad}
+          onSaved={() => setHistoryVersion(v => v + 1)}
+        />
+      )}
+
+      {/* History tab */}
+      {tab === "history" && (
+        <div>
+          {savedInvoices.length === 0 ? (
+            <div className="card p-12 text-center">
+              <BookOpen className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+              <p className="text-slate-500 font-medium mb-1">No saved invoices yet</p>
+              <p className="text-slate-400 text-sm">Hit Save in the Create Invoice tab to archive invoices here.</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {Object.entries(historyByClient).map(([clientName, invoices]) => (
+                <div key={clientName}>
+                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3">{clientName}</h3>
+                  <div className="space-y-2">
+                    {invoices.map(inv => {
+                      const sym = inv.currency === "EUR" ? "€"
+                        : inv.currency === "USD" ? "$"
+                        : inv.currency === "GBP" ? "£"
+                        : inv.currency;
+                      return (
+                        <div key={inv.id} className="card p-4 flex items-center justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <p className="font-semibold text-slate-900">
+                                {inv.invoiceNumber || <span className="text-slate-400 font-normal italic">No number</span>}
+                              </p>
+                              <span className="badge bg-slate-50 border-slate-200 text-slate-500 font-mono">
+                                {sym}{inv.total.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {inv.currency}
+                              </span>
+                              {inv.vatMode === "vat20" && (
+                                <span className="badge bg-amber-50 border-amber-200 text-amber-700">+20% VAT</span>
+                              )}
+                              {inv.vatMode === "reverse_charge" && (
+                                <span className="badge bg-blue-50 border-blue-200 text-blue-700">Reverse charge</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">
+                              Saved {fmtDate(new Date(inv.savedAt))}
+                              {inv.invoiceDate && ` · Invoice date ${fmtDate(new Date(inv.invoiceDate))}`}
+                              {inv.dueDate && ` · Due ${fmtDate(new Date(inv.dueDate))}`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => { setPendingLoad(inv); setTab("create"); }}
+                              className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5"
+                            >
+                              <BookOpen className="w-3 h-3" /> Load
+                            </button>
+                            <button
+                              onClick={() => deleteFromHistory(inv.id)}
+                              className="btn-ghost p-1.5 text-slate-400 hover:text-red-600"
+                              title="Delete from history"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Modal */}

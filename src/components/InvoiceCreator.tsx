@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Download, ChevronDown, ChevronUp, RotateCcw, Save, Check, Loader2 } from "lucide-react";
+import { Plus, Trash2, Download, ChevronDown, ChevronUp, RotateCcw, Save, Check, Loader2, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Vyral Labs sender defaults ────────────────────────────────────────────────
@@ -155,6 +155,29 @@ const blankItem = (): LineItem => ({ id: uid(), description: "", amount: "" });
 const blankCreator = (): CreatorLine => ({ id: uid(), name: "", platform: "", amount: "" });
 
 const BILLING_KEY = "vyral-client-billing-v1";
+export const HISTORY_KEY = "vyral-invoice-history-v1";
+
+export interface SavedInvoice {
+  id: string;
+  savedAt: string;
+  clientId: string;
+  clientName: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  toCompany: string;
+  toAddress: string;
+  toVatId: string;
+  toContact: string;
+  toSeries: string;
+  lineItems: LineItem[];
+  showCreators: boolean;
+  creatorLines: CreatorLine[];
+  currency: CurrencyCode;
+  vatMode: "none" | "vat20" | "reverse_charge";
+  notes: string;
+  total: number;
+}
 
 function loadSavedBilling(): Record<string, ClientBilling> {
   try { return JSON.parse(localStorage.getItem(BILLING_KEY) || "{}"); } catch { return {}; }
@@ -407,9 +430,11 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
 
 interface InvoiceCreatorProps {
   clients: Array<{ id: string; name: string }>;
+  loadData?: SavedInvoice | null;
+  onSaved?: () => void;
 }
 
-export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
+export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCreatorProps) {
   // Fetch live campaigns from API and merge with invoice tracker clients
   const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string; clientName: string }>>([]);
   useEffect(() => {
@@ -506,6 +531,60 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
       setToContact("");
       setToSeries("");
     }
+  }
+
+  // Restore form from a saved invoice (from history)
+  useEffect(() => {
+    if (!loadData) return;
+    setSelectedClientId(loadData.clientId);
+    setInvoiceNumber(loadData.invoiceNumber);
+    setInvoiceDate(loadData.invoiceDate);
+    setDueDate(loadData.dueDate);
+    setToCompany(loadData.toCompany);
+    setToAddress(loadData.toAddress);
+    setToVatId(loadData.toVatId);
+    setToContact(loadData.toContact);
+    setToSeries(loadData.toSeries);
+    setLineItems(loadData.lineItems);
+    setShowCreators(loadData.showCreators);
+    setCreatorLines(loadData.creatorLines);
+    setCurrency(loadData.currency);
+    setVatMode(loadData.vatMode);
+    setNotes(loadData.notes);
+  }, [loadData]);
+
+  const [saveToast, setSaveToast] = useState(false);
+
+  function handleSave() {
+    const record: SavedInvoice = {
+      id: uid(),
+      savedAt: new Date().toISOString(),
+      clientId: selectedClientId,
+      clientName: mergedClients.find(c => c.id === selectedClientId)?.name ?? toCompany,
+      invoiceNumber,
+      invoiceDate,
+      dueDate,
+      toCompany,
+      toAddress,
+      toVatId,
+      toContact,
+      toSeries,
+      lineItems,
+      showCreators,
+      creatorLines,
+      currency,
+      vatMode,
+      notes,
+      total: lineItems.reduce((s, i) => s + parseAmt(i.amount), 0),
+    };
+    const existing: SavedInvoice[] = (() => {
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+    })();
+    existing.unshift(record);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(existing.slice(0, 100)));
+    setSaveToast(true);
+    setTimeout(() => setSaveToast(false), 2500);
+    onSaved?.();
   }
 
   function saveBilling() {
@@ -839,6 +918,16 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
             <button onClick={resetForm}
               className="btn-secondary flex items-center gap-2 flex-shrink-0">
               <RotateCcw className="w-4 h-4" /> Reset
+            </button>
+            <button onClick={handleSave}
+              className={cn(
+                "flex items-center gap-2 flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium border transition-colors",
+                saveToast
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                  : "bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700"
+              )}>
+              {saveToast ? <Check className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+              {saveToast ? "Saved!" : "Save"}
             </button>
             <button onClick={handleDownload} disabled={downloading}
               className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60">

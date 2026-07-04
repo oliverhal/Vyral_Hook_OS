@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const VYRAL = {
   company: "Vyral Labs Ltd",
   address: "3 Bournside Drive\nGL51 3AP, Cheltenham\nUnited Kingdom",
+  vatId: "GB521 5864 93",
   iban: "GB41 REVO 2301 2061 2070 56",
   bic: "REVOGB21",
   intermediaryBic: "CHASGB2L",
@@ -442,7 +443,7 @@ export default function InvoiceCreator({ clients }: InvoiceCreatorProps) {
   const [fromIban, setFromIban] = useState<string>(savedSender.iban ?? VYRAL.iban);
   const [fromBic, setFromBic] = useState<string>(savedSender.bic ?? VYRAL.bic);
   const [fromIntBic, setFromIntBic] = useState<string>(savedSender.intermediaryBic ?? VYRAL.intermediaryBic);
-  const [fromVatId, setFromVatId] = useState<string>(savedSender.vatId ?? "");
+  const [fromVatId, setFromVatId] = useState<string>(savedSender.vatId ?? VYRAL.vatId);
   const [showFromEditor, setShowFromEditor] = useState(false);
 
   function saveSenderDetails() {

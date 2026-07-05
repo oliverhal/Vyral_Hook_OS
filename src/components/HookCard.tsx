@@ -202,7 +202,7 @@ export default function HookCard({
               )}
               {hook.wentViral && (
                 <span className="badge text-xs bg-orange-100 text-orange-700 flex items-center gap-1">
-                  <Flame className="w-3 h-3" /> Viral
+                  <Flame className="w-3 h-3" /> Validated
                 </span>
               )}
             </div>
@@ -239,7 +239,7 @@ export default function HookCard({
                       ? "text-orange-500 bg-orange-50 hover:bg-orange-100"
                       : "text-slate-400 hover:text-orange-500 hover:bg-orange-50"
                   )}
-                  title={hook.wentViral ? "Remove from validated" : "Mark as went viral"}
+                  title={hook.wentViral ? "Remove validated mark" : "Mark as validated"}
                 >
                   <Flame className="w-3.5 h-3.5" />
                 </button>

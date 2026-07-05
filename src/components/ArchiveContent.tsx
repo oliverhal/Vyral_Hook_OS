@@ -223,7 +223,7 @@ export default function ArchiveContent() {
           {HOOK_FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
 
-        {/* Viral */}
+        {/* Validated */}
         <button
           onClick={() => setViralOnly(!viralOnly)}
           className={cn(
@@ -234,7 +234,7 @@ export default function ArchiveContent() {
           )}
         >
           <Flame className="w-4 h-4" />
-          Viral only
+          Validated only
         </button>
       </div>
 
@@ -281,7 +281,7 @@ export default function ArchiveContent() {
                       </span>
                       {hook.wentViral && (
                         <span className="badge text-xs bg-orange-100 text-orange-700 flex items-center gap-1">
-                          <Flame className="w-3 h-3" /> Viral
+                          <Flame className="w-3 h-3" /> Validated
                         </span>
                       )}
                       {hook.isSelected && (

@@ -400,6 +400,21 @@ export default function HookCard({
                   <p className="text-sm text-amber-800 leading-relaxed">{hook.recordingNotes}</p>
                 </div>
               )}
+              {hook.referenceVideo && (
+                <a
+                  href={hook.referenceVideo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Reference Video</div>
+                    <p className="text-xs text-blue-500 truncate max-w-xs">{hook.referenceVideo}</p>
+                  </div>
+                </a>
+              )}
             </div>
           )}
 

@@ -264,7 +264,7 @@ export default function ArchiveContent() {
             const formatColor = FORMAT_COLORS[hook.format] ?? "bg-slate-100 text-slate-600";
             const campaignColors = CAMPAIGN_COLORS[hook.week.campaign.color] || CAMPAIGN_COLORS.blue;
             const voteScore = (hook.votes ?? []).reduce((sum, v) => sum + v.value, 0);
-            const isValidated = validated.has(hook.id);
+            const isValidated = hook.wentViral || validated.has(hook.id);
             const isValidating = validating === hook.id;
 
             return (

@@ -150,6 +150,8 @@ export default function WeekView({ weekId }: { weekId: string }) {
       ...w,
       hooks: w.hooks.map((h) => h.id === hookId ? { ...h, wentViral } : h),
     } : w);
+    // Refresh full week so selectedValidated reflects the new/removed pick
+    fetchWeek();
   }
 
   function handleEditHook(hookId: string, updates: Partial<Hook>) {
@@ -681,6 +683,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                   selectable={week.status !== "finalized"}
                   rank={hook.isSelected ? hook.selectedOrder ?? undefined : undefined}
                   isAdmin={isAdmin}
+                  weekId={weekId}
                 />
               ))}
             </div>

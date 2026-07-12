@@ -24,6 +24,7 @@ interface HookCardProps {
   selectable?: boolean;
   rank?: number;
   isAdmin?: boolean;
+  weekId?: string;
 }
 
 export default function HookCard({
@@ -38,6 +39,7 @@ export default function HookCard({
   selectable = false,
   rank,
   isAdmin = false,
+  weekId,
 }: HookCardProps) {
   const { data: session } = useSession();
   const [expanded, setExpanded] = useState(false);
@@ -155,7 +157,11 @@ export default function HookCard({
 
   async function handleViralToggle() {
     setViralLoading(true);
-    const res = await fetch(`/api/hooks/${hook.id}/viral`, { method: "POST" });
+    const res = await fetch(`/api/hooks/${hook.id}/viral`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weekId: weekId ?? null }),
+    });
     const data = await res.json();
     onViralToggle?.(hook.id, data.wentViral);
     setViralLoading(false);

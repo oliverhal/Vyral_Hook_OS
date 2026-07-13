@@ -256,30 +256,28 @@ export default function DashboardContent() {
         </Link>
       </div>
 
-      {/* Contribution Board + Shoutout Board */}
-      <div className="grid grid-cols-5 gap-5 mb-8">
-        {contributions && contributions.members.length > 0 && (
-          <div className="col-span-3 bg-[#0d1117] rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-white font-bold text-base">Team Contributions</h2>
-                <p className="text-white/40 text-xs mt-0.5">Hook submissions over the last 20 weeks</p>
-              </div>
-              <div className="text-xs text-white/30">
-                {contributions.data.reduce((s, d) => s + d.count, 0)} total hooks submitted
-              </div>
+      {/* Contribution Board */}
+      {contributions && contributions.members.length > 0 && (
+        <div className="mb-6 bg-[#0d1117] rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-white font-bold text-base">Team Contributions</h2>
+              <p className="text-white/40 text-xs mt-0.5">Hook submissions over the last 20 weeks</p>
             </div>
-            <ContributionBoard
-              data={contributions.data}
-              members={contributions.members}
-              weeks={20}
-            />
+            <div className="text-xs text-white/30">
+              {contributions.data.reduce((s, d) => s + d.count, 0)} total hooks submitted
+            </div>
           </div>
-        )}
-        <div className={contributions && contributions.members.length > 0 ? "col-span-2" : "col-span-5"}>
-          <ShoutoutBoard />
+          <ContributionBoard
+            data={contributions.data}
+            members={contributions.members}
+            weeks={20}
+          />
         </div>
-      </div>
+      )}
+
+      {/* Shoutout Board — full width */}
+      <ShoutoutBoard />
     </div>
   );
 }

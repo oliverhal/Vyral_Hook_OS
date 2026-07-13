@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, Send, X } from "lucide-react";
+import { Heart, Megaphone, Send, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const EMOJIS = ["🌟", "🔥", "💪", "🙌", "❤️", "🎉", "👏", "✨", "💡", "🚀"];
@@ -55,111 +55,141 @@ export default function ShoutoutBoard() {
     if (mins < 60) return `${mins}m ago`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   }
 
   return (
-    <div className="card p-5 flex flex-col h-full">
+    <div className="mb-8">
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Heart className="w-4 h-4 text-pink-500" />
-          <h3 className="font-bold text-slate-900 text-sm">Shoutout Board</h3>
-          <span className="badge bg-pink-100 text-pink-700 text-xs">anonymous</span>
+        <div className="flex items-center gap-2.5">
+          <Megaphone className="w-5 h-5 text-pink-500" />
+          <h2 className="text-base font-bold text-slate-900">Shoutout Board</h2>
+          <span className="badge bg-pink-100 text-pink-600 text-xs">anonymous</span>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
           className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors",
+            "flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl border transition-colors",
             showForm
               ? "bg-slate-100 border-slate-200 text-slate-600"
               : "bg-pink-500 border-pink-500 text-white hover:bg-pink-600"
           )}
         >
-          {showForm ? <X className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-          {showForm ? "Cancel" : "Send one"}
+          {showForm ? <X className="w-4 h-4" /> : <Heart className="w-4 h-4" />}
+          {showForm ? "Cancel" : "Give a shoutout"}
         </button>
       </div>
 
+      {/* Compose form */}
       {showForm && (
-        <form onSubmit={submit} className="mb-4 p-4 bg-pink-50 rounded-xl border border-pink-100 space-y-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Who's this for?</label>
-            <input
-              value={toName}
-              onChange={(e) => setToName(e.target.value)}
-              placeholder="Their name..."
-              required
-              autoFocus
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-pink-400 bg-white"
-            />
+        <form onSubmit={submit} className="mb-5 p-5 bg-pink-50 rounded-2xl border border-pink-100 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Big shoutout to…</label>
+              <input
+                value={toName}
+                onChange={(e) => setToName(e.target.value)}
+                placeholder="Name"
+                required
+                autoFocus
+                className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-pink-400 bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Vibe</label>
+              <div className="flex flex-wrap gap-1.5">
+                {EMOJIS.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => setEmoji(e)}
+                    className={cn(
+                      "w-8 h-8 rounded-lg text-base transition-all",
+                      emoji === e ? "bg-pink-200 ring-2 ring-pink-400 scale-110" : "bg-white border border-slate-200 hover:border-pink-300"
+                    )}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Your message</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">What did they do?</label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Say something nice..."
+              placeholder="e.g. had some incredible hooks this week, always brings the energy…"
               required
               rows={2}
               maxLength={280}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-pink-400 bg-white resize-none"
+              className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:border-pink-400 bg-white resize-none"
             />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Vibe</label>
-            <div className="flex flex-wrap gap-1.5">
-              {EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => setEmoji(e)}
-                  className={cn(
-                    "w-8 h-8 rounded-lg text-base transition-all",
-                    emoji === e ? "bg-pink-200 ring-2 ring-pink-400 scale-110" : "bg-white border border-slate-200 hover:border-pink-300"
-                  )}
-                >
-                  {e}
-                </button>
-              ))}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 px-4 py-2.5 bg-white border border-pink-200 rounded-xl text-sm text-slate-500 italic">
+              {toName || message
+                ? `Big shoutout to ${toName || "…"} ${message ? `— ${message}` : ""}`
+                : "Preview will appear here…"}
             </div>
+            <button
+              type="submit"
+              disabled={submitting || !toName.trim() || !message.trim()}
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-pink-500 hover:bg-pink-600 text-white rounded-xl transition-colors disabled:opacity-50 flex-shrink-0"
+            >
+              <Send className="w-4 h-4" />
+              {submitting ? "Sending…" : "Post anonymously"}
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={submitting || !toName.trim() || !message.trim()}
-            className="w-full py-2 text-sm font-semibold bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors disabled:opacity-50"
-          >
-            {submitting ? "Sending..." : "Send anonymously ✨"}
-          </button>
         </form>
       )}
 
-      <div className="space-y-2 overflow-y-auto flex-1 max-h-80">
-        {loading ? (
-          <div className="space-y-2 animate-pulse">
-            {[1, 2, 3].map((i) => <div key={i} className="h-16 bg-slate-100 rounded-xl" />)}
-          </div>
-        ) : shoutouts.length === 0 ? (
-          <div className="text-center py-10">
-            <div className="text-3xl mb-2">💌</div>
-            <p className="text-sm text-slate-500">No shoutouts yet — be the first!</p>
-          </div>
-        ) : (
-          shoutouts.map((s) => (
-            <div key={s.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center text-lg flex-shrink-0">
-                {s.emoji}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs font-bold text-slate-900">{s.toName}</span>
-                  <span className="text-[10px] text-slate-400">{timeAgo(s.createdAt)}</span>
+      {/* Feed */}
+      {loading ? (
+        <div className="grid grid-cols-3 gap-3 animate-pulse">
+          {[1, 2, 3].map((i) => <div key={i} className="h-28 bg-slate-100 rounded-2xl" />)}
+        </div>
+      ) : shoutouts.length === 0 ? (
+        <div className="card p-12 text-center">
+          <div className="text-4xl mb-3">💌</div>
+          <p className="text-sm font-medium text-slate-500">No shoutouts yet</p>
+          <p className="text-xs text-slate-400 mt-1">Be the first to hype someone up</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {shoutouts.map((s, i) => (
+            <div
+              key={s.id}
+              className={cn(
+                "rounded-2xl p-5 border",
+                i === 0
+                  ? "bg-gradient-to-br from-pink-50 to-rose-50 border-pink-200 col-span-1 sm:col-span-2 lg:col-span-1"
+                  : "bg-white border-slate-100"
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <div className={cn(
+                  "w-11 h-11 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0",
+                  i === 0 ? "bg-pink-100" : "bg-slate-50"
+                )}>
+                  {s.emoji}
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">{s.message}</p>
+                <div className="flex-1 min-w-0">
+                  <p className={cn("text-xs font-semibold uppercase tracking-wide mb-0.5", i === 0 ? "text-pink-500" : "text-slate-400")}>
+                    Big shoutout to
+                  </p>
+                  <p className="font-bold text-slate-900 text-base leading-tight">{s.toName}</p>
+                </div>
+                <span className="text-[10px] text-slate-400 flex-shrink-0 mt-0.5">{timeAgo(s.createdAt)}</span>
               </div>
+              <p className="text-sm text-slate-600 leading-relaxed mt-3">{s.message}</p>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

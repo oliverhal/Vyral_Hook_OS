@@ -7,7 +7,7 @@ import { format, isPast, formatDistanceToNow } from "date-fns";
 import { ArrowRight, Clock, Plus, TrendingUp, Users, Zap } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
 import ContributionBoard from "./ContributionBoard";
-
+import ShoutoutBoard from "./ShoutoutBoard";
 import CampaignLogo from "./CampaignLogo";
 import UserAvatar from "./UserAvatar";
 import type { Campaign, Week, Hook, CampaignMember } from "@/types";
@@ -256,25 +256,30 @@ export default function DashboardContent() {
         </Link>
       </div>
 
-      {/* Contribution Board */}
-      {contributions && contributions.members.length > 0 && (
-        <div className="mb-8 bg-[#0d1117] rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-white font-bold text-base">Team Contributions</h2>
-              <p className="text-white/40 text-xs mt-0.5">Hook submissions over the last 20 weeks</p>
+      {/* Contribution Board + Shoutout Board */}
+      <div className="grid grid-cols-5 gap-5 mb-8">
+        {contributions && contributions.members.length > 0 && (
+          <div className="col-span-3 bg-[#0d1117] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-white font-bold text-base">Team Contributions</h2>
+                <p className="text-white/40 text-xs mt-0.5">Hook submissions over the last 20 weeks</p>
+              </div>
+              <div className="text-xs text-white/30">
+                {contributions.data.reduce((s, d) => s + d.count, 0)} total hooks submitted
+              </div>
             </div>
-            <div className="text-xs text-white/30">
-              {contributions.data.reduce((s, d) => s + d.count, 0)} total hooks submitted
-            </div>
+            <ContributionBoard
+              data={contributions.data}
+              members={contributions.members}
+              weeks={20}
+            />
           </div>
-          <ContributionBoard
-            data={contributions.data}
-            members={contributions.members}
-            weeks={20}
-          />
+        )}
+        <div className={contributions && contributions.members.length > 0 ? "col-span-2" : "col-span-5"}>
+          <ShoutoutBoard />
         </div>
-      )}
+      </div>
     </div>
   );
 }

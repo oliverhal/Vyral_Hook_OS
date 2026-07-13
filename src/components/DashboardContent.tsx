@@ -7,7 +7,7 @@ import { format, isPast, formatDistanceToNow } from "date-fns";
 import { ArrowRight, Clock, Plus, TrendingUp, Users, Zap } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
 import ContributionBoard from "./ContributionBoard";
-import ShoutoutBoard from "./ShoutoutBoard";
+import ShoutoutCard from "./ShoutoutBoard";
 import CampaignLogo from "./CampaignLogo";
 import UserAvatar from "./UserAvatar";
 import type { Campaign, Week, Hook, CampaignMember } from "@/types";
@@ -97,6 +97,7 @@ export default function DashboardContent() {
           </div>
           <div className="text-3xl font-bold text-slate-900">{totalHooksThisWeek}</div>
         </div>
+        <ShoutoutCard />
       </div>
 
       {/* Current Week Campaigns */}
@@ -276,8 +277,6 @@ export default function DashboardContent() {
         </div>
       )}
 
-      {/* Shoutout Board — full width */}
-      <ShoutoutBoard />
     </div>
   );
 }

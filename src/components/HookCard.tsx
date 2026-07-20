@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   Check, ChevronDown, ChevronUp, ExternalLink, Sparkles, Trash2,
-  ThumbsUp, ThumbsDown, MessageSquare, Flame, Send, X, Pencil, Loader2, PenLine
+  ThumbsUp, ThumbsDown, MessageSquare, Flame, Send, X, Pencil, Loader2, Wand2
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { FORMAT_COLORS, HOOK_FORMATS } from "@/types";
@@ -307,7 +307,7 @@ export default function HookCard({
                 )}
                 title={suggestions.length > 0 ? `${suggestions.length} suggestion${suggestions.length !== 1 ? "s" : ""}` : "Suggest a rewording"}
               >
-                <PenLine className="w-3.5 h-3.5" />
+                <Wand2 className="w-3.5 h-3.5" />
               </button>
               {onDelete && (
                 <button
@@ -482,7 +482,7 @@ export default function HookCard({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-xs font-semibold text-amber-700 flex items-center gap-1.5">
-                <PenLine className="w-3.5 h-3.5" /> Suggest a rewording
+                <Wand2 className="w-3.5 h-3.5" /> Suggest a rewording
               </div>
               <textarea
                 value={suggestText}
@@ -517,7 +517,7 @@ export default function HookCard({
                 <div key={s.id} className="p-3 rounded-xl border-l-4 border-amber-400 bg-amber-50">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
-                      <PenLine className="w-3 h-3" /> Suggested by {s.suggestedBy}
+                      <Wand2 className="w-3 h-3" /> Suggested by {s.suggestedBy}
                     </span>
                     {isAdmin && (
                       <div className="flex gap-1.5">

@@ -86,6 +86,7 @@ model Hook {
   wentViral      Boolean       @default(false)
   votes          HookVote[]
   comments       HookComment[]
+  suggestions    HookSuggestion[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 }
@@ -170,6 +171,16 @@ model CampaignMember {
   createdAt  DateTime @default(now())
 
   @@unique([campaignId, userId])
+}
+
+model HookSuggestion {
+  id          String   @id @default(cuid())
+  hookId      String
+  hook        Hook     @relation(fields: [hookId], references: [id], onDelete: Cascade)
+  suggestedBy String
+  hookText    String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
 }
 
 model CalendarClient {

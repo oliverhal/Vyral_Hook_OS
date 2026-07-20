@@ -13,6 +13,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           votes: true,
           _count: { select: { comments: true } },
           submittedBy: { select: { avatarUrl: true } },
+          suggestions: {
+            where: { status: "pending" },
+            orderBy: { createdAt: "asc" },
+          },
         },
       },
       selectedValidated: {

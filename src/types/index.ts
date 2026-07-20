@@ -82,6 +82,15 @@ export interface HookComment {
   updatedAt: string;
 }
 
+export interface HookSuggestion {
+  id: string;
+  hookId: string;
+  suggestedBy: string;
+  hookText: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: string;
+}
+
 export interface Hook {
   id: string;
   weekId: string;
@@ -103,6 +112,7 @@ export interface Hook {
   wentViral: boolean;
   votes?: HookVote[];
   commentCount?: number;
+  suggestions?: HookSuggestion[];
   createdAt: string;
   updatedAt: string;
 }

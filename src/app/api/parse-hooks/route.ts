@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const VALID_FORMATS = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Other"];
+const VALID_FORMATS = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Greenscreen", "Other"];
 
 // RFC-4180 TSV parser — handles quoted cells containing newlines and tabs
 function parseTSV(raw: string): string[][] {
@@ -62,6 +62,45 @@ function matchFormat(s: string): string | null {
   return null;
 }
 
+// ── Header-based column detection ──────────────────────────────────────────
+// Reads the first row and maps column names to indices.
+// This is the most reliable path when the sheet has labelled headers.
+
+interface ColMap {
+  hookCol: number;
+  formatCol: number;
+  refCol: number;
+  captionCol: number;
+  notesCol: number;
+}
+
+function detectFromHeaders(firstRow: string[]): ColMap | null {
+  const map: ColMap = { hookCol: -1, formatCol: -1, refCol: -1, captionCol: -1, notesCol: -1 };
+
+  for (let i = 0; i < firstRow.length; i++) {
+    const cell = firstRow[i].toLowerCase().trim();
+    if (!cell) continue;
+
+    if (map.hookCol === -1 && (cell.includes("hook") || cell.includes("text on screen") || cell.includes("hook text"))) {
+      map.hookCol = i;
+    } else if (map.formatCol === -1 && cell === "format") {
+      map.formatCol = i;
+    } else if (map.refCol === -1 && (cell.includes("reference") || cell.includes("ref vid") || cell.startsWith("ref"))) {
+      map.refCol = i;
+    } else if (map.captionCol === -1 && cell.includes("caption")) {
+      map.captionCol = i;
+    } else if (map.notesCol === -1 && (cell.includes("note") || cell.includes("instruction"))) {
+      map.notesCol = i;
+    }
+  }
+
+  // At least hook + one other column must be identified for this to be reliable
+  const found = [map.hookCol, map.formatCol, map.refCol, map.captionCol, map.notesCol].filter((v) => v >= 0).length;
+  return found >= 2 ? map : null;
+}
+
+// ── Heuristic detection (fallback when no headers) ─────────────────────────
+
 function isFormatOnly(col: string[]): boolean {
   const nonEmpty = col.filter((c) => c.length > 0);
   if (nonEmpty.length === 0) return false;
@@ -69,7 +108,7 @@ function isFormatOnly(col: string[]): boolean {
   return matches.length / nonEmpty.length > 0.6;
 }
 
-function heuristicColumns(rows: string[][], numCols: number) {
+function heuristicColumns(rows: string[][], numCols: number): ColMap {
   const cols: string[][] = Array.from({ length: numCols }, (_, i) =>
     rows.map((r) => r[i] ?? "")
   );
@@ -93,24 +132,26 @@ function heuristicColumns(rows: string[][], numCols: number) {
     const nonEmpty = cols[c].filter((v) => v.length > 10);
     if (nonEmpty.length === 0) continue;
     const avgLen = nonEmpty.reduce((s, v) => s + v.length, 0) / nonEmpty.length;
-    const score = avgLen + c * 2; // bias toward later cols (corrected version)
+    // Bias toward EARLIER columns — hook text is almost always leftmost
+    const score = avgLen - c * 5;
     if (score > bestScore) { bestScore = score; hookCol = c; }
   }
 
-  return { hookCol, formatCol, refCol };
+  return { hookCol, formatCol, refCol, captionCol: -1, notesCol: -1 };
 }
 
-// Returns true if heuristics seem unreliable
+// ── AI fallback ────────────────────────────────────────────────────────────
+
 function needsAiFallback(rows: string[][], hookCol: number, formatCol: number): boolean {
-  if (formatCol === -1) return true; // couldn't find format column
+  if (formatCol === -1) return true;
   const hookTexts = rows.map((r) => r[hookCol]?.trim() ?? "").filter(Boolean);
   if (hookTexts.length === 0) return true;
   const avgLen = hookTexts.reduce((s, t) => s + t.length, 0) / hookTexts.length;
-  if (avgLen < 20) return true; // hooks suspiciously short — probably wrong column
+  if (avgLen < 20) return true;
   return false;
 }
 
-async function aiColumnHints(rows: string[][], numCols: number): Promise<{ hookCol: number; formatCol: number; refCol: number }> {
+async function aiColumnHints(rows: string[][], numCols: number): Promise<ColMap> {
   const sample = rows
     .slice(0, 4)
     .map((r, i) => `Row ${i}: ${r.map((c, j) => `[${j}] ${c.slice(0, 60)}`).join("  |  ")}`)
@@ -118,10 +159,10 @@ async function aiColumnHints(rows: string[][], numCols: number): Promise<{ hookC
 
   const msg = await anthropic.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 60,
+    max_tokens: 80,
     messages: [{
       role: "user",
-      content: `Google Sheet rows (${numCols} cols, 0-indexed):\n${sample}\n\nReturn ONLY JSON with column indices (-1 if absent): {"hookCol":N,"formatCol":N,"refCol":N}`,
+      content: `Google Sheet rows (${numCols} cols, 0-indexed):\n${sample}\n\nReturn ONLY JSON with column indices (-1 if absent): {"hookCol":N,"formatCol":N,"refCol":N,"captionCol":N,"notesCol":N}`,
     }],
   });
 
@@ -129,18 +170,18 @@ async function aiColumnHints(rows: string[][], numCols: number): Promise<{ hookC
   const match = raw.match(/\{[^}]+\}/);
   const parsed = match ? JSON.parse(match[0]) : {};
   return {
-    hookCol: typeof parsed.hookCol === "number" ? parsed.hookCol : 0,
-    formatCol: typeof parsed.formatCol === "number" ? parsed.formatCol : -1,
-    refCol: typeof parsed.refCol === "number" ? parsed.refCol : -1,
+    hookCol:    typeof parsed.hookCol    === "number" ? parsed.hookCol    : 0,
+    formatCol:  typeof parsed.formatCol  === "number" ? parsed.formatCol  : -1,
+    refCol:     typeof parsed.refCol     === "number" ? parsed.refCol     : -1,
+    captionCol: typeof parsed.captionCol === "number" ? parsed.captionCol : -1,
+    notesCol:   typeof parsed.notesCol   === "number" ? parsed.notesCol   : -1,
   };
 }
 
-// Merge continuation rows back into the previous hook.
-// When a hook is written across multiple lines and pasted into Google Sheets,
-// each line becomes a separate row. Rows with text but no format/URL are
-// continuations — join them onto the previous hook with a newline.
-function mergeRows(rows: string[][], hookCol: number, formatCol: number, refCol: number): string[][] {
-  if (formatCol < 0) return rows; // no format column detected — can't tell continuations from hooks
+// ── Row merging & hook building ────────────────────────────────────────────
+
+function mergeRows(rows: string[][], { hookCol, formatCol, refCol }: ColMap): string[][] {
+  if (formatCol < 0) return rows;
   const merged: string[][] = [];
   for (const row of rows) {
     const hookText = row[hookCol]?.trim() ?? "";
@@ -149,7 +190,6 @@ function mergeRows(rows: string[][], hookCol: number, formatCol: number, refCol:
     const hasFormat = matchFormat(formatVal) !== null;
     const hasRef = looksLikeUrl(refVal);
     const hasText = hookText.length > 0;
-    // Continuation: has text but no format and no URL — merge into previous hook
     if (!hasFormat && !hasRef && hasText && merged.length > 0) {
       const prev = [...merged[merged.length - 1]];
       prev[hookCol] = (prev[hookCol] ?? "") + "\n" + hookText;
@@ -161,8 +201,9 @@ function mergeRows(rows: string[][], hookCol: number, formatCol: number, refCol:
   return merged;
 }
 
-function buildHooks(rows: string[][], hookCol: number, formatCol: number, refCol: number) {
-  const processedRows = mergeRows(rows, hookCol, formatCol, refCol);
+function buildHooks(rows: string[][], colMap: ColMap) {
+  const { hookCol, formatCol, refCol, captionCol, notesCol } = colMap;
+  const processedRows = mergeRows(rows, colMap);
 
   return processedRows
     .map((r) => {
@@ -176,15 +217,15 @@ function buildHooks(rows: string[][], hookCol: number, formatCol: number, refCol
       const refRaw = refCol >= 0 ? r[refCol]?.trim() ?? "" : "";
       const referenceVideo = looksLikeUrl(refRaw) ? refRaw : null;
 
-      return {
-        hookText,
-        format,
-        referenceVideo,
-        caption: "Creator to come up with their own caption",
-      };
+      const caption = captionCol >= 0 ? r[captionCol]?.trim() ?? "" : "";
+      const recordingNotes = notesCol >= 0 ? r[notesCol]?.trim() ?? "" : "";
+
+      return { hookText, format, referenceVideo, caption, recordingNotes };
     })
     .filter(Boolean);
 }
+
+// ── Route handler ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -193,26 +234,33 @@ export async function POST(req: NextRequest) {
   const { rawText } = await req.json();
   if (!rawText?.trim()) return NextResponse.json({ hooks: [] });
 
-  const rows = parseTSV(rawText);
-  if (rows.length === 0) return NextResponse.json({ hooks: [] });
+  const allRows = parseTSV(rawText);
+  if (allRows.length === 0) return NextResponse.json({ hooks: [] });
 
-  const numCols = Math.max(...rows.map((r) => r.length));
+  const numCols = Math.max(...allRows.map((r) => r.length));
 
-  // Step 1: fast heuristics
-  let { hookCol, formatCol, refCol } = heuristicColumns(rows, numCols);
+  // 1. Try header detection first — most reliable
+  const headerMap = detectFromHeaders(allRows[0]);
+  if (headerMap) {
+    // Strip the header row from data rows
+    const dataRows = allRows.slice(1).filter((r) => r.some((c) => c.length > 0));
+    const hooks = buildHooks(dataRows, headerMap);
+    return NextResponse.json({ hooks });
+  }
 
-  // Step 2: AI fallback only when heuristics look unreliable
-  if (needsAiFallback(rows, hookCol, formatCol)) {
+  // 2. Heuristic column detection
+  const allDataRows = allRows;
+  let colMap = heuristicColumns(allDataRows, numCols);
+
+  // 3. AI fallback when heuristics look unreliable
+  if (needsAiFallback(allDataRows, colMap.hookCol, colMap.formatCol)) {
     try {
-      const aiHints = await aiColumnHints(rows, numCols);
-      hookCol = aiHints.hookCol;
-      formatCol = aiHints.formatCol;
-      refCol = aiHints.refCol;
+      colMap = await aiColumnHints(allDataRows, numCols);
     } catch {
-      // AI failed too — proceed with heuristics anyway
+      // AI failed — proceed with heuristics
     }
   }
 
-  const hooks = buildHooks(rows, hookCol, formatCol, refCol);
+  const hooks = buildHooks(allDataRows, colMap);
   return NextResponse.json({ hooks });
 }

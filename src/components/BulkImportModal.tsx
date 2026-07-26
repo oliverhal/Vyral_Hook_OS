@@ -11,6 +11,7 @@ interface ParsedHook {
   format: HookFormat;
   referenceVideo: string | null;
   caption: string;
+  recordingNotes: string;
   selected: boolean;
 }
 
@@ -40,7 +41,7 @@ export default function BulkImportModal({ weekId, onClose, onSuccess }: BulkImpo
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Parse failed");
-      setHooks(data.hooks.map((h: Omit<ParsedHook, "selected">) => ({ ...h, selected: true })));
+      setHooks(data.hooks.map((h: Omit<ParsedHook, "selected">) => ({ ...h, recordingNotes: h.recordingNotes ?? "", selected: true })));
       setStep("preview");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -162,6 +163,28 @@ export default function BulkImportModal({ weekId, onClose, onSuccess }: BulkImpo
                       </div>
                       {hook.referenceVideo && (
                         <p className="text-xs text-blue-600 truncate">📎 {hook.referenceVideo}</p>
+                      )}
+                      {hook.caption && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Caption</p>
+                          <textarea
+                            className="textarea text-xs text-slate-600"
+                            rows={2}
+                            value={hook.caption}
+                            onChange={(e) => updateHook(i, "caption", e.target.value)}
+                          />
+                        </div>
+                      )}
+                      {hook.recordingNotes && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Notes</p>
+                          <textarea
+                            className="textarea text-xs text-slate-600"
+                            rows={3}
+                            value={hook.recordingNotes}
+                            onChange={(e) => updateHook(i, "recordingNotes", e.target.value)}
+                          />
+                        </div>
                       )}
                     </div>
                     <button onClick={() => removeHook(i)} className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors flex-shrink-0">

@@ -15,6 +15,7 @@ import type { Campaign, Week, Hook, CampaignMember } from "@/types";
 interface CampaignWithCurrentWeek extends Campaign {
   weeks: (Week & { hooks: Hook[] })[];
   members?: CampaignMember[];
+  campaignStartDate?: string | null;
 }
 
 interface ContributionData {
@@ -118,6 +119,12 @@ export default function DashboardContent() {
             ? Array.from(new Set(currentWeek.hooks.map((h) => (h as { submitterName?: string }).submitterName ?? "?")))
             : [];
 
+          const startDate = campaign.campaignStartDate ? new Date(campaign.campaignStartDate) : null;
+          const isFuture = startDate != null && startDate > new Date();
+          const daysUntilStart = isFuture
+            ? Math.ceil((startDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            : null;
+
           return (
             <div key={campaign.id} className={cn("card overflow-hidden group hover:shadow-md transition-shadow duration-200")}>
               {/* Color strip */}
@@ -134,10 +141,26 @@ export default function DashboardContent() {
                     <p className="text-slate-400 text-xs">{campaign.clientName}</p>
                   </div>
                   <span className={cn("badge text-xs", colors.badge)}>
-                    {currentWeek?.status ?? "no week"}
+                    {isFuture ? "upcoming" : (currentWeek?.status ?? "no week")}
                   </span>
                 </div>
 
+                {/* Future campaign countdown */}
+                {isFuture && startDate ? (
+                  <div className={cn("rounded-xl p-4 mb-3 text-center", `bg-${campaign.color}-50`)}>
+                    <p className={cn("text-3xl font-black mb-0.5", `text-${campaign.color}-600`)}>
+                      {daysUntilStart === 0 ? "Today!" : `${daysUntilStart}d`}
+                    </p>
+                    <p className="text-xs font-medium text-slate-500">
+                      {daysUntilStart === 0
+                        ? "Campaign starts today"
+                        : daysUntilStart === 1
+                        ? "Campaign starts tomorrow"
+                        : `until campaign starts · ${format(startDate, "d MMM yyyy")}`}
+                    </p>
+                  </div>
+                ) : (
+                  <>
                 {/* Week range */}
                 {currentWeek && (
                   <p className="text-xs text-slate-500 mb-3 font-medium">
@@ -170,6 +193,8 @@ export default function DashboardContent() {
                       ? "Deadline passed"
                       : `Due ${formatDistanceToNow(deadline, { addSuffix: true })}`}
                   </div>
+                )}
+                </>
                 )}
 
                 {/* Campaign team */}

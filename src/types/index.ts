@@ -5,9 +5,9 @@ export type WeekMode = "mixed" | "bulk";
 
 export type HookStatus = "submitted" | "selected" | "rejected";
 
-export type HookFormat = "Faceless" | "Snapchat" | "Talking head" | "Voiceover" | "Text-only" | "Long text" | "Short text" | "Other";
+export type HookFormat = "Faceless" | "Snapchat" | "Talking head" | "Voiceover" | "Text-only" | "Long text" | "Short text" | "Greenscreen" | "Other";
 
-export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Other"];
+export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Greenscreen", "Other"];
 
 export const FORMAT_COLORS: Record<string, string> = {
   Faceless: "bg-amber-100 text-amber-800 border-amber-300",
@@ -17,6 +17,7 @@ export const FORMAT_COLORS: Record<string, string> = {
   "Text-only": "bg-slate-100 text-slate-700 border-slate-300",
   "Long text": "bg-rose-100 text-rose-800 border-rose-300",
   "Short text": "bg-cyan-100 text-cyan-800 border-cyan-300",
+  Greenscreen: "bg-emerald-100 text-emerald-800 border-emerald-300",
   Other: "bg-orange-100 text-orange-800 border-orange-300",
 };
 

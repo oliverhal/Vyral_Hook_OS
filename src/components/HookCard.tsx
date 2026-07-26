@@ -342,8 +342,7 @@ export default function HookCard({
                       type="button"
                       onClick={() => {
                         setEditField("format", f);
-                        if (f === "Short text") setEditField("requiresAppFootage", true);
-                        else if (f === "Long text") { setEditField("requiresAppFootage", false); setEditField("appFootageSource", ""); }
+                        if (f === "Long text") { setEditField("requiresAppFootage", false); setEditField("appFootageSource", ""); }
                       }}
                       className={cn(
                         "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
@@ -359,22 +358,21 @@ export default function HookCard({
               </div>
               {!isLongText && (
                 <div className="space-y-2">
-                  <label className={cn("flex items-center gap-2 select-none w-fit", editForm.format === "Short text" ? "cursor-not-allowed opacity-70" : "cursor-pointer")}>
+                  <label className="flex items-center gap-2 select-none w-fit cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editForm.requiresAppFootage}
-                      disabled={editForm.format === "Short text"}
                       onChange={(e) => { setEditField("requiresAppFootage", e.target.checked); if (!e.target.checked) setEditField("appFootageSource", ""); }}
                       className="rounded border-slate-300 accent-slate-800"
                     />
                     <span className="text-sm font-medium text-slate-700">
-                      Requires app footage{editForm.format === "Short text" && <span className="text-slate-400 font-normal ml-1">(always required)</span>}
+                      {editForm.format === "Greenscreen" ? "Requires greenscreen clip" : "Requires app footage"}
                     </span>
                   </label>
                   {editForm.requiresAppFootage && (
                     <input
                       className="input"
-                      placeholder="Link or description"
+                      placeholder={editForm.format === "Greenscreen" ? "Link or description (e.g. Drive folder, 'ask @name')" : "Link or description"}
                       value={editForm.appFootageSource}
                       onChange={(e) => setEditField("appFootageSource", e.target.value)}
                     />

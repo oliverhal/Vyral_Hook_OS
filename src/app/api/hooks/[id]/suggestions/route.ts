@@ -11,10 +11,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!hookText?.trim()) return NextResponse.json({ error: "hookText required" }, { status: 400 });
 
   const suggestedBy = (session.user as { name?: string }).name ?? "Someone";
+  const currentUserId = (session.user as { id?: string }).id;
+
+  const hook = await prisma.hook.findUnique({
+    where: { id: params.id },
+    select: { hookText: true, weekId: true, submittedById: true },
+  });
+  if (!hook) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const suggestion = await prisma.hookSuggestion.create({
     data: { hookId: params.id, suggestedBy, hookText: hookText.trim() },
   });
+
+  // Notify the hook submitter (skip if they suggested it themselves)
+  if (hook.submittedById && hook.submittedById !== currentUserId) {
+    await prisma.notification.create({
+      data: {
+        userId: hook.submittedById,
+        fromName: suggestedBy,
+        hookText: hook.hookText,
+        weekId: hook.weekId,
+        type: "suggestion",
+      },
+    });
+  }
 
   return NextResponse.json(suggestion);
 }

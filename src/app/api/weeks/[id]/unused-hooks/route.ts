@@ -25,11 +25,19 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     },
     include: {
       week: { select: { id: true, weekStart: true } },
+      votes: { select: { value: true } },
     },
     orderBy: [{ week: { weekStart: "desc" } }, { createdAt: "asc" }],
   });
 
-  return NextResponse.json(hooks);
+  const withScores = hooks.map(({ votes, ...h }) => ({
+    ...h,
+    upvotes: votes.filter((v) => v.value > 0).length,
+    downvotes: votes.filter((v) => v.value < 0).length,
+    netScore: votes.reduce((sum, v) => sum + v.value, 0),
+  }));
+
+  return NextResponse.json(withScores);
 }
 
 // Copy selected previous hooks into this week

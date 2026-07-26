@@ -148,17 +148,17 @@ model HookComment {
 }
 
 model Notification {
-  id        String      @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   fromName  String
-  commentId String
-  comment   HookComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId String?
+  comment   HookComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   hookText  String
   weekId    String?
-  type      String      @default("mention")
-  read      Boolean     @default(false)
-  createdAt DateTime    @default(now())
+  type      String       @default("mention")
+  read      Boolean      @default(false)
+  createdAt DateTime     @default(now())
 }
 
 model CampaignMember {

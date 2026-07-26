@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, MessageCircle, AtSign, X } from "lucide-react";
+import { Bell, MessageCircle, AtSign, Wand2, X } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -117,19 +117,23 @@ export default function NotificationBell() {
                 </div>
               ) : (
                 notifications.map((n) => {
+                  const isSuggestion = n.type === "suggestion";
                   const inner = (
                     <div className={cn(
                       "px-5 py-4 flex items-start gap-3.5 transition-colors hover:bg-slate-50",
-                      !n.read && "bg-blue-50 hover:bg-blue-50/80"
+                      !n.read && isSuggestion && "bg-amber-50 hover:bg-amber-50/80",
+                      !n.read && !isSuggestion && "bg-blue-50 hover:bg-blue-50/80"
                     )}>
                       {/* Icon */}
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
-                        n.type === "mention" ? "bg-violet-100" : "bg-blue-100"
+                        n.type === "mention" && "bg-violet-100",
+                        n.type === "reply" && "bg-blue-100",
+                        isSuggestion && "bg-amber-100"
                       )}>
-                        {n.type === "mention"
-                          ? <AtSign className="w-4 h-4 text-violet-600" />
-                          : <MessageCircle className="w-4 h-4 text-blue-600" />}
+                        {n.type === "mention" && <AtSign className="w-4 h-4 text-violet-600" />}
+                        {n.type === "reply" && <MessageCircle className="w-4 h-4 text-blue-600" />}
+                        {isSuggestion && <Wand2 className="w-4 h-4 text-amber-600" />}
                       </div>
 
                       {/* Content */}
@@ -137,14 +141,18 @@ export default function NotificationBell() {
                         <p className="text-sm text-slate-800 leading-snug">
                           <span className="font-semibold">{n.fromName}</span>{" "}
                           <span className="text-slate-500">
-                            {n.type === "mention" ? "mentioned you in a comment" : "replied to a thread you're on"}
+                            {n.type === "mention" && "mentioned you in a comment"}
+                            {n.type === "reply" && "replied to a thread you're on"}
+                            {isSuggestion && "suggested a rewording of your hook"}
                           </span>
                         </p>
 
                         {/* Full hook text — no clipping */}
                         <div className={cn(
                           "mt-2 px-3 py-2 rounded-lg text-sm text-slate-700 leading-relaxed",
-                          !n.read ? "bg-white border border-blue-100" : "bg-slate-50 border border-slate-100"
+                          !n.read && isSuggestion ? "bg-white border border-amber-100" :
+                          !n.read ? "bg-white border border-blue-100" :
+                          "bg-slate-50 border border-slate-100"
                         )}>
                           {n.hookText}
                         </div>
@@ -154,13 +162,21 @@ export default function NotificationBell() {
                           {n.weekId && (
                             <>
                               <span className="text-slate-200">·</span>
-                              <span className="text-xs text-blue-500 font-medium">Click to view week →</span>
+                              <span className={cn(
+                                "text-xs font-medium",
+                                isSuggestion ? "text-amber-500" : "text-blue-500"
+                              )}>Click to view week →</span>
                             </>
                           )}
                         </div>
                       </div>
 
-                      {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2" />}
+                      {!n.read && (
+                        <div className={cn(
+                          "w-2 h-2 rounded-full flex-shrink-0 mt-2",
+                          isSuggestion ? "bg-amber-500" : "bg-blue-500"
+                        )} />
+                      )}
                     </div>
                   );
 

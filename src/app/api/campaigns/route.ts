@@ -53,7 +53,31 @@ export async function GET() {
     },
     orderBy: { createdAt: "asc" },
   });
-  return NextResponse.json(campaigns);
+
+  const now = new Date();
+
+  // For campaigns where the latest week is still in the future, find their first (earliest) week
+  const futureCampaignIds = campaigns
+    .filter((c) => c.weeks.length > 0 && new Date(c.weeks[0].weekStart) > now)
+    .map((c) => c.id);
+
+  const firstWeeks = futureCampaignIds.length > 0
+    ? await prisma.week.findMany({
+        where: { campaignId: { in: futureCampaignIds } },
+        orderBy: { weekStart: "asc" },
+        distinct: ["campaignId"],
+        select: { campaignId: true, weekStart: true },
+      })
+    : [];
+
+  const firstWeekByCampaign = Object.fromEntries(firstWeeks.map((w) => [w.campaignId, w.weekStart]));
+
+  const withStartDates = campaigns.map((c) => ({
+    ...c,
+    campaignStartDate: firstWeekByCampaign[c.id] ?? null,
+  }));
+
+  return NextResponse.json(withStartDates);
 }
 
 export async function POST(req: NextRequest) {

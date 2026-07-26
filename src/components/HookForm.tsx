@@ -100,9 +100,7 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
               type="button"
               onClick={() => {
                 setField("format", f);
-                if (f === "Short text") {
-                  setRequiresAppFootage(true);
-                } else if (f === "Long text") {
+                if (f === "Long text") {
                   setRequiresAppFootage(false);
                   setField("appFootageSource", "");
                 }
@@ -120,14 +118,13 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
         </div>
       </div>
 
-      {/* App footage */}
+      {/* App footage / Greenscreen clip */}
       {!isLongText && (
         <div className="space-y-2">
-          <label className={cn("flex items-center gap-2 select-none w-fit", form.format === "Short text" ? "cursor-not-allowed opacity-70" : "cursor-pointer")}>
+          <label className="flex items-center gap-2 select-none w-fit cursor-pointer">
             <input
               type="checkbox"
               checked={requiresAppFootage}
-              disabled={form.format === "Short text"}
               onChange={(e) => {
                 setRequiresAppFootage(e.target.checked);
                 if (!e.target.checked) setField("appFootageSource", "");
@@ -135,15 +132,17 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
               className="rounded border-slate-300 accent-slate-800"
             />
             <span className="text-sm font-medium text-slate-700">
-              Requires app footage{form.format === "Short text" && <span className="text-slate-400 font-normal ml-1">(always required)</span>}
+              {form.format === "Greenscreen" ? "Requires greenscreen clip" : "Requires app footage"}
             </span>
           </label>
           {requiresAppFootage && (
             <div>
-              <label className="label">Where to find the footage *</label>
+              <label className="label">
+                {form.format === "Greenscreen" ? "Where to find the clip *" : "Where to find the footage *"}
+              </label>
               <input
                 className="input"
-                placeholder="Link or description (e.g. Dropbox folder, Drive link, 'ask @name')"
+                placeholder={form.format === "Greenscreen" ? "Link or description (e.g. Drive folder, 'ask @name')" : "Link or description (e.g. Dropbox folder, Drive link, 'ask @name')"}
                 value={form.appFootageSource}
                 onChange={(e) => setField("appFootageSource", e.target.value)}
                 required

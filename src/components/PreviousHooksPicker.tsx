@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, X, Check, History, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, X, Check, History, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown } from "lucide-react";
 import { cn, formatWeekRange } from "@/lib/utils";
 import { FORMAT_COLORS } from "@/types";
 
@@ -13,6 +13,9 @@ interface PreviousHook {
   caption: string;
   referenceVideo: string | null;
   week: { id: string; weekStart: string };
+  upvotes: number;
+  downvotes: number;
+  netScore: number;
 }
 
 interface PreviousHooksPickerProps {
@@ -65,6 +68,11 @@ export default function PreviousHooksPicker({ weekId, onAdded }: PreviousHooksPi
     acc[key].push(h);
     return acc;
   }, {});
+
+  // Sort each week's hooks by net score descending
+  for (const key of Object.keys(byWeek)) {
+    byWeek[key].sort((a, b) => b.netScore - a.netScore);
+  }
 
   const weekKeys = Object.keys(byWeek).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
@@ -150,6 +158,20 @@ export default function PreviousHooksPicker({ weekId, onAdded }: PreviousHooksPi
                                 {hook.format}
                               </span>
                               <span className="text-[10px] text-slate-400">{hook.submitterName}</span>
+                              {(hook.upvotes > 0 || hook.downvotes > 0) && (
+                                <span className="flex items-center gap-1.5 ml-1">
+                                  {hook.upvotes > 0 && (
+                                    <span className="flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600">
+                                      <ThumbsUp className="w-2.5 h-2.5" />{hook.upvotes}
+                                    </span>
+                                  )}
+                                  {hook.downvotes > 0 && (
+                                    <span className="flex items-center gap-0.5 text-[10px] font-semibold text-red-500">
+                                      <ThumbsDown className="w-2.5 h-2.5" />{hook.downvotes}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

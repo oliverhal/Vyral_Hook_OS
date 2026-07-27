@@ -45,22 +45,43 @@ const RESOLUTION_BY_PERIOD: Record<Period, string[]> = {
   "12m": ["P1M", "month", "monthly"],
 };
 
-// Sum all revenue values from a chart response (handles multiple RC shapes)
+// RC ignores start_time/end_time for some chart endpoints — filter locally by date
+function filterValuesByDate(data: unknown, startDate: string, endDate: string): unknown {
+  if (!data || typeof data !== "object") return data;
+  const r = data as Record<string, unknown>;
+  if (!Array.isArray(r.values)) return data;
+
+  const filtered = (r.values as Record<string, unknown>[]).filter((item) => {
+    // String date field ("2026-07-20" or "2026-07")
+    const dateStr = item.date ?? item.period;
+    if (typeof dateStr === "string" && dateStr.length >= 7) {
+      const d = dateStr.slice(0, 10);
+      return d >= startDate && d <= endDate;
+    }
+    // Unix timestamp in cohort field
+    if (typeof item.cohort === "number") {
+      const d = new Date(item.cohort * 1000).toISOString().slice(0, 10);
+      return d >= startDate && d <= endDate;
+    }
+    return true; // unknown shape — include it
+  });
+
+  return { ...r, values: filtered };
+}
+
+// Sum numeric values from a chart response, with optional date filtering
 function sumChartValues(data: unknown): number {
   if (!data || typeof data !== "object") return 0;
   const r = data as Record<string, unknown>;
   if (Array.isArray(r.values)) {
     return r.values
       .filter((i: Record<string, unknown>) => {
-        // Skip incomplete periods (e.g. current day/week still in progress)
         if (i.incomplete === true) return false;
-        // If measure field exists, only take measure=0 (net revenue) to avoid double-counting
-        // If measure field is absent, include everything
+        // If measure field exists, only take measure=0 (net revenue)
         if (i.measure !== undefined && Number(i.measure) !== 0) return false;
         return true;
       })
       .reduce((sum: number, i: Record<string, unknown>) => {
-        // RC uses value_usd when multi-currency, fall back to value
         return sum + Number(i.value_usd ?? i.value ?? 0);
       }, 0);
   }
@@ -77,48 +98,34 @@ async function fetchRevenueChart(projectId: string, period: Period, start: strin
   const candidates = RESOLUTION_BY_PERIOD[period];
   for (const resolution of candidates) {
     try {
-      return await rcFetch(`/v2/projects/${projectId}/charts/revenue?resolution=${resolution}&start_time=${start}&end_time=${end}`);
+      const data = await rcFetch(`/v2/projects/${projectId}/charts/revenue?resolution=${resolution}&start_time=${start}&end_time=${end}`);
+      // Filter by date locally since RC may ignore the params
+      return filterValuesByDate(data, start, end);
     } catch {}
   }
   try {
-    return await rcFetch(`/v2/projects/${projectId}/charts/revenue?start_time=${start}&end_time=${end}`);
+    const data = await rcFetch(`/v2/projects/${projectId}/charts/revenue?start_time=${start}&end_time=${end}`);
+    return filterValuesByDate(data, start, end);
   } catch (err) {
     return { _error: err instanceof Error ? err.message : String(err) };
   }
 }
 
+// Fetch revenue chart and sum values within the date window
 async function fetchPeriodRevenue(projectId: string, days: number): Promise<number> {
   const end = new Date().toISOString().split("T")[0];
   const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  // Try multiple resolution formats — RC V2 accepts P1D, day, or DAY
-  for (const res of ["P1D", "day", "DAY"]) {
+  for (const res of ["P1D", "day", "daily"]) {
     try {
-      const data = await rcFetch(`/v2/projects/${projectId}/charts/revenue?resolution=${res}&start_time=${start}&end_time=${end}`);
-      console.log(`[RC] revenue chart (${days}d, res=${res}) keys=${JSON.stringify(Object.keys(data))} first=${JSON.stringify((data.values ?? data.items ?? [])[0] ?? null)}`);
-      const sum = sumChartValues(data);
-      if (sum > 0) return sum;
-      // sum=0 might mean wrong resolution accepted but all 0, or the data shape doesn't match
-      // return 0 only after exhausting all resolutions
+      const raw = await rcFetch(`/v2/projects/${projectId}/charts/revenue?resolution=${res}&start_time=${start}&end_time=${end}`);
+      // Filter by date locally — RC may return all-time data regardless of params
+      const filtered = filterValuesByDate(raw, start, end);
+      const sum = sumChartValues(filtered);
+      // A successful parse returns something (even 0 is valid if there was genuinely no revenue)
+      console.log(`[RC] revenue ${days}d res=${res} raw_count=${(raw.values ?? raw.items ?? []).length} filtered_count=${((filtered as Record<string, unknown>).values as unknown[] ?? []).length} sum=${sum}`);
+      return sum;
     } catch (e) {
-      console.log(`[RC] revenue chart (${days}d, res=${res}) ERROR: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
-  return 0;
-}
-
-async function fetchAllTimeRevenue(projectId: string): Promise<number> {
-  const end = new Date().toISOString().split("T")[0];
-  const start = new Date();
-  start.setFullYear(start.getFullYear() - 5);
-  const startStr = start.toISOString().split("T")[0];
-  for (const res of ["P1M", "month", "MONTH"]) {
-    try {
-      const data = await rcFetch(`/v2/projects/${projectId}/charts/revenue?resolution=${res}&start_time=${startStr}&end_time=${end}`);
-      console.log(`[RC] all-time revenue (res=${res}) keys=${JSON.stringify(Object.keys(data))} count=${(data.values ?? data.items ?? []).length}`);
-      const sum = sumChartValues(data);
-      if (sum > 0) return sum;
-    } catch (e) {
-      console.log(`[RC] all-time revenue (res=${res}) ERROR: ${e instanceof Error ? e.message : String(e)}`);
+      console.log(`[RC] revenue ${days}d res=${res} ERROR: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   return 0;
@@ -127,14 +134,15 @@ async function fetchAllTimeRevenue(projectId: string): Promise<number> {
 async function fetchNewCustomers(projectId: string, days: number): Promise<number> {
   const end = new Date().toISOString().split("T")[0];
   const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  for (const res of ["P1D", "day", "DAY"]) {
+  for (const res of ["P1D", "day", "daily"]) {
     try {
-      const data = await rcFetch(`/v2/projects/${projectId}/charts/new_paying_customers?resolution=${res}&start_time=${start}&end_time=${end}`);
-      console.log(`[RC] new_customers (${days}d, res=${res}) sum=${sumChartValues(data)}`);
-      const sum = sumChartValues(data);
-      if (sum > 0) return sum;
+      const raw = await rcFetch(`/v2/projects/${projectId}/charts/new_paying_customers?resolution=${res}&start_time=${start}&end_time=${end}`);
+      const filtered = filterValuesByDate(raw, start, end);
+      const sum = sumChartValues(filtered);
+      console.log(`[RC] new_customers ${days}d res=${res} sum=${sum}`);
+      return sum;
     } catch (e) {
-      console.log(`[RC] new_customers (${days}d, res=${res}) ERROR: ${e instanceof Error ? e.message : String(e)}`);
+      console.log(`[RC] new_customers ${days}d res=${res} ERROR: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   return 0;
@@ -146,7 +154,6 @@ function extractCountryData(data: unknown): CountryEntry[] {
   if (!data || typeof data !== "object") return [];
   const r = data as Record<string, unknown>;
 
-  // Segmented chart: values have a country/segment field alongside cohort
   if (Array.isArray(r.values) && r.values.length > 0) {
     const first = r.values[0] as Record<string, unknown>;
     if (first.country !== undefined || first.segment !== undefined) {
@@ -163,7 +170,6 @@ function extractCountryData(data: unknown): CountryEntry[] {
     }
   }
 
-  // { countries: [...] } shape
   if (Array.isArray(r.countries)) {
     return (r.countries as Record<string, unknown>[])
       .sort((a, b) => Number(b.revenue ?? b.value ?? 0) - Number(a.revenue ?? a.value ?? 0))
@@ -174,7 +180,6 @@ function extractCountryData(data: unknown): CountryEntry[] {
       }));
   }
 
-  // { items: [...] } shape
   if (Array.isArray(r.items)) {
     return (r.items as Record<string, unknown>[])
       .sort((a, b) => Number(b.value ?? b.revenue ?? 0) - Number(a.value ?? a.revenue ?? 0))
@@ -208,21 +213,20 @@ async function fetchCountryBreakdown(projectId: string): Promise<CountryEntry[]>
   return [];
 }
 
-// RC V2 uses metric_id / metric_name — normalise to id / name so the frontend works
+// Normalise RC V2 overview — fields vary (metric_id vs id, metric_name vs name, change fraction vs %)
 function normalizeOverview(raw: unknown): { metrics: Record<string, unknown>[] } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  const arr: Record<string, unknown>[] = Array.isArray(r.items)
-    ? r.items as Record<string, unknown>[]
-    : Array.isArray(r.metrics)
+  const arr: Record<string, unknown>[] = Array.isArray(r.metrics)
     ? r.metrics as Record<string, unknown>[]
+    : Array.isArray(r.items)
+    ? r.items as Record<string, unknown>[]
     : [];
 
   const normalized = arr.map((item) => ({
     ...item,
     id:   item.id   ?? item.metric_id   ?? item.metricId,
     name: item.name ?? item.metric_name ?? item.metricName,
-    // RC returns change as a fraction (0.05 = 5%) — convert to percentage
     change_percentage:
       item.change_percentage !== undefined
         ? Number(item.change_percentage)
@@ -233,6 +237,20 @@ function normalizeOverview(raw: unknown): { metrics: Record<string, unknown>[] }
   }));
 
   return { metrics: normalized };
+}
+
+// Extract all-time revenue from the overview "Revenue" metric (most accurate source)
+function extractAllTimeRevenue(overview: unknown): number {
+  if (!overview || typeof overview !== "object") return 0;
+  const r = overview as Record<string, unknown>;
+  const arr: Record<string, unknown>[] = Array.isArray(r.metrics) ? r.metrics as Record<string, unknown>[]
+    : Array.isArray(r.items) ? r.items as Record<string, unknown>[]
+    : [];
+  const metric = arr.find((m) => {
+    const id = String(m.id ?? m.metric_id ?? "").toLowerCase();
+    return id === "revenue" || id === "total_revenue" || id === "net_revenue";
+  });
+  return metric ? Number(metric.value ?? 0) : 0;
 }
 
 export async function GET(req: NextRequest) {
@@ -258,7 +276,6 @@ export async function GET(req: NextRequest) {
           revenue,
           revenue7d,
           revenue30d,
-          revenueAllTime,
           newSubs7d,
           newSubs30d,
           countryBreakdown,
@@ -267,20 +284,18 @@ export async function GET(req: NextRequest) {
           fetchRevenueChart(project.id, period, start, end),
           fetchPeriodRevenue(project.id, 7),
           fetchPeriodRevenue(project.id, 30),
-          fetchAllTimeRevenue(project.id),
           fetchNewCustomers(project.id, 7),
           fetchNewCustomers(project.id, 30),
           fetchCountryBreakdown(project.id),
         ]);
 
         const rawOverview = overview.status === "fulfilled" ? overview.value : null;
-        // RC V2 uses metric_id/metric_name — normalise to id/name for frontend
         const normalizedOverview = normalizeOverview(rawOverview);
 
-        // Log shapes for debugging
-        const overviewItems = (rawOverview?.metrics ?? rawOverview?.items ?? []) as Record<string, unknown>[];
-        console.log(`[RC] project=${project.name} overview_keys=${JSON.stringify(Object.keys(rawOverview ?? {}))} metrics=${JSON.stringify(overviewItems.map((m) => ({ id: m.id, name: m.name, value: m.value, unit: m.unit })))}`);
-        console.log(`[RC] revenue7d=${revenue7d.status === "fulfilled" ? revenue7d.value : revenue7d.reason} revenue30d=${revenue30d.status === "fulfilled" ? revenue30d.value : revenue30d.reason} allTime=${revenueAllTime.status === "fulfilled" ? revenueAllTime.value : revenueAllTime.reason}`);
+        // All-time revenue comes from the overview "Revenue" metric — chart-based sum is unreliable
+        const revenueAllTime = extractAllTimeRevenue(rawOverview);
+
+        console.log(`[RC] project=${project.name} allTime=${revenueAllTime} 7d=${revenue7d.status === "fulfilled" ? revenue7d.value : "ERR"} 30d=${revenue30d.status === "fulfilled" ? revenue30d.value : "ERR"}`);
 
         return {
           project,
@@ -288,7 +303,7 @@ export async function GET(req: NextRequest) {
           revenue:          revenue.status === "fulfilled" ? revenue.value : null,
           revenue7d:        revenue7d.status === "fulfilled" ? revenue7d.value : 0,
           revenue30d:       revenue30d.status === "fulfilled" ? revenue30d.value : 0,
-          revenueAllTime:   revenueAllTime.status === "fulfilled" ? revenueAllTime.value : 0,
+          revenueAllTime,
           newSubs7d:        newSubs7d.status === "fulfilled" ? newSubs7d.value : 0,
           newSubs30d:       newSubs30d.status === "fulfilled" ? newSubs30d.value : 0,
           countryBreakdown: countryBreakdown.status === "fulfilled" ? countryBreakdown.value : [],

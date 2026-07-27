@@ -90,10 +90,20 @@ async function fetchRevenueChart(projectId: string, period: Period, start: strin
 async function fetchPeriodRevenue(projectId: string, days: number): Promise<number> {
   const end = new Date().toISOString().split("T")[0];
   const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  try {
-    const data = await rcFetch(`/v2/projects/${projectId}/charts/revenue?resolution=P1D&start_time=${start}&end_time=${end}`);
-    return sumChartValues(data);
-  } catch { return 0; }
+  // Try multiple resolution formats — RC V2 accepts P1D, day, or DAY
+  for (const res of ["P1D", "day", "DAY"]) {
+    try {
+      const data = await rcFetch(`/v2/projects/${projectId}/charts/revenue?resolution=${res}&start_time=${start}&end_time=${end}`);
+      console.log(`[RC] revenue chart (${days}d, res=${res}) keys=${JSON.stringify(Object.keys(data))} first=${JSON.stringify((data.values ?? data.items ?? [])[0] ?? null)}`);
+      const sum = sumChartValues(data);
+      if (sum > 0) return sum;
+      // sum=0 might mean wrong resolution accepted but all 0, or the data shape doesn't match
+      // return 0 only after exhausting all resolutions
+    } catch (e) {
+      console.log(`[RC] revenue chart (${days}d, res=${res}) ERROR: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return 0;
 }
 
 async function fetchAllTimeRevenue(projectId: string): Promise<number> {
@@ -101,19 +111,33 @@ async function fetchAllTimeRevenue(projectId: string): Promise<number> {
   const start = new Date();
   start.setFullYear(start.getFullYear() - 5);
   const startStr = start.toISOString().split("T")[0];
-  try {
-    const data = await rcFetch(`/v2/projects/${projectId}/charts/revenue?resolution=P1M&start_time=${startStr}&end_time=${end}`);
-    return sumChartValues(data);
-  } catch { return 0; }
+  for (const res of ["P1M", "month", "MONTH"]) {
+    try {
+      const data = await rcFetch(`/v2/projects/${projectId}/charts/revenue?resolution=${res}&start_time=${startStr}&end_time=${end}`);
+      console.log(`[RC] all-time revenue (res=${res}) keys=${JSON.stringify(Object.keys(data))} count=${(data.values ?? data.items ?? []).length}`);
+      const sum = sumChartValues(data);
+      if (sum > 0) return sum;
+    } catch (e) {
+      console.log(`[RC] all-time revenue (res=${res}) ERROR: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return 0;
 }
 
 async function fetchNewCustomers(projectId: string, days: number): Promise<number> {
   const end = new Date().toISOString().split("T")[0];
   const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  try {
-    const data = await rcFetch(`/v2/projects/${projectId}/charts/new_paying_customers?resolution=P1D&start_time=${start}&end_time=${end}`);
-    return sumChartValues(data);
-  } catch { return 0; }
+  for (const res of ["P1D", "day", "DAY"]) {
+    try {
+      const data = await rcFetch(`/v2/projects/${projectId}/charts/new_paying_customers?resolution=${res}&start_time=${start}&end_time=${end}`);
+      console.log(`[RC] new_customers (${days}d, res=${res}) sum=${sumChartValues(data)}`);
+      const sum = sumChartValues(data);
+      if (sum > 0) return sum;
+    } catch (e) {
+      console.log(`[RC] new_customers (${days}d, res=${res}) ERROR: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return 0;
 }
 
 export interface CountryEntry { country: string; revenue: number; }
@@ -254,8 +278,9 @@ export async function GET(req: NextRequest) {
         const normalizedOverview = normalizeOverview(rawOverview);
 
         // Log shapes for debugging
-        console.log(`[RC] project=${project.name} overview_keys=${JSON.stringify(Object.keys(rawOverview ?? {}))} overview_first_item=${JSON.stringify((rawOverview?.items ?? rawOverview?.metrics ?? [])[0] ?? null)}`);
-        console.log(`[RC] revenue7d=${revenue7d.status === "fulfilled" ? revenue7d.value : revenue7d.reason} revenue30d=${revenue30d.status === "fulfilled" ? revenue30d.value : revenue30d.reason}`);
+        const overviewItems = (rawOverview?.metrics ?? rawOverview?.items ?? []) as Record<string, unknown>[];
+        console.log(`[RC] project=${project.name} overview_keys=${JSON.stringify(Object.keys(rawOverview ?? {}))} metrics=${JSON.stringify(overviewItems.map((m) => ({ id: m.id, name: m.name, value: m.value, unit: m.unit })))}`);
+        console.log(`[RC] revenue7d=${revenue7d.status === "fulfilled" ? revenue7d.value : revenue7d.reason} revenue30d=${revenue30d.status === "fulfilled" ? revenue30d.value : revenue30d.reason} allTime=${revenueAllTime.status === "fulfilled" ? revenueAllTime.value : revenueAllTime.reason}`);
 
         return {
           project,

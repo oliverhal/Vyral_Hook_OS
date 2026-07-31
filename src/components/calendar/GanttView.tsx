@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CalendarClient, COLOR_BAR, STATUS_BAR_OVERRIDE, getContractStatus, STATUS_STYLES } from "./types";
+import { CalendarClient, COLOR_BAR, getContractStatus, STATUS_STYLES } from "./types";
 
 interface GanttViewProps {
   clients: CalendarClient[];
@@ -301,8 +301,8 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
                   const endPx = Math.min(daysBetween(viewStart, end) * cfg.pxPerDay, totalWidth);
                   const width = Math.max(endPx - startPx, 6);
 
-                  const barColor = STATUS_BAR_OVERRIDE[status as keyof typeof STATUS_BAR_OVERRIDE] || COLOR_BAR[client.color] || "bg-violet-500";
                   const baseColor = COLOR_BAR[client.color] || "bg-violet-500";
+                  const barColor = cn(baseColor, status === "ended" && "opacity-40");
 
                   return (
                     <div key={client.id} className="h-11 border-b border-slate-100 flex items-center relative">

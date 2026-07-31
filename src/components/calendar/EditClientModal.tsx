@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { X, ExternalLink, Trash2 } from "lucide-react";
+import { X, ExternalLink, Trash2, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CalendarClient, COLOR_OPTIONS, COLOR_MAP, getContractStatus, STATUS_STYLES } from "./types";
+import { CalendarClient, ClientExtension, COLOR_OPTIONS, COLOR_MAP, getContractStatus, STATUS_STYLES } from "./types";
 
 interface EditClientModalProps {
   client: CalendarClient;
@@ -12,9 +12,22 @@ interface EditClientModalProps {
   onDeleted: () => void;
 }
 
-function formatDateInput(dateStr: string | null): string {
+function formatDateInput(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
   return new Date(dateStr).toISOString().split("T")[0];
+}
+
+function defaultExtensionStart(client: CalendarClient): string {
+  // Day after the last known end (contractEnd or last extension endDate)
+  let latest: Date | null = client.contractEnd ? new Date(client.contractEnd) : null;
+  for (const ext of client.extensions ?? []) {
+    const d = new Date(ext.endDate);
+    if (!latest || d > latest) latest = d;
+  }
+  if (!latest) return "";
+  const next = new Date(latest);
+  next.setDate(next.getDate() + 1);
+  return next.toISOString().split("T")[0];
 }
 
 export default function EditClientModal({ client, onClose, onSaved, onDeleted }: EditClientModalProps) {
@@ -32,6 +45,19 @@ export default function EditClientModal({ client, onClose, onSaved, onDeleted }:
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
+
+  // Extensions state
+  const [extensions, setExtensions] = useState<ClientExtension[]>(client.extensions ?? []);
+  const [extOpen, setExtOpen] = useState(false);
+  const [addingExt, setAddingExt] = useState(false);
+  const [extForm, setExtForm] = useState({
+    startDate: defaultExtensionStart(client),
+    endDate: "",
+    monthlyValue: client.monthlyValue?.toString() || "",
+    notes: "",
+  });
+  const [extSaving, setExtSaving] = useState(false);
+  const [extError, setExtError] = useState("");
 
   const status = getContractStatus(client);
 
@@ -66,6 +92,52 @@ export default function EditClientModal({ client, onClose, onSaved, onDeleted }:
     }
   }
 
+  async function handleAddExtension() {
+    if (!extForm.startDate || !extForm.endDate) {
+      setExtError("Start and end dates are required.");
+      return;
+    }
+    if (extForm.endDate <= extForm.startDate) {
+      setExtError("End date must be after start date.");
+      return;
+    }
+    setExtSaving(true);
+    setExtError("");
+    try {
+      const res = await fetch(`/api/calendar/clients/${client.id}/extensions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(extForm),
+      });
+      if (!res.ok) throw new Error("Failed to add extension");
+      const newExt: ClientExtension = await res.json();
+      setExtensions((prev) => [...prev, newExt]);
+      setAddingExt(false);
+      // Reset form for next potential extension
+      setExtForm({
+        startDate: new Date(newExt.endDate) > new Date()
+          ? (() => { const d = new Date(newExt.endDate); d.setDate(d.getDate() + 1); return d.toISOString().split("T")[0]; })()
+          : "",
+        endDate: "",
+        monthlyValue: extForm.monthlyValue,
+        notes: "",
+      });
+    } catch {
+      setExtError("Failed to add extension.");
+    } finally {
+      setExtSaving(false);
+    }
+  }
+
+  async function handleDeleteExtension(extId: string) {
+    try {
+      await fetch(`/api/calendar/clients/${client.id}/extensions/${extId}`, { method: "DELETE" });
+      setExtensions((prev) => prev.filter((e) => e.id !== extId));
+    } catch {
+      // silently fail — UI still shows the extension
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
@@ -87,7 +159,7 @@ export default function EditClientModal({ client, onClose, onSaved, onDeleted }:
         </div>
 
         {/* Form */}
-        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="px-6 py-5 space-y-4 max-h-[72vh] overflow-y-auto">
           {error && <div className="text-red-400 text-sm bg-red-500/10 rounded-lg px-3 py-2">{error}</div>}
 
           <div>
@@ -186,6 +258,127 @@ export default function EditClientModal({ client, onClose, onSaved, onDeleted }:
                 />
               ))}
             </div>
+          </div>
+
+          {/* Extensions section */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setExtOpen((v) => !v)}
+              className="flex items-center gap-2 w-full text-left group"
+            >
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Extensions</span>
+              {extensions.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold">
+                  {extensions.length}
+                </span>
+              )}
+              <span className="ml-auto text-slate-500 group-hover:text-slate-300 transition-colors">
+                {extOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </span>
+            </button>
+
+            {extOpen && (
+              <div className="mt-3 space-y-2">
+                {extensions.length === 0 && !addingExt && (
+                  <p className="text-xs text-slate-500 py-1">No extensions yet.</p>
+                )}
+
+                {extensions.map((ext) => (
+                  <div key={ext.id} className="flex items-start gap-3 bg-white/5 border border-white/8 rounded-xl px-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-mono text-slate-300">
+                        {new Date(ext.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        {" → "}
+                        {new Date(ext.endDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                      </div>
+                      {ext.monthlyValue != null && (
+                        <div className="text-[11px] text-emerald-400 mt-0.5">£{ext.monthlyValue.toLocaleString()}/mo</div>
+                      )}
+                      {ext.notes && (
+                        <div className="text-[11px] text-slate-500 mt-0.5 truncate">{ext.notes}</div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteExtension(ext.id)}
+                      className="p-1 rounded-lg hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"
+                      title="Remove extension"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {addingExt ? (
+                  <div className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 space-y-3">
+                    {extError && <div className="text-red-400 text-xs bg-red-500/10 rounded-lg px-2 py-1">{extError}</div>}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Start Date</label>
+                        <input
+                          type="date"
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                          value={extForm.startDate}
+                          onChange={(e) => setExtForm(f => ({ ...f, startDate: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">End Date</label>
+                        <input
+                          type="date"
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                          value={extForm.endDate}
+                          onChange={(e) => setExtForm(f => ({ ...f, endDate: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Monthly Value</label>
+                      <input
+                        type="number"
+                        placeholder={client.monthlyValue?.toString() || "0"}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                        value={extForm.monthlyValue}
+                        onChange={(e) => setExtForm(f => ({ ...f, monthlyValue: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
+                      <input
+                        type="text"
+                        placeholder="Optional note..."
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                        value={extForm.notes}
+                        onChange={(e) => setExtForm(f => ({ ...f, notes: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button
+                        onClick={handleAddExtension}
+                        disabled={extSaving}
+                        className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                      >
+                        {extSaving ? "Saving..." : "Add Extension"}
+                      </button>
+                      <button
+                        onClick={() => { setAddingExt(false); setExtError(""); }}
+                        className="px-3 py-1.5 text-slate-400 hover:text-white text-xs transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingExt(true)}
+                    className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors py-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add extension
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

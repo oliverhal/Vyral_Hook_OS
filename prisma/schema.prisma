@@ -184,7 +184,7 @@ model HookSuggestion {
 }
 
 model CalendarClient {
-  id            String    @id @default(cuid())
+  id            String                    @id @default(cuid())
   name          String
   contractStart DateTime
   contractEnd   DateTime?
@@ -192,11 +192,23 @@ model CalendarClient {
   monthlyValue  Float?
   notes         String?
   contractLink  String?
-  color         String    @default("violet")
-  source        String    @default("manual")
-  externalId    String?   @unique
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  color         String                    @default("violet")
+  source        String                    @default("manual")
+  externalId    String?                   @unique
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  extensions    CalendarClientExtension[]
+}
+
+model CalendarClientExtension {
+  id           String         @id @default(cuid())
+  clientId     String
+  client       CalendarClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  startDate    DateTime
+  endDate      DateTime
+  monthlyValue Float?
+  notes        String?
+  createdAt    DateTime       @default(now())
 }
 
 model Shoutout {

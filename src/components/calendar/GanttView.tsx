@@ -293,17 +293,20 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
                 {clients.map((client) => {
                   const status = getContractStatus(client);
                   const start = new Date(client.contractStart);
-                  const end = client.contractEnd ? new Date(client.contractEnd) : viewEnd;
-                  const isOngoing = !client.contractEnd;
+                  const hasExplicitEnd = !!client.contractEnd;
+                  const end = hasExplicitEnd ? new Date(client.contractEnd!) : viewEnd;
+                  const isOngoing = !hasExplicitEnd && (!client.extensions || client.extensions.length === 0);
 
                   const startPx = Math.max(daysBetween(viewStart, start) * cfg.pxPerDay, 0);
                   const endPx = Math.min(daysBetween(viewStart, end) * cfg.pxPerDay, totalWidth);
                   const width = Math.max(endPx - startPx, 6);
 
                   const barColor = STATUS_BAR_OVERRIDE[status as keyof typeof STATUS_BAR_OVERRIDE] || COLOR_BAR[client.color] || "bg-violet-500";
+                  const baseColor = COLOR_BAR[client.color] || "bg-violet-500";
 
                   return (
                     <div key={client.id} className="h-11 border-b border-slate-100 flex items-center relative">
+                      {/* Main contract bar */}
                       {startPx < totalWidth && endPx > 0 && (
                         <div
                           className={cn("absolute h-7 rounded cursor-pointer hover:brightness-125 hover:scale-y-105 transition-all flex items-center overflow-hidden", barColor, isOngoing ? "rounded-r-none" : "")}
@@ -321,6 +324,29 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
                           )}
                         </div>
                       )}
+                      {/* Extension bars */}
+                      {(client.extensions ?? []).map((ext) => {
+                        const extStart = new Date(ext.startDate);
+                        const extEnd = new Date(ext.endDate);
+                        const extStartPx = Math.max(daysBetween(viewStart, extStart) * cfg.pxPerDay, 0);
+                        const extEndPx = Math.min(daysBetween(viewStart, extEnd) * cfg.pxPerDay, totalWidth);
+                        const extWidth = Math.max(extEndPx - extStartPx, 6);
+                        if (extStartPx >= totalWidth || extEndPx <= 0) return null;
+                        return (
+                          <div
+                            key={ext.id}
+                            className={cn("absolute h-7 rounded cursor-pointer hover:brightness-125 hover:scale-y-105 transition-all flex items-center overflow-hidden opacity-70", baseColor)}
+                            style={{ left: extStartPx, width: extWidth }}
+                            onClick={() => onEditClient(client)}
+                            title={`Extension · ${extStart.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} → ${extEnd.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}${ext.monthlyValue ? ` · £${ext.monthlyValue}/mo` : ""}`}
+                          >
+                            <div className="absolute inset-0" style={{ background: "repeating-linear-gradient(45deg, transparent 0px, transparent 4px, rgba(255,255,255,0.18) 4px, rgba(255,255,255,0.18) 6px)" }} />
+                            {extWidth > 60 && (
+                              <span className="text-[10px] font-medium text-white/80 px-2 truncate whitespace-nowrap relative z-10">+ext</span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}

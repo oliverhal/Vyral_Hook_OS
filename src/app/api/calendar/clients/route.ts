@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   const clients = await prisma.calendarClient.findMany({
     orderBy: { contractStart: "asc" },
+    include: { extensions: { orderBy: { startDate: "asc" } } },
   });
   return NextResponse.json(clients);
 }

@@ -1,3 +1,13 @@
+export interface ClientExtension {
+  id: string;
+  clientId: string;
+  startDate: string;
+  endDate: string;
+  monthlyValue: number | null;
+  notes: string | null;
+  createdAt: string;
+}
+
 export interface CalendarClient {
   id: string;
   name: string;
@@ -12,6 +22,7 @@ export interface CalendarClient {
   externalId: string | null;
   createdAt: string;
   updatedAt: string;
+  extensions: ClientExtension[];
 }
 
 export type ClientColor = "violet" | "blue" | "emerald" | "orange" | "pink" | "yellow" | "teal" | "slate";
@@ -45,7 +56,13 @@ export type ContractStatus = "active" | "ending_soon" | "ended" | "starting_soon
 export function getContractStatus(client: CalendarClient): ContractStatus {
   const now = new Date();
   const start = new Date(client.contractStart);
-  const end = client.contractEnd ? new Date(client.contractEnd) : null;
+
+  // Effective end = latest of contractEnd and any extension endDate
+  let end: Date | null = client.contractEnd ? new Date(client.contractEnd) : null;
+  for (const ext of client.extensions ?? []) {
+    const extEnd = new Date(ext.endDate);
+    if (!end || extEnd > end) end = extEnd;
+  }
 
   if (start > now) return "starting_soon";
   if (end && end < now) return "ended";

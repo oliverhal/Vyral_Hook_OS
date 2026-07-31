@@ -511,14 +511,7 @@ export default function AppStudioContent() {
       )}
 
       {/* ── Revenue totals row ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-        <StatCard
-          label="All-time revenue"
-          value={cardLoading ? "—" : formatCurrency(currentProject?.revenueAllTime ?? 0, revenueUnit)}
-          sub="since launch"
-          icon={DollarSign} colorClass="bg-blue-100 text-blue-600" hexColor="#3b82f6"
-          loading={cardLoading}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <StatCard
           label="Revenue last 30 days"
           value={cardLoading ? "—" : formatCurrency(currentProject?.revenue30d ?? 0, revenueUnit)}

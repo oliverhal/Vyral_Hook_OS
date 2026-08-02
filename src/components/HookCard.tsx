@@ -404,7 +404,10 @@ export default function HookCard({
           {/* Hook text */}
           {!editing && (
             <div className="mb-2">
-              <p className={cn("font-semibold text-slate-900 text-sm leading-snug", !textExpanded && "line-clamp-3")}>
+              <p
+                className={cn("font-semibold text-slate-900 text-sm leading-snug select-text cursor-text", !textExpanded && "line-clamp-3")}
+                onClick={(e) => e.stopPropagation()}
+              >
                 {hookText}
               </p>
               {hookText.length > 120 && (

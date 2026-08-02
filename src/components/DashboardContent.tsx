@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { format, isPast, formatDistanceToNow } from "date-fns";
-import { ArrowRight, Clock, Plus, TrendingUp, Users, Zap } from "lucide-react";
+import { ArrowRight, Archive, Clock, Plus, TrendingUp, Users, Zap } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
 import ContributionBoard from "./ContributionBoard";
 import ShoutoutCard from "./ShoutoutBoard";
@@ -140,9 +140,22 @@ export default function DashboardContent() {
                     </div>
                     <p className="text-slate-400 text-xs">{campaign.clientName}</p>
                   </div>
-                  <span className={cn("badge text-xs", colors.badge)}>
-                    {isFuture ? "upcoming" : (currentWeek?.status ?? "no week")}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("badge text-xs", colors.badge)}>
+                      {isFuture ? "upcoming" : (currentWeek?.status ?? "no week")}
+                    </span>
+                    <button
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
+                        setCampaigns(prev => prev.filter(c => c.id !== campaign.id));
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                      title="Archive campaign"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Future campaign countdown */}

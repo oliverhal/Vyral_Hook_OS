@@ -1,27 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-async function autoArchiveExpired() {
-  const now = new Date();
-  // Only auto-archive campaigns with an explicit contractEndDate set on the campaign itself.
-  // CalendarClient records are a separate system and must not drive campaign archiving.
-  const expired = await prisma.campaign.findMany({
-    where: { active: true, contractEndDate: { lte: now } },
-    select: { id: true },
-  });
-  if (expired.length > 0) {
-    await prisma.campaign.updateMany({
-      where: { id: { in: expired.map(c => c.id) } },
-      data: { active: false },
-    });
-  }
-}
-
 export async function GET() {
-  await autoArchiveExpired();
-
   const campaigns = await prisma.campaign.findMany({
-    where: { active: true },
+    where: { archivedManually: false },
     include: {
       weeks: {
         orderBy: { weekStart: "desc" },
@@ -40,7 +22,6 @@ export async function GET() {
 
   const now = new Date();
 
-  // For campaigns where the latest week is still in the future, find their first (earliest) week
   const futureCampaignIds = campaigns
     .filter((c) => c.weeks.length > 0 && new Date(c.weeks[0].weekStart) > now)
     .map((c) => c.id);
@@ -85,7 +66,6 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Auto-create the first week if a start date was provided
   if (firstWeekStart) {
     const weekStart = new Date(firstWeekStart);
     weekStart.setUTCHours(0, 0, 0, 0);

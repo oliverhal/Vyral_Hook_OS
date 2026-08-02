@@ -34,6 +34,7 @@ model Campaign {
   color              String          @default("blue")
   emoji              String          @default("🎯")
   active             Boolean         @default(true)
+  archivedManually   Boolean         @default(false)
   hooksTarget        Int             @default(7)
   validatedTarget    Int             @default(7)
   hashtags           String?

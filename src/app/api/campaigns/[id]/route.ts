@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   await prisma.campaign.update({
     where: { id: params.id },
-    data: { active: false },
+    data: { archivedManually: true },
   });
   return NextResponse.json({ ok: true });
 }

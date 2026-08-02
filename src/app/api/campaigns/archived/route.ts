@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const campaigns = await prisma.campaign.findMany({
-    where: { active: false },
+    where: { archivedManually: true },
     include: {
       members: {
         include: { user: { select: { id: true, name: true, color: true, avatarUrl: true } } },

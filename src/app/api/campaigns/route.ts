@@ -18,14 +18,6 @@ async function autoArchiveExpired() {
 }
 
 export async function GET() {
-  // One-time restore: un-archive campaigns that were incorrectly auto-archived
-  // by the CalendarClient name-matching logic (now removed). Safe to keep — it's
-  // a no-op once the campaigns are already active.
-  await prisma.campaign.updateMany({
-    where: { active: false, contractEndDate: null },
-    data: { active: true },
-  });
-
   await autoArchiveExpired();
 
   const campaigns = await prisma.campaign.findMany({

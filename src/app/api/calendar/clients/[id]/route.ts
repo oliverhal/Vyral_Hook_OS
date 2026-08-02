@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json();
-  const { name, contractStart, contractEnd, firstPostDate, monthlyValue, notes, contractLink, color } = body;
+  const { name, contractStart, contractEnd, firstPostDate, monthlyValue, notes, contractLink, color, archived } = body;
 
   const client = await prisma.calendarClient.update({
     where: { id: params.id },
@@ -16,6 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(notes !== undefined && { notes: notes || null }),
       ...(contractLink !== undefined && { contractLink: contractLink || null }),
       ...(color !== undefined && { color }),
+      ...(archived !== undefined && { archived }),
     },
   });
 

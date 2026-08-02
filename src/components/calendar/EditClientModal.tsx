@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, ExternalLink, Trash2, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { X, ExternalLink, Trash2, Plus, ChevronDown, ChevronUp, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CalendarClient, ClientExtension, COLOR_OPTIONS, COLOR_MAP, getContractStatus, STATUS_STYLES } from "./types";
 
@@ -43,6 +43,7 @@ export default function EditClientModal({ client, onClose, onSaved, onDeleted }:
   });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
 
@@ -89,6 +90,20 @@ export default function EditClientModal({ client, onClose, onSaved, onDeleted }:
       onDeleted();
     } catch {
       setDeleting(false);
+    }
+  }
+
+  async function handleArchive() {
+    setArchiving(true);
+    try {
+      await fetch(`/api/calendar/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+      onDeleted(); // removes from the list in the parent
+    } catch {
+      setArchiving(false);
     }
   }
 
@@ -386,7 +401,7 @@ export default function EditClientModal({ client, onClose, onSaved, onDeleted }:
         <div className="flex items-center justify-between px-6 py-4 border-t border-white/10">
           {confirmDelete ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-red-400">Are you sure?</span>
+              <span className="text-sm text-red-400">Permanently delete?</span>
               <button
                 onClick={handleDelete}
                 disabled={deleting}
@@ -402,13 +417,23 @@ export default function EditClientModal({ client, onClose, onSaved, onDeleted }:
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1.5 text-red-400 hover:text-red-300 text-sm transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleArchive}
+                disabled={archiving}
+                className="flex items-center gap-1.5 text-slate-400 hover:text-amber-400 text-sm transition-colors disabled:opacity-50"
+              >
+                <Archive className="w-4 h-4" />
+                {archiving ? "Archiving..." : "Archive"}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-1.5 text-red-400/60 hover:text-red-400 text-sm transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
+              </button>
+            </div>
           )}
 
           <div className="flex items-center gap-3">

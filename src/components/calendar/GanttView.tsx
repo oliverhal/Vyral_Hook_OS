@@ -211,7 +211,7 @@ export default function GanttView({ clients, onEditClient }: GanttViewProps) {
           <div className="flex-shrink-0 sticky left-0 bg-white z-20 border-r border-slate-200" style={{ width: LEFT_COL_WIDTH }}>
             <div className="h-8 border-b border-slate-200" />
             <div className="h-14 border-b border-slate-200 px-3 flex items-center">
-              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Active</span>
+              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Clients</span>
             </div>
             {clients.map((client) => {
               const status = getContractStatus(client);

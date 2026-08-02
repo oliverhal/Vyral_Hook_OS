@@ -20,6 +20,7 @@ export interface CalendarClient {
   color: string;
   source: string;
   externalId: string | null;
+  archived: boolean;
   createdAt: string;
   updatedAt: string;
   extensions: ClientExtension[];

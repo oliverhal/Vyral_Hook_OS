@@ -195,6 +195,7 @@ model CalendarClient {
   color         String                    @default("violet")
   source        String                    @default("manual")
   externalId    String?                   @unique
+  archived      Boolean                   @default(false)
   createdAt     DateTime                  @default(now())
   updatedAt     DateTime                  @updatedAt
   extensions    CalendarClientExtension[]

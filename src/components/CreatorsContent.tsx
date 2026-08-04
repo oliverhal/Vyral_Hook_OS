@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Search, MapPin, ExternalLink, Bot, Send, ChevronDown,
   CheckCircle2, Clock, XCircle, Star, RefreshCw, Tag, StickyNote, Loader2,
-  LayoutList, Table2, Trash2
+  LayoutList, Table2, Trash2, ShieldAlert, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -113,6 +113,9 @@ export default function CreatorsContent() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [enrichingAll, setEnrichingAll] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditFlags, setAuditFlags] = useState<{ id: string; firstName: string; lastName: string; email: string; client: string; language: string | null; location: string | null; country: string | null; reason: string }[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   async function fetchCreators() {
@@ -229,6 +232,15 @@ export default function CreatorsContent() {
     fetchCreators();
   }
 
+  async function runAudit() {
+    setAuditLoading(true);
+    setAuditOpen(true);
+    const res = await fetch("/api/creators/audit-language");
+    const data = await res.json();
+    setAuditFlags(data.flagged ?? []);
+    setAuditLoading(false);
+  }
+
   const counts = {
     all: creators.length,
     new: creators.filter((c) => c.status === "new").length,
@@ -308,6 +320,15 @@ export default function CreatorsContent() {
           {enrichingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span className="text-sm leading-none">✨</span>}
           Enrich
         </button>
+        <button
+          onClick={runAudit}
+          disabled={auditLoading}
+          className="flex items-center gap-1.5 text-xs font-medium text-amber-600 hover:text-amber-800 px-2.5 py-1.5 rounded-lg hover:bg-amber-50 transition-colors"
+          title="Find creators with suspicious language assignments"
+        >
+          {auditLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+          Audit
+        </button>
         {/* View toggle */}
         <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden ml-2">
           <button
@@ -327,6 +348,88 @@ export default function CreatorsContent() {
     </div>
   );
 
+  /* ── language audit modal ── */
+  const AuditModal = auditOpen ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-500" />
+              Language Audit
+            </h2>
+            {!auditLoading && (
+              <p className="text-xs text-slate-400 mt-0.5">
+                {auditFlags.length === 0
+                  ? "No issues found — all language assignments look correct."
+                  : `${auditFlags.length} creator${auditFlags.length !== 1 ? "s" : ""} flagged for review`}
+              </p>
+            )}
+          </div>
+          <button onClick={() => setAuditOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {auditLoading ? (
+            <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Scanning all creators…</span>
+            </div>
+          ) : auditFlags.length === 0 ? (
+            <div className="flex items-center justify-center py-16 text-slate-400 text-sm">
+              All good — no suspicious language assignments detected.
+            </div>
+          ) : (
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wide text-[10px]">Creator</th>
+                  <th className="px-4 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wide text-[10px]">Programme</th>
+                  <th className="px-4 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wide text-[10px]">Language</th>
+                  <th className="px-4 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wide text-[10px]">Flag</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditFlags.map((f) => (
+                  <tr
+                    key={f.id}
+                    className="border-b border-slate-100 hover:bg-amber-50 cursor-pointer transition-colors"
+                    onClick={() => {
+                      const match = creators.find((c) => c.id === f.id);
+                      if (match) { setSelected(match); setView("list"); setAuditOpen(false); }
+                    }}
+                  >
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-slate-800">{f.firstName} {f.lastName}</p>
+                      <p className="text-slate-400 text-[10px] mt-0.5">{f.email}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", CLIENT_COLORS[f.client] ?? "bg-slate-100 text-slate-600")}>
+                        {f.client}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700 font-medium">
+                      {f.language ?? <span className="text-slate-300 italic">none</span>}
+                    </td>
+                    <td className="px-4 py-3 text-amber-700 max-w-[260px]">
+                      {f.reason}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {!auditLoading && auditFlags.length > 0 && (
+          <div className="px-5 py-3 border-t border-slate-100 text-xs text-slate-400">
+            Click a row to open that creator's profile and correct their language.
+          </div>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   /* ── table view ── */
   if (view === "table") {
     const TH = ({ children, className }: { children: React.ReactNode; className?: string }) => (
@@ -341,6 +444,7 @@ export default function CreatorsContent() {
     );
     return (
       <div className="flex flex-col h-full min-h-screen bg-slate-50">
+        {AuditModal}
         {Toolbar}
         <div className="flex-1 overflow-auto">
           {loading ? (
@@ -461,6 +565,7 @@ export default function CreatorsContent() {
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-slate-50">
+      {AuditModal}
       {Toolbar}
       <div className="flex flex-1 overflow-hidden">
       {/* Left panel */}

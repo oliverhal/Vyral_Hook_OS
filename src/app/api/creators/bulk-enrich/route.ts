@@ -117,7 +117,8 @@ Rules:
         gender: enriched.gender !== "Unknown" ? enriched.gender : (creator.gender ?? null),
         ageRange: enriched.ageRange !== "Unknown" ? enriched.ageRange : (creator.ageRange ?? null),
         country: enriched.country ?? creator.country,
-        language: enriched.language ?? creator.language,
+        // Prefer form-supplied language; AI only fills in when null
+        language: creator.language ?? enriched.language,
         niche: enriched.niche ?? creator.niche,
         tiktokFollowers: ttData.followers ?? creator.tiktokFollowers,
         instagramFollowers: igData.followers ?? creator.instagramFollowers,

@@ -205,7 +205,11 @@ export default function CreatorsContent() {
     while (true) {
       batch++;
       setImportResult(`Enriching… batch ${batch} (${totalEnriched} done so far)`);
-      const res = await fetch("/api/creators/bulk-enrich", { method: "POST" });
+      const res = await fetch("/api/creators/bulk-enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
       const data = await res.json();
       totalEnriched += data.enriched ?? 0;
       if (!data.enriched || data.enriched === 0) break;

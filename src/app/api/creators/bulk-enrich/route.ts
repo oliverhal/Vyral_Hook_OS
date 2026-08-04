@@ -136,24 +136,24 @@ Rules:
 }
 
 export async function GET() {
-  return run();
+  return run(false);
 }
 
-export async function POST() {
-  return run();
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  return run(body?.force === true);
 }
 
-async function run() {
-  // Get all creators not yet enriched (or enriched > 7 days ago for a refresh)
+async function run(force: boolean) {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const creators = await prisma.creatorApplication.findMany({
-    where: {
+    where: force ? {} : {
       OR: [
         { enrichedAt: null },
         { enrichedAt: { lt: sevenDaysAgo } },
       ],
     },
-    take: 50, // batch size per run — cron runs daily so this handles up to 50/day
+    take: 50,
   });
 
   if (creators.length === 0) {

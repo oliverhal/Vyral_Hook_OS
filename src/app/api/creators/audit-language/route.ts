@@ -97,12 +97,13 @@ export async function GET() {
     const domainLangs = domainLanguages(c.email);
     const locLangs = locationLanguages(c.location, c.country);
 
+    const hasFormLanguage = CLIENTS_WITH_FORM_LANGUAGE.includes(c.client);
+
     if (!c.language) {
-      const hasFormLang = CLIENTS_WITH_FORM_LANGUAGE.includes(c.client);
       const hint = domainLangs[0] ?? locLangs[0];
       flagged.push({
         ...c,
-        reason: hasFormLang
+        reason: hasFormLanguage
           ? `No language — ${c.client} form should have provided one`
           : hint
           ? `No language — ${hint} likely based on ${domainLangs.length ? "email domain" : "location"}`
@@ -111,13 +112,16 @@ export async function GET() {
       continue;
     }
 
-    // English-only but signals suggest a native language — might be missing a secondary
+    // Form-supplied language is source of truth — never second-guess it
+    if (hasFormLanguage) continue;
+
+    // For Vyral Labs (AI-guessed only): flag English-only when signals suggest a native secondary language
     const isEnglishOnly = c.language.toLowerCase().trim() === "english";
 
     if (isEnglishOnly && domainLangs.length > 0) {
       flagged.push({
         ...c,
-        reason: `Content language "English" — email domain suggests may also speak ${domainLangs.join(" or ")} natively`,
+        reason: `AI set "English" — email domain suggests may also speak ${domainLangs.join(" or ")} natively`,
       });
       continue;
     }
@@ -125,7 +129,7 @@ export async function GET() {
     if (isEnglishOnly && locLangs.length > 0 && !locLangs.includes("English")) {
       flagged.push({
         ...c,
-        reason: `Content language "English" — location suggests may also speak ${locLangs.join(" or ")} natively`,
+        reason: `AI set "English" — location suggests may also speak ${locLangs.join(" or ")} natively`,
       });
     }
   }

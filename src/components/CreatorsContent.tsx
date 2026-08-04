@@ -208,10 +208,12 @@ export default function CreatorsContent() {
     while (true) {
       batch++;
       setImportResult(`Enriching… batch ${batch} (${totalEnriched} done so far)`);
+      // First batch resets all enrichedAt so everyone gets re-processed;
+      // subsequent batches use normal filter to work through the queue
       const res = await fetch("/api/creators/bulk-enrich", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force: true }),
+        body: JSON.stringify({ force: batch === 1 }),
       });
       const data = await res.json();
       totalEnriched += data.enriched ?? 0;

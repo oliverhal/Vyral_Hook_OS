@@ -146,9 +146,14 @@ export async function POST(req: Request) {
 }
 
 async function run(force: boolean) {
+  // force=true: reset all enrichedAt so normal batching picks everyone up cleanly
+  if (force) {
+    await prisma.creatorApplication.updateMany({ data: { enrichedAt: null } });
+  }
+
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const creators = await prisma.creatorApplication.findMany({
-    where: force ? {} : {
+    where: {
       OR: [
         { enrichedAt: null },
         { enrichedAt: { lt: sevenDaysAgo } },

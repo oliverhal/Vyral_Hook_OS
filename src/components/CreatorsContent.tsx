@@ -411,7 +411,7 @@ export default function CreatorsContent() {
                             {c.tiktok?.replace(/https?:\/\/(www\.)?tiktok\.com\/@?/, "@").slice(0, 22) ?? ""}
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
                           </a>
-                        ) : <span className="text-slate-300">—</span>}
+                        ) : <span className="text-slate-400 text-[10px]">N/A</span>}
                       </TD>
                       <TD className="text-right tabular-nums">
                         {c.tiktokFollowers != null ? c.tiktokFollowers.toLocaleString() : <span className="text-slate-300">—</span>}
@@ -419,10 +419,10 @@ export default function CreatorsContent() {
                       <TD>
                         {ig ? (
                           <a href={ig} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-pink-600 hover:underline flex items-center gap-1 whitespace-nowrap">
-                            {c.instagram?.replace(/https?:\/\/(www\.)?instagram\.com\//, "@").replace(/\?.*$/, "").slice(0, 22) ?? ""}
+                            {c.instagram?.replace(/https?:\/\/(www\.)?instagram\.com\//, "").replace(/\?.*$/, "").replace(/\/$/, "").replace(/^@?/, "@").slice(0, 22) ?? ""}
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
                           </a>
-                        ) : <span className="text-slate-300">—</span>}
+                        ) : <span className="text-slate-400 text-[10px]">N/A</span>}
                       </TD>
                       <TD className="text-right tabular-nums">
                         {c.instagramFollowers != null ? c.instagramFollowers.toLocaleString() : <span className="text-slate-300">—</span>}

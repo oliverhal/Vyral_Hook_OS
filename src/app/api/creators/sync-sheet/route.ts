@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// languageColIndex: column index (0-based) where language lives in this sheet, or null if absent
 const SHEETS = [
-  { client: "Vyral Labs",  fileId: "1Vu2VnEan2A4mx8P6TUHHGrk8tqV5ef64ZqgPiqGEjv4", format: "vyral" as const },
-  { client: "Juno",        fileId: "1SX0gSvzHeVxijYuHlX8dGWEfAmwhi3EZzHzxNhue25Y", format: "juno" as const },
-  { client: "Jumpspeak",   fileId: "1OgGK2wZWY4qcTFN91xcdiMvqGWF1-izw4mLFs79rOG0", format: "standard" as const },
-  { client: "Ecosia",      fileId: "1d2T0_IiAgK973W_-CudgsARjAJBKoSGduipvTbKFajU", format: "ecosia" as const },
-  { client: "Artie",       fileId: "1Kiz5ABp-GMbIWCf4vMdW0q_j3Hc55nTuev4mRN9AWLM", format: "artie" as const },
-  { client: "Pazi",        fileId: "1UfurIf0UDE8gBqK_WwDG1hdyCQLzhLa7AmlpLxBePLU", format: "standard" as const },
+  { client: "Vyral Labs",  fileId: "1Vu2VnEan2A4mx8P6TUHHGrk8tqV5ef64ZqgPiqGEjv4", format: "vyral" as const,    languageColIndex: null },
+  { client: "Juno",        fileId: "1SX0gSvzHeVxijYuHlX8dGWEfAmwhi3EZzHzxNhue25Y", format: "juno" as const,      languageColIndex: 9    },
+  { client: "Jumpspeak",   fileId: "1OgGK2wZWY4qcTFN91xcdiMvqGWF1-izw4mLFs79rOG0", format: "standard" as const,  languageColIndex: 9    },
+  { client: "Ecosia",      fileId: "1d2T0_IiAgK973W_-CudgsARjAJBKoSGduipvTbKFajU", format: "ecosia" as const,    languageColIndex: 9    },
+  { client: "Artie",       fileId: "1Kiz5ABp-GMbIWCf4vMdW0q_j3Hc55nTuev4mRN9AWLM", format: "artie" as const,    languageColIndex: 11   },
+  { client: "Pazi",        fileId: "1UfurIf0UDE8gBqK_WwDG1hdyCQLzhLa7AmlpLxBePLU", format: "standard" as const,  languageColIndex: 9    },
 ];
 
 type SheetFormat = "vyral" | "juno" | "standard" | "ecosia" | "artie";
@@ -55,24 +56,61 @@ function splitName(full: string): { firstName: string; lastName: string } {
 
 function extractSocials(raw: string): { tiktok: string | null; instagram: string | null } {
   if (!raw) return { tiktok: null, instagram: null };
-  const lo = raw.toLowerCase();
-  const noSocial = ["n/a", "none", "don't have", "not provided", "no tiktok", "no instagram"];
-  if (noSocial.some((s) => lo.includes(s)) && raw.length < 20) return { tiktok: null, instagram: null };
+  const trimmed = raw.trim();
+  const lo = trimmed.toLowerCase();
+
+  // Explicit "no social" responses
+  const noSocial = ["n/a", "na", "none", "no", "nope", "-", "–", "—", "don't have",
+    "not provided", "no tiktok", "no instagram", "don't have any"];
+  if (noSocial.includes(lo) || trimmed.length === 0) return { tiktok: null, instagram: null };
 
   let tiktok: string | null = null;
   let instagram: string | null = null;
 
-  const ttUrlMatch = raw.match(/https?:\/\/(?:www\.)?tiktok\.com\/@?([^\/\s?&,'"<\r\n]+)/i);
-  if (ttUrlMatch) tiktok = "@" + ttUrlMatch[1].replace(/^@/, "");
+  // 1. Full TikTok URL
+  const ttUrl = trimmed.match(/https?:\/\/(?:www\.)?tiktok\.com\/@?([^\/\s?&,'"<\r\n]+)/i);
+  if (ttUrl) tiktok = "@" + ttUrl[1].replace(/^@/, "");
 
-  const igUrlMatch = raw.match(/https?:\/\/(?:www\.)?instagram\.com\/([^\/\s?&,'"<\r\n]+)/i);
-  if (igUrlMatch) instagram = igUrlMatch[1];
+  // 2. Full Instagram URL — strip tracking params (igsh=, utm_source= etc.)
+  const igUrl = trimmed.match(/https?:\/\/(?:www\.)?instagram\.com\/([^\/\s?&,'"<\r\n]+)/i);
+  if (igUrl) instagram = igUrl[1].replace(/\?.*$/, "").replace(/\/$/, "");
 
-  // If no URL match, use the raw value as tiktok (common for Juno/Artie where they just paste one handle)
+  // 3. Instagram by text patterns: "handle on instagram", "@handle (IG)", "ig: @handle", "@handle instagram"
+  if (!instagram) {
+    const igPats = [
+      /(@?[\w.]+)\s+on\s+instagram/i,
+      /(@?[\w.]+)\s*\(\s*ig\s*\)/i,
+      /(@?[\w.]+)\s*\(\s*instagram\s*\)/i,
+      /\big\b\s*:?\s*@?([\w.]+)/i,
+      /instagram\s*:?\s*@?([\w.]+)/i,
+      /(@?[\w.]+)\s+instagram\b/i,
+    ];
+    for (const pat of igPats) {
+      const m = trimmed.match(pat);
+      if (m) { instagram = m[1].replace(/^@/, ""); break; }
+    }
+  }
+
+  // 4. TikTok by text patterns: "handle on tiktok", "@handle (TikTok)", "tiktok: @handle"
+  if (!tiktok) {
+    const ttPats = [
+      /(@?[\w.]+)\s+on\s+tiktok/i,
+      /(@?[\w.]+)\s*\(\s*tiktok\s*\)/i,
+      /(@?[\w.]+)\s*\(\s*tt\s*\)/i,
+      /tiktok\s*:?\s*@?([\w.]+)/i,
+      /\btt\b\s*:?\s*@?([\w.]+)/i,
+    ];
+    for (const pat of ttPats) {
+      const m = trimmed.match(pat);
+      if (m) { tiktok = m[1]; break; }
+    }
+  }
+
+  // 5. Single word/handle with no platform context → store raw as tiktok (ambiguous but preserve data)
   if (!tiktok && !instagram) {
-    const cleaned = raw.replace(/^@/, "").trim();
-    if (cleaned && !cleaned.includes(" ") && cleaned.length > 2 && cleaned.length < 60) {
-      tiktok = raw.trim();
+    const cleaned = trimmed.replace(/^@/, "");
+    if (/^[\w.]+$/.test(cleaned) && cleaned.length > 2 && cleaned.length < 60) {
+      tiktok = trimmed; // keep original including @ if present
     }
   }
 
@@ -167,10 +205,8 @@ function parseStandard(cols: string[]): ParsedRow | null {
 
 function parseEcosia(cols: string[]): ParsedRow | null {
   // Timestamp | Full Name | Email | Phone | Commitment | Content Experience | Social Media | Referral | Over18 | Language
-  const row = parseStandard(cols);
-  if (!row) return null;
-  const language = cols[9]?.trim() || null;
-  return { ...row, language };
+  // Language is read at the syncSheet level via languageColIndex — not here
+  return parseStandard(cols);
 }
 
 function parseArtie(cols: string[]): ParsedRow | null {
@@ -223,7 +259,7 @@ function isTestEntry(row: ParsedRow): boolean {
   );
 }
 
-async function syncSheet(client: string, fileId: string, format: SheetFormat) {
+async function syncSheet(client: string, fileId: string, format: SheetFormat, languageColIndex: number | null) {
   const url = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
@@ -241,6 +277,12 @@ async function syncSheet(client: string, fileId: string, format: SheetFormat) {
     const cols = parseCSVLine(line);
     const row = parseRow(format, cols);
     if (!row || isTestEntry(row)) { skipped++; continue; }
+
+    // Apply language from the sheet's dedicated column when available
+    if (languageColIndex !== null && !row.language) {
+      const lang = cols[languageColIndex]?.trim();
+      if (lang && lang.length > 0) row.language = lang;
+    }
 
     try {
       await prisma.creatorApplication.upsert({
@@ -288,7 +330,7 @@ export async function POST() {
 
 async function run() {
   const results = await Promise.allSettled(
-    SHEETS.map((s) => syncSheet(s.client, s.fileId, s.format))
+    SHEETS.map((s) => syncSheet(s.client, s.fileId, s.format, s.languageColIndex))
   );
 
   const summary = results.map((r) => {

@@ -112,7 +112,6 @@ const LANGUAGE_MAP: Record<string, string> = {
   "enzojoaquin.silvestre@gmail.com": "English, Filipino",
   "deannamae.business@gmail.com": "English, Filipino",
   "avani.n.apte@gmail.com": "English",
-  "caitlinstrate@gmail.com": "English",
   "sukhjitsingh0976@gmail.com": "English",
 };
 

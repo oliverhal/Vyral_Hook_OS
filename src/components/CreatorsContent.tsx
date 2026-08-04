@@ -693,16 +693,29 @@ export default function CreatorsContent() {
         ) : (
           /* AI Chat panel */
           <div className="flex-1 flex flex-col">
-            {/* Chat header */}
-            <div className="px-6 pt-6 pb-4 border-b border-slate-200 bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-white" />
+            {/* Input at top */}
+            <div className="px-6 pt-5 pb-4 border-b border-slate-200 bg-white">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Bot className="w-4 h-4 text-white" />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900">Creator Search AI</h2>
-                  <p className="text-xs text-slate-500">Ask me to find creators for any campaign</p>
-                </div>
+                <span className="text-sm font-bold text-slate-900">Creator Search AI</span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                  placeholder="e.g. Find female creators in Europe aged 18-25 with TikTok…"
+                  className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={sendChat}
+                  disabled={!chatInput.trim() || chatLoading}
+                  className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
@@ -766,28 +779,6 @@ export default function CreatorsContent() {
               <div ref={chatEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="px-6 py-4 border-t border-slate-200 bg-white">
-              <div className="flex gap-3">
-                <input
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
-                  placeholder="e.g. Find female creators in Europe aged 18-25 with TikTok…"
-                  className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  onClick={sendChat}
-                  disabled={!chatInput.trim() || chatLoading}
-                  className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-xs text-slate-400 mt-2">
-                Click a creator on the left to view their profile. Select one first to close this chat.
-              </p>
-            </div>
           </div>
         )}
       </div>

@@ -111,18 +111,21 @@ export async function GET() {
       continue;
     }
 
-    if (domainLangs.length > 0 && !languageMatches(c.language, domainLangs)) {
+    // English-only but signals suggest a native language — might be missing a secondary
+    const isEnglishOnly = c.language.toLowerCase().trim() === "english";
+
+    if (isEnglishOnly && domainLangs.length > 0) {
       flagged.push({
         ...c,
-        reason: `Stored "${c.language}" but email domain suggests ${domainLangs.join(" or ")}`,
+        reason: `Content language "English" — email domain suggests may also speak ${domainLangs.join(" or ")} natively`,
       });
       continue;
     }
 
-    if (locLangs.length > 0 && !languageMatches(c.language, locLangs) && c.language.toLowerCase() !== "english") {
+    if (isEnglishOnly && locLangs.length > 0 && !locLangs.includes("English")) {
       flagged.push({
         ...c,
-        reason: `Stored "${c.language}" but location "${c.country ?? c.location}" suggests ${locLangs.join(" or ")}`,
+        reason: `Content language "English" — location suggests may also speak ${locLangs.join(" or ")} natively`,
       });
     }
   }

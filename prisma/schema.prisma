@@ -220,3 +220,23 @@ model Shoutout {
   emoji     String   @default("🌟")
   createdAt DateTime @default(now())
 }
+
+model CreatorApplication {
+  id           String   @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String
+  over18       Boolean  @default(true)
+  location     String
+  tiktok       String?
+  instagram    String?
+  notes        String?
+  submittedAt  DateTime
+  status       String   @default("new")
+  tags         String?
+  internalNote String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([email, submittedAt])
+}

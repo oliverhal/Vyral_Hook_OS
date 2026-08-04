@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Search, MapPin, ExternalLink, Bot, Send, ChevronDown,
   CheckCircle2, Clock, XCircle, Star, RefreshCw, Tag, StickyNote, Loader2,
-  LayoutList, Table2, Trash2, ShieldAlert, X
+  LayoutList, Table2, Trash2, ShieldAlert, X, Sheet, Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -116,6 +116,13 @@ export default function CreatorsContent() {
   const [auditOpen, setAuditOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditFlags, setAuditFlags] = useState<{ id: string; firstName: string; lastName: string; email: string; client: string; language: string | null; location: string | null; country: string | null; reason: string }[]>([]);
+  const [sheetsOpen, setSheetsOpen] = useState(false);
+  const [sheets, setSheets] = useState<{ id: string; client: string; fileId: string; languageColIndex: number | null; lastSyncedAt: string | null; lastSyncCreated: number | null }[]>([]);
+  const [newSheetClient, setNewSheetClient] = useState("");
+  const [newSheetUrl, setNewSheetUrl] = useState("");
+  const [newSheetLangCol, setNewSheetLangCol] = useState("");
+  const [addingSheet, setAddingSheet] = useState(false);
+  const [sheetError, setSheetError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   async function fetchCreators() {
@@ -243,6 +250,42 @@ export default function CreatorsContent() {
     setAuditLoading(false);
   }
 
+  async function openSheets() {
+    setSheetsOpen(true);
+    const res = await fetch("/api/creator-sheets");
+    setSheets(await res.json());
+  }
+
+  async function addSheet() {
+    if (!newSheetClient.trim() || !newSheetUrl.trim()) return;
+    setAddingSheet(true);
+    setSheetError(null);
+    const res = await fetch("/api/creator-sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client: newSheetClient,
+        url: newSheetUrl,
+        languageColIndex: newSheetLangCol !== "" ? parseInt(newSheetLangCol) : null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setSheetError(data.error ?? "Failed to add sheet"); }
+    else {
+      setSheets((prev) => [...prev, data]);
+      setNewSheetClient("");
+      setNewSheetUrl("");
+      setNewSheetLangCol("");
+    }
+    setAddingSheet(false);
+  }
+
+  async function removeSheet(id: string) {
+    if (!confirm("Remove this sheet? Existing creator records won't be deleted.")) return;
+    await fetch(`/api/creator-sheets/${id}`, { method: "DELETE" });
+    setSheets((prev) => prev.filter((s) => s.id !== id));
+  }
+
   const counts = {
     all: creators.length,
     new: creators.filter((c) => c.status === "new").length,
@@ -331,6 +374,14 @@ export default function CreatorsContent() {
           {auditLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5" />}
           Audit
         </button>
+        <button
+          onClick={openSheets}
+          className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+          title="Manage synced Google Sheets"
+        >
+          <Sheet className="w-3.5 h-3.5" />
+          Sheets
+        </button>
         {/* View toggle */}
         <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden ml-2">
           <button
@@ -349,6 +400,101 @@ export default function CreatorsContent() {
       </div>
     </div>
   );
+
+  const HARDCODED_CLIENTS = ["Vyral Labs", "Juno", "Jumpspeak", "Ecosia", "Artie", "Pazi"];
+
+  /* ── sheets management modal ── */
+  const SheetsModal = sheetsOpen ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[80vh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Sheet className="w-4 h-4 text-slate-500" />
+            Synced Google Sheets
+          </h2>
+          <button onClick={() => setSheetsOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+          {/* Hardcoded sheets */}
+          {HARDCODED_CLIENTS.map((client) => (
+            <div key={client} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100">
+              <div>
+                <span className={cn("text-xs font-medium px-1.5 py-0.5 rounded-full", CLIENT_COLORS[client] ?? "bg-slate-100 text-slate-600")}>{client}</span>
+                <span className="ml-2 text-[10px] text-slate-400">built-in</span>
+              </div>
+              <span className="text-[10px] text-slate-400">syncs daily at 08:00 UTC</span>
+            </div>
+          ))}
+          {/* DB sheets */}
+          {sheets.map((s) => (
+            <div key={s.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-white border border-slate-200">
+              <div>
+                <span className="text-sm font-medium text-slate-800">{s.client}</span>
+                {s.lastSyncedAt && (
+                  <span className="ml-2 text-[10px] text-slate-400">
+                    last synced {new Date(s.lastSyncedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                    {s.lastSyncCreated != null ? ` · ${s.lastSyncCreated} new` : ""}
+                  </span>
+                )}
+                <p className="text-[10px] text-slate-400 mt-0.5 font-mono truncate max-w-[280px]">{s.fileId}</p>
+              </div>
+              <button
+                onClick={() => removeSheet(s.id)}
+                className="p-1.5 text-slate-300 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Add new sheet form */}
+        <div className="border-t border-slate-200 px-5 py-4 space-y-3">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Add new sheet</p>
+          <div className="flex gap-2">
+            <input
+              value={newSheetClient}
+              onChange={(e) => setNewSheetClient(e.target.value)}
+              placeholder="Campaign name"
+              className="flex-1 min-w-0 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              value={newSheetLangCol}
+              onChange={(e) => setNewSheetLangCol(e.target.value)}
+              placeholder="Lang col #"
+              type="number"
+              className="w-24 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              title="0-based column index of the language field (leave blank if none)"
+            />
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={newSheetUrl}
+              onChange={(e) => setNewSheetUrl(e.target.value)}
+              placeholder="Paste Google Sheet link or file ID…"
+              className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onKeyDown={(e) => e.key === "Enter" && addSheet()}
+            />
+            <button
+              onClick={addSheet}
+              disabled={addingSheet || !newSheetClient.trim() || !newSheetUrl.trim()}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors"
+            >
+              {addingSheet ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              Add
+            </button>
+          </div>
+          {sheetError && <p className="text-xs text-red-500">{sheetError}</p>}
+          <p className="text-[10px] text-slate-400">
+            New sheets use the standard column format. Language column is the 0-based index (e.g. 9 = column J). Make the sheet public before adding.
+          </p>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   /* ── language audit modal ── */
   const AuditModal = auditOpen ? (
@@ -446,6 +592,7 @@ export default function CreatorsContent() {
     );
     return (
       <div className="flex flex-col h-full min-h-screen bg-slate-50">
+        {SheetsModal}
         {AuditModal}
         {Toolbar}
         <div className="flex-1 overflow-auto">
@@ -567,6 +714,7 @@ export default function CreatorsContent() {
 
   return (
     <div className="flex flex-col h-full min-h-screen bg-slate-50">
+      {SheetsModal}
       {AuditModal}
       {Toolbar}
       <div className="flex flex-1 overflow-hidden">

@@ -337,9 +337,32 @@ export async function POST() {
 }
 
 async function run() {
+  // Merge hardcoded sheets with any added via the UI
+  const dbSheets = await prisma.creatorSheet.findMany({ where: { active: true } });
+  const hardcodedClients = new Set(SHEETS.map((s) => s.client));
+  const extraSheets = dbSheets
+    .filter((s) => !hardcodedClients.has(s.client))
+    .map((s) => ({ client: s.client, fileId: s.fileId, format: "standard" as const, languageColIndex: s.languageColIndex }));
+
+  const allSheets = [...SHEETS, ...extraSheets];
+
   const results = await Promise.allSettled(
-    SHEETS.map((s) => syncSheet(s.client, s.fileId, s.format, s.languageColIndex))
+    allSheets.map((s) => syncSheet(s.client, s.fileId, s.format, s.languageColIndex))
   );
+
+  // Update lastSyncedAt for DB sheets
+  const byClient = Object.fromEntries(
+    results.map((r, i) => [allSheets[i].client, r])
+  );
+  for (const s of dbSheets) {
+    const r = byClient[s.client];
+    if (!r) continue;
+    const created = r.status === "fulfilled" ? (r.value.created ?? 0) : 0;
+    await prisma.creatorSheet.update({
+      where: { id: s.id },
+      data: { lastSyncedAt: new Date(), lastSyncCreated: created },
+    }).catch(() => {});
+  }
 
   const summary = results.map((r) => {
     if (r.status === "fulfilled") return r.value;

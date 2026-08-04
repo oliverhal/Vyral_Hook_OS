@@ -221,6 +221,17 @@ model Shoutout {
   createdAt DateTime @default(now())
 }
 
+model CreatorSheet {
+  id               String   @id @default(cuid())
+  client           String   @unique
+  fileId           String
+  languageColIndex Int?
+  active           Boolean  @default(true)
+  lastSyncedAt     DateTime?
+  lastSyncCreated  Int?
+  createdAt        DateTime @default(now())
+}
+
 model CreatorApplication {
   id           String   @id @default(cuid())
   firstName    String

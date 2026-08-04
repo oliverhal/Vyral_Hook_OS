@@ -193,9 +193,17 @@ export default function CreatorsContent() {
 
   async function runEnrichAll() {
     setEnrichingAll(true);
-    const res = await fetch("/api/creators/bulk-enrich", { method: "POST" });
-    const data = await res.json();
-    setImportResult(`Enriched ${data.enriched} creator profiles`);
+    let totalEnriched = 0;
+    let batch = 0;
+    while (true) {
+      batch++;
+      setImportResult(`Enriching… batch ${batch} (${totalEnriched} done so far)`);
+      const res = await fetch("/api/creators/bulk-enrich", { method: "POST" });
+      const data = await res.json();
+      totalEnriched += data.enriched ?? 0;
+      if (!data.enriched || data.enriched === 0) break;
+    }
+    setImportResult(`✓ Enriched ${totalEnriched} creator profiles`);
     setEnrichingAll(false);
     fetchCreators();
   }

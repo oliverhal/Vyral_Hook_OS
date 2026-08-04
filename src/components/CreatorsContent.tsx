@@ -529,6 +529,13 @@ export default function CreatorsContent() {
         {selected ? (
           /* Creator detail */
           <div className="flex-1 overflow-y-auto p-6 max-w-2xl">
+            <button
+              onClick={() => setSelected(null)}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-600 mb-4 transition-colors"
+            >
+              <Bot className="w-3.5 h-3.5" />
+              Back to AI search
+            </button>
             <div className="flex items-start gap-4 mb-6">
               <div className={cn("w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0", avatarColor(selected.id))}>
                 {initials(selected).toUpperCase()}

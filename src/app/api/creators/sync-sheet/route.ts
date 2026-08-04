@@ -293,7 +293,15 @@ async function syncSheet(client: string, fileId: string, format: SheetFormat, la
             client,
           },
         },
-        update: {},
+        // Re-parse socials and language on every sync so old records get fixed
+        update: {
+          tiktok: row.tiktok,
+          instagram: row.instagram,
+          language: row.language ?? undefined,
+          phone: row.phone ?? undefined,
+          referredBy: row.referredBy ?? undefined,
+          chronicIllness: row.chronicIllness ?? undefined,
+        },
         create: {
           client,
           firstName: row.firstName,

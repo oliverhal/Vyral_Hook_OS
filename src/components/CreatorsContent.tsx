@@ -122,6 +122,7 @@ export default function CreatorsContent() {
   const [newSheetUrl, setNewSheetUrl] = useState("");
   const [newSheetLangCol, setNewSheetLangCol] = useState("");
   const [addingSheet, setAddingSheet] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string; value: string } | null>(null);
   const [sheetError, setSheetError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -284,6 +285,22 @@ export default function CreatorsContent() {
     if (!confirm("Remove this sheet? Existing creator records won't be deleted.")) return;
     await fetch(`/api/creator-sheets/${id}`, { method: "DELETE" });
     setSheets((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  async function saveCell(id: string, field: string, value: string) {
+    setEditingCell(null);
+    const numericFields = ["tiktokFollowers", "instagramFollowers"];
+    const coerced = numericFields.includes(field)
+      ? (value ? parseInt(value, 10) : null)
+      : (value || null);
+    const parsed: Record<string, unknown> = { [field]: coerced };
+    await fetch(`/api/creators/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed),
+    });
+    setCreators((prev) => prev.map((c) => c.id === id ? { ...c, [field]: coerced } : c));
+    if (selected?.id === id) setSelected((s) => s ? { ...s, [field]: coerced } : s);
   }
 
   const counts = {
@@ -630,13 +647,48 @@ export default function CreatorsContent() {
                   const cfg = STATUS_CONFIG[c.status] ?? STATUS_CONFIG.new;
                   const tt = tiktokUrl(c.tiktok);
                   const ig = instaUrl(c.instagram);
+                  const isEditing = (field: string) =>
+                    editingCell?.id === c.id && editingCell?.field === field;
+                  const startEdit = (e: React.MouseEvent, field: string, value: string | null) => {
+                    e.stopPropagation();
+                    setEditingCell({ id: c.id, field, value: value ?? "" });
+                  };
+                  const cellInput = (field: string, placeholder = "—") => (
+                    <input
+                      autoFocus
+                      className="w-full min-w-[80px] px-1 py-0.5 text-xs border border-blue-400 rounded outline-none bg-white"
+                      value={editingCell?.value ?? ""}
+                      placeholder={placeholder}
+                      onChange={(e) => setEditingCell((ec) => ec ? { ...ec, value: e.target.value } : ec)}
+                      onBlur={() => saveCell(c.id, field, editingCell?.value ?? "")}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveCell(c.id, field, editingCell?.value ?? "");
+                        if (e.key === "Escape") setEditingCell(null);
+                      }}
+                    />
+                  );
+                  const cellSelect = (field: string, options: string[]) => (
+                    <select
+                      autoFocus
+                      className="text-xs border border-blue-400 rounded outline-none bg-white px-1 py-0.5"
+                      value={editingCell?.value ?? ""}
+                      onChange={(e) => { saveCell(c.id, field, e.target.value); }}
+                      onBlur={() => setEditingCell(null)}
+                      onKeyDown={(e) => { if (e.key === "Escape") setEditingCell(null); }}
+                    >
+                      <option value="">—</option>
+                      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  );
+
                   return (
                     <tr
                       key={c.id}
-                      onClick={() => { setView("list"); setSelected(c); }}
-                      className="hover:bg-blue-50 cursor-pointer transition-colors"
+                      onClick={() => { if (!editingCell) { setView("list"); setSelected(c); } }}
+                      className="hover:bg-blue-50 cursor-pointer transition-colors group"
                     >
-                      <TD className="sticky left-0 bg-white hover:bg-blue-50 font-medium min-w-[160px]">
+                      {/* Name — not editable, click opens detail */}
+                      <TD className="sticky left-0 bg-white group-hover:bg-blue-50 font-medium min-w-[160px]">
                         <div className="flex items-center gap-2">
                           <div className={cn("w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[9px] font-bold", avatarColor(c.id))}>
                             {initials(c).toUpperCase()}
@@ -645,49 +697,111 @@ export default function CreatorsContent() {
                         </div>
                         <div className="text-[10px] text-slate-400 mt-0.5 ml-8 truncate max-w-[140px]">{c.email}</div>
                       </TD>
+
+                      {/* Programme — read-only */}
                       <TD>
                         <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap", CLIENT_COLORS[c.client] ?? "bg-slate-100 text-slate-600")}>
                           {c.client}
                         </span>
                       </TD>
-                      <TD>
-                        <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap", cfg.color)}>
-                          {cfg.label}
-                        </span>
+
+                      {/* Status — editable select */}
+                      <TD onClick={(e) => startEdit(e, "status", c.status)}>
+                        {isEditing("status") ? cellSelect("status", Object.keys(STATUS_CONFIG)) : (
+                          <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap cursor-text", cfg.color)}>
+                            {cfg.label}
+                          </span>
+                        )}
                       </TD>
-                      <TD className="whitespace-nowrap">{c.country ?? c.location ?? "—"}</TD>
-                      <TD>{c.gender ?? <span className="text-slate-300">—</span>}</TD>
-                      <TD className="whitespace-nowrap">{c.ageRange ?? <span className="text-slate-300">—</span>}</TD>
-                      <TD className="whitespace-nowrap">{c.language ?? <span className="text-slate-300">—</span>}</TD>
-                      <TD className="max-w-[140px]">
-                        <span className="line-clamp-2">{c.niche ?? <span className="text-slate-300">—</span>}</span>
+
+                      {/* Country */}
+                      <TD className="whitespace-nowrap" onClick={(e) => startEdit(e, "country", c.country)}>
+                        {isEditing("country") ? cellInput("country", "Country") : (
+                          <span className="cursor-text">{c.country ?? c.location ?? <span className="text-slate-300">—</span>}</span>
+                        )}
                       </TD>
-                      <TD>
-                        {tt ? (
-                          <a href={tt} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline flex items-center gap-1 whitespace-nowrap">
+
+                      {/* Gender */}
+                      <TD onClick={(e) => startEdit(e, "gender", c.gender)}>
+                        {isEditing("gender") ? cellSelect("gender", ["Female", "Male", "Non-binary"]) : (
+                          <span className="cursor-text">{c.gender ?? <span className="text-slate-300">—</span>}</span>
+                        )}
+                      </TD>
+
+                      {/* Age */}
+                      <TD className="whitespace-nowrap" onClick={(e) => startEdit(e, "ageRange", c.ageRange)}>
+                        {isEditing("ageRange") ? cellSelect("ageRange", ["18-24", "25-34", "35+"]) : (
+                          <span className="cursor-text">{c.ageRange ?? <span className="text-slate-300">—</span>}</span>
+                        )}
+                      </TD>
+
+                      {/* Language */}
+                      <TD className="whitespace-nowrap" onClick={(e) => startEdit(e, "language", c.language)}>
+                        {isEditing("language") ? cellInput("language", "e.g. English, German") : (
+                          <span className="cursor-text">{c.language ?? <span className="text-slate-300">—</span>}</span>
+                        )}
+                      </TD>
+
+                      {/* Niche */}
+                      <TD className="max-w-[140px]" onClick={(e) => startEdit(e, "niche", c.niche)}>
+                        {isEditing("niche") ? cellInput("niche", "Niche") : (
+                          <span className="line-clamp-2 cursor-text">{c.niche ?? <span className="text-slate-300">—</span>}</span>
+                        )}
+                      </TD>
+
+                      {/* TikTok — link + editable */}
+                      <TD onClick={(e) => startEdit(e, "tiktok", c.tiktok)}>
+                        {isEditing("tiktok") ? cellInput("tiktok", "@handle or URL") : tt ? (
+                          <a href={tt} target="_blank" rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-blue-600 hover:underline flex items-center gap-1 whitespace-nowrap">
                             {c.tiktok?.replace(/https?:\/\/(www\.)?tiktok\.com\/@?/, "@").slice(0, 22) ?? ""}
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
                           </a>
-                        ) : <span className="text-slate-400 text-[10px]">N/A</span>}
+                        ) : <span className="text-slate-400 text-[10px] cursor-text">N/A</span>}
                       </TD>
-                      <TD className="text-right tabular-nums">
-                        {c.tiktokFollowers != null ? c.tiktokFollowers.toLocaleString() : <span className="text-slate-300">—</span>}
+
+                      {/* TT Followers */}
+                      <TD className="text-right tabular-nums" onClick={(e) => startEdit(e, "tiktokFollowers", c.tiktokFollowers?.toString() ?? null)}>
+                        {isEditing("tiktokFollowers") ? cellInput("tiktokFollowers", "0") : (
+                          <span className="cursor-text">{c.tiktokFollowers != null ? c.tiktokFollowers.toLocaleString() : <span className="text-slate-300">—</span>}</span>
+                        )}
                       </TD>
-                      <TD>
-                        {ig ? (
-                          <a href={ig} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-pink-600 hover:underline flex items-center gap-1 whitespace-nowrap">
+
+                      {/* Instagram — link + editable */}
+                      <TD onClick={(e) => startEdit(e, "instagram", c.instagram)}>
+                        {isEditing("instagram") ? cellInput("instagram", "@handle or URL") : ig ? (
+                          <a href={ig} target="_blank" rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-pink-600 hover:underline flex items-center gap-1 whitespace-nowrap">
                             {c.instagram?.replace(/https?:\/\/(www\.)?instagram\.com\//, "").replace(/\?.*$/, "").replace(/\/$/, "").replace(/^@?/, "@").slice(0, 22) ?? ""}
                             <ExternalLink className="w-3 h-3 flex-shrink-0" />
                           </a>
-                        ) : <span className="text-slate-400 text-[10px]">N/A</span>}
+                        ) : <span className="text-slate-400 text-[10px] cursor-text">N/A</span>}
                       </TD>
-                      <TD className="text-right tabular-nums">
-                        {c.instagramFollowers != null ? c.instagramFollowers.toLocaleString() : <span className="text-slate-300">—</span>}
+
+                      {/* IG Followers */}
+                      <TD className="text-right tabular-nums" onClick={(e) => startEdit(e, "instagramFollowers", c.instagramFollowers?.toString() ?? null)}>
+                        {isEditing("instagramFollowers") ? cellInput("instagramFollowers", "0") : (
+                          <span className="cursor-text">{c.instagramFollowers != null ? c.instagramFollowers.toLocaleString() : <span className="text-slate-300">—</span>}</span>
+                        )}
                       </TD>
-                      <TD className="whitespace-nowrap">{c.phone ?? <span className="text-slate-300">—</span>}</TD>
-                      <TD className="max-w-[120px]">
-                        <span className="line-clamp-1">{c.referredBy ?? <span className="text-slate-300">—</span>}</span>
+
+                      {/* Phone */}
+                      <TD className="whitespace-nowrap" onClick={(e) => startEdit(e, "phone", c.phone)}>
+                        {isEditing("phone") ? cellInput("phone", "Phone") : (
+                          <span className="cursor-text">{c.phone ?? <span className="text-slate-300">—</span>}</span>
+                        )}
                       </TD>
+
+                      {/* Referred by */}
+                      <TD className="max-w-[120px]" onClick={(e) => startEdit(e, "referredBy", c.referredBy)}>
+                        {isEditing("referredBy") ? cellInput("referredBy", "Referred by") : (
+                          <span className="line-clamp-1 cursor-text">{c.referredBy ?? <span className="text-slate-300">—</span>}</span>
+                        )}
+                      </TD>
+
+                      {/* Enriched — read-only */}
                       <TD>
                         {c.enrichedAt ? (
                           <span className="text-emerald-600 whitespace-nowrap">
@@ -695,11 +809,17 @@ export default function CreatorsContent() {
                           </span>
                         ) : <span className="text-amber-500">Pending</span>}
                       </TD>
+
+                      {/* Applied — read-only */}
                       <TD className="whitespace-nowrap text-slate-400">
                         {new Date(c.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })}
                       </TD>
-                      <TD className="max-w-[200px]">
-                        <span className="line-clamp-2 text-slate-500">{c.notes ?? ""}</span>
+
+                      {/* Notes (internal) */}
+                      <TD className="max-w-[200px]" onClick={(e) => startEdit(e, "internalNote", c.internalNote)}>
+                        {isEditing("internalNote") ? cellInput("internalNote", "Internal note…") : (
+                          <span className="line-clamp-2 text-slate-500 cursor-text">{c.internalNote ?? c.notes ?? ""}</span>
+                        )}
                       </TD>
                     </tr>
                   );

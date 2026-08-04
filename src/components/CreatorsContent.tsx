@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Search, MapPin, ExternalLink, Bot, Send, ChevronDown,
   CheckCircle2, Clock, XCircle, Star, RefreshCw, Tag, StickyNote, Loader2,
-  LayoutList, Table2
+  LayoutList, Table2, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -158,6 +158,13 @@ export default function CreatorsContent() {
     });
     setCreators((prev) => prev.map((c) => c.id === id ? { ...c, status } : c));
     if (selected?.id === id) setSelected((s) => s ? { ...s, status } : s);
+  }
+
+  async function deleteCreator(id: string) {
+    if (!confirm("Delete this creator? This can't be undone.")) return;
+    await fetch(`/api/creators/${id}`, { method: "DELETE" });
+    setCreators((prev) => prev.filter((c) => c.id !== id));
+    setSelected(null);
   }
 
   async function saveNote() {
@@ -692,11 +699,18 @@ export default function CreatorsContent() {
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
-            <button onClick={saveNote} disabled={savingNote}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
-              {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              Save
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={saveNote} disabled={savingNote}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Save
+              </button>
+              <button onClick={() => deleteCreator(selected.id)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
+                <Trash2 className="w-4 h-4" />
+                Delete record
+              </button>
+            </div>
           </div>
         ) : (
           /* AI Chat panel */

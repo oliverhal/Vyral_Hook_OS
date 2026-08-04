@@ -19,6 +19,7 @@ interface Creator {
   notes: string | null;
   submittedAt: string;
   status: string;
+  language: string | null;
   tags: string | null;
   internalNote: string | null;
 }
@@ -74,15 +75,18 @@ export default function CreatorsContent() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [locationFilter, setLocationFilter] = useState("all");
+  const [languageFilter, setLanguageFilter] = useState("all");
   const [selected, setSelected] = useState<Creator | null>(null);
   const [editNote, setEditNote] = useState("");
   const [editTags, setEditTags] = useState("");
+  const [editLanguage, setEditLanguage] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [enriching, setEnriching] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   async function fetchCreators() {
@@ -90,6 +94,7 @@ export default function CreatorsContent() {
     const params = new URLSearchParams();
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (locationFilter !== "all") params.set("location", locationFilter);
+    if (languageFilter !== "all") params.set("language", languageFilter);
     if (search) params.set("search", search);
     const res = await fetch(`/api/creators?${params}`);
     const data = await res.json();
@@ -97,7 +102,7 @@ export default function CreatorsContent() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchCreators(); }, [statusFilter, locationFilter]);
+  useEffect(() => { fetchCreators(); }, [statusFilter, locationFilter, languageFilter]);
 
   // debounced search
   useEffect(() => {
@@ -109,6 +114,7 @@ export default function CreatorsContent() {
     if (selected) {
       setEditNote(selected.internalNote || "");
       setEditTags(selected.tags || "");
+      setEditLanguage(selected.language || "");
     }
   }, [selected?.id]);
 
@@ -132,12 +138,12 @@ export default function CreatorsContent() {
     await fetch(`/api/creators/${selected.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ internalNote: editNote, tags: editTags }),
+      body: JSON.stringify({ internalNote: editNote, tags: editTags, language: editLanguage }),
     });
     setCreators((prev) =>
-      prev.map((c) => c.id === selected.id ? { ...c, internalNote: editNote, tags: editTags } : c)
+      prev.map((c) => c.id === selected.id ? { ...c, internalNote: editNote, tags: editTags, language: editLanguage } : c)
     );
-    setSelected((s) => s ? { ...s, internalNote: editNote, tags: editTags } : s);
+    setSelected((s) => s ? { ...s, internalNote: editNote, tags: editTags, language: editLanguage } : s);
     setSavingNote(false);
   }
 
@@ -157,16 +163,25 @@ export default function CreatorsContent() {
     setChatLoading(false);
   }
 
+  async function runEnrichLanguage() {
+    setEnriching(true);
+    const res = await fetch("/api/creators/enrich-language", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ secret: "vyral-enrich-2026" }),
+    });
+    const data = await res.json();
+    setImportResult(`Language enrichment: ${data.updated} creators updated`);
+    setEnriching(false);
+    fetchCreators();
+  }
+
   async function runBulkImport() {
     setImporting(true);
     setImportResult(null);
-    const res = await fetch("/api/creators/bulk-import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ secret: "vyral-seed-2026" }),
-    });
+    const res = await fetch("/api/creators/sync-sheet", { method: "POST" });
     const data = await res.json();
-    setImportResult(`Imported ${data.created} creators (${data.skipped} already existed)`);
+    setImportResult(`Synced ${data.created} new creators (${data.skipped} already existed)`);
     setImporting(false);
     fetchCreators();
   }
@@ -191,10 +206,19 @@ export default function CreatorsContent() {
               onClick={runBulkImport}
               disabled={importing}
               className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-              title="Import all creators from Google Sheet"
+              title="Sync latest entries from Google Sheet"
             >
-              {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              Import Sheet
+              {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Sync Sheet
+            </button>
+            <button
+              onClick={runEnrichLanguage}
+              disabled={enriching}
+              className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Auto-fill language for all known creators"
+            >
+              {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span className="text-sm leading-none">🌐</span>}
+              Fill Languages
             </button>
           </div>
           {importResult && (
@@ -213,8 +237,8 @@ export default function CreatorsContent() {
           </div>
 
           {/* Filters */}
-          <div className="flex gap-2 mt-3">
-            <div className="relative flex-1">
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <div className="relative">
               <select
                 value={locationFilter}
                 onChange={(e) => setLocationFilter(e.target.value)}
@@ -226,7 +250,7 @@ export default function CreatorsContent() {
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
             </div>
-            <div className="relative flex-1">
+            <div className="relative">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -237,6 +261,25 @@ export default function CreatorsContent() {
                 <option value="shortlisted">Shortlisted ({counts.shortlisted})</option>
                 <option value="approved">Approved ({counts.approved})</option>
                 <option value="rejected">Rejected ({counts.rejected})</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+            </div>
+            <div className="relative col-span-2">
+              <select
+                value={languageFilter}
+                onChange={(e) => setLanguageFilter(e.target.value)}
+                className="w-full appearance-none pl-3 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All languages</option>
+                <option value="German">German</option>
+                <option value="Dutch">Dutch</option>
+                <option value="Italian">Italian</option>
+                <option value="Portuguese">Portuguese</option>
+                <option value="Spanish">Spanish</option>
+                <option value="French">French</option>
+                <option value="Polish">Polish</option>
+                <option value="Greek">Greek</option>
+                <option value="English">English</option>
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
             </div>
@@ -289,14 +332,14 @@ export default function CreatorsContent() {
                         {cfg.label}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
                       <span className="text-xs text-slate-500">{c.location}</span>
-                      {c.tiktok && c.tiktok !== "N/A" && c.tiktok !== "None" && (
-                        <span className="text-slate-300">·</span>
-                      )}
-                      {c.tiktok && c.tiktok !== "N/A" && c.tiktok !== "None" && (
-                        <span className="text-xs text-slate-400 truncate">TT</span>
+                      {c.language && (
+                        <>
+                          <span className="text-slate-300">·</span>
+                          <span className="text-xs text-blue-500 font-medium">{c.language}</span>
+                        </>
                       )}
                     </div>
                     {c.notes && (
@@ -433,6 +476,20 @@ export default function CreatorsContent() {
             {/* Meta */}
             <div className="mb-5 text-xs text-slate-400">
               Applied {new Date(selected.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            </div>
+
+            {/* Language */}
+            <div className="mb-4">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                <span className="text-sm">🌐</span>
+                Language
+              </label>
+              <input
+                value={editLanguage}
+                onChange={(e) => setEditLanguage(e.target.value)}
+                placeholder="e.g. German, English, Italian, Dutch…"
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             {/* Tags */}

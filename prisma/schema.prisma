@@ -233,6 +233,7 @@ model CreatorApplication {
   notes        String?
   submittedAt  DateTime
   status       String   @default("new")
+  language     String?
   tags         String?
   internalNote String?
   createdAt    DateTime @default(now())

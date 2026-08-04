@@ -1,4 +1,10 @@
 {
   "buildCommand": "prisma generate && prisma db push && next build",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/creators/sync-sheet",
+      "schedule": "0 8 * * *"
+    }
+  ]
 }

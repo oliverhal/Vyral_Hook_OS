@@ -121,9 +121,10 @@ export async function POST(req: NextRequest) {
   for (const entry of SHEET_DATA) {
     try {
       await prisma.creatorApplication.upsert({
-        where: { email_submittedAt: { email: entry.email, submittedAt: new Date(entry.submittedAt) } },
+        where: { email_submittedAt_client: { email: entry.email, submittedAt: new Date(entry.submittedAt), client: "Vyral Labs" } },
         update: {},
         create: {
+          client: "Vyral Labs",
           firstName: entry.firstName,
           lastName: entry.lastName,
           email: entry.email,

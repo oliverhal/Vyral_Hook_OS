@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   const location = searchParams.get("location");
   const language = searchParams.get("language");
   const gender = searchParams.get("gender");
+  const client = searchParams.get("client");
   const search = searchParams.get("search");
 
   const where: Record<string, unknown> = {};
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
   if (location && location !== "all") where.location = { contains: location, mode: "insensitive" };
   if (language && language !== "all") where.language = { contains: language, mode: "insensitive" };
   if (gender && gender !== "all") where.gender = gender;
+  if (client && client !== "all") where.client = client;
   if (search) {
     where.OR = [
       { firstName: { contains: search, mode: "insensitive" } },
@@ -36,14 +38,15 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { firstName, lastName, email, over18, location, tiktok, instagram, notes, submittedAt } = body;
+  const { firstName, lastName, email, over18, location, tiktok, instagram, notes, submittedAt, client } = body;
 
   if (!firstName || !email || !submittedAt) {
     return NextResponse.json({ error: "firstName, email and submittedAt are required" }, { status: 400 });
   }
 
+  const clientName = client || "Vyral Labs";
   const creator = await prisma.creatorApplication.upsert({
-    where: { email_submittedAt: { email, submittedAt: new Date(submittedAt) } },
+    where: { email_submittedAt_client: { email, submittedAt: new Date(submittedAt), client: clientName } },
     update: {},
     create: {
       firstName,
@@ -55,6 +58,7 @@ export async function POST(req: NextRequest) {
       instagram: instagram || null,
       notes: notes || null,
       submittedAt: new Date(submittedAt),
+      client: clientName,
     },
   });
 

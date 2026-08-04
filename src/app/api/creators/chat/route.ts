@@ -14,23 +14,32 @@ export async function POST(req: NextRequest) {
 
   const creatorList = creators
     .map(
-      (c: { id: string; firstName: string; lastName: string; email: string; location: string; over18: boolean; tiktok: string | null; instagram: string | null; status: string; notes: string | null; tags: string | null }) =>
-        `ID:${c.id} | ${c.firstName} ${c.lastName} | ${c.email} | Location: ${c.location} | Over18: ${c.over18} | TikTok: ${c.tiktok || "N/A"} | Instagram: ${c.instagram || "N/A"} | Status: ${c.status} | Notes: ${c.notes || ""} | Tags: ${c.tags || ""}`
+      (c: {
+        id: string; firstName: string; lastName: string; email: string; location: string;
+        over18: boolean; tiktok: string | null; instagram: string | null; status: string;
+        notes: string | null; tags: string | null; client: string; language: string | null;
+        country: string | null; gender: string | null; ageRange: string | null; niche: string | null;
+        tiktokFollowers: number | null; instagramFollowers: number | null; referredBy: string | null;
+      }) =>
+        `ID:${c.id} | ${c.firstName} ${c.lastName} | ${c.email} | Programme: ${c.client} | Location: ${c.country ?? c.location} | Over18: ${c.over18} | TikTok: ${c.tiktok || "N/A"} | Instagram: ${c.instagram || "N/A"} | Language: ${c.language || "unknown"} | Gender: ${c.gender || "unknown"} | Age: ${c.ageRange || "unknown"} | Niche: ${c.niche || ""} | TT Followers: ${c.tiktokFollowers ?? "?"} | IG Followers: ${c.instagramFollowers ?? "?"} | Status: ${c.status} | Referred by: ${c.referredBy || ""} | Notes: ${c.notes || ""} | Tags: ${c.tags || ""}`
     )
     .join("\n");
 
   const systemPrompt = `You are a creator talent assistant for Vyral Labs. You help the team find the right UGC creators from their applicant pool for specific campaigns.
 
-Here is the full list of ${creators.length} creator applicants:
+Vyral Labs manages creator programmes for multiple clients: Vyral Labs (general UGC), Juno (chronic illness community), Jumpspeak (language learning), Ecosia (sustainability/climate), Artie (piano/music), and Pazi.
+
+Here is the full list of ${creators.length} creator applicants across all programmes:
 ${creatorList}
 
-When the user asks you to find creators, analyze the list and return relevant matches. Be specific about WHY each creator matches. If they ask for a region, filter by location. If they mention language, look for hints in location and name. If they mention experience level, check notes.
+When the user asks you to find creators, analyze the list and return relevant matches. Be specific about WHY each creator matches. Always mention which programme they applied through (the "Programme" field) — this is important context.
 
 Format your response clearly. For each recommended creator, include:
-- Name + location
-- TikTok/Instagram handle
-- Why they match
-- Their current status
+- Name + location + programme they applied through
+- TikTok/Instagram handle + follower counts if known
+- Language(s) they create in
+- Why they match the request
+- Their current status (new/shortlisted/approved/rejected)
 
 Keep your response concise and actionable. If there are no strong matches, say so honestly.`;
 

@@ -5,6 +5,10 @@
     {
       "path": "/api/creators/sync-sheet",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/creators/bulk-enrich",
+      "schedule": "0 9 * * *"
     }
   ]
 }

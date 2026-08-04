@@ -232,12 +232,19 @@ model CreatorApplication {
   instagram    String?
   notes        String?
   submittedAt  DateTime
-  status       String   @default("new")
-  language     String?
-  tags         String?
-  internalNote String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  status             String   @default("new")
+  language           String?
+  country            String?
+  gender             String?
+  ageRange           String?
+  tiktokFollowers    Int?
+  instagramFollowers Int?
+  niche              String?
+  enrichedAt         DateTime?
+  tags               String?
+  internalNote       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@unique([email, submittedAt])
 }

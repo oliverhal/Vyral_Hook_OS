@@ -6,12 +6,14 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const location = searchParams.get("location");
   const language = searchParams.get("language");
+  const gender = searchParams.get("gender");
   const search = searchParams.get("search");
 
   const where: Record<string, unknown> = {};
   if (status && status !== "all") where.status = status;
   if (location && location !== "all") where.location = { contains: location, mode: "insensitive" };
   if (language && language !== "all") where.language = { contains: language, mode: "insensitive" };
+  if (gender && gender !== "all") where.gender = gender;
   if (search) {
     where.OR = [
       { firstName: { contains: search, mode: "insensitive" } },

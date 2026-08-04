@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Search, MapPin, ExternalLink, Bot, Send, ChevronDown,
-  CheckCircle2, Clock, XCircle, Star, Download, RefreshCw, Tag, StickyNote, Loader2
+  CheckCircle2, Clock, XCircle, Star, RefreshCw, Tag, StickyNote, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,13 @@ interface Creator {
   submittedAt: string;
   status: string;
   language: string | null;
+  country: string | null;
+  gender: string | null;
+  ageRange: string | null;
+  tiktokFollowers: number | null;
+  instagramFollowers: number | null;
+  niche: string | null;
+  enrichedAt: string | null;
   tags: string | null;
   internalNote: string | null;
 }
@@ -76,6 +83,7 @@ export default function CreatorsContent() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [locationFilter, setLocationFilter] = useState("all");
   const [languageFilter, setLanguageFilter] = useState("all");
+  const [genderFilter, setGenderFilter] = useState("all");
   const [selected, setSelected] = useState<Creator | null>(null);
   const [editNote, setEditNote] = useState("");
   const [editTags, setEditTags] = useState("");
@@ -86,7 +94,7 @@ export default function CreatorsContent() {
   const [chatLoading, setChatLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
-  const [enriching, setEnriching] = useState(false);
+  const [enrichingAll, setEnrichingAll] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   async function fetchCreators() {
@@ -95,6 +103,7 @@ export default function CreatorsContent() {
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (locationFilter !== "all") params.set("location", locationFilter);
     if (languageFilter !== "all") params.set("language", languageFilter);
+    if (genderFilter !== "all") params.set("gender", genderFilter);
     if (search) params.set("search", search);
     const res = await fetch(`/api/creators?${params}`);
     const data = await res.json();
@@ -102,7 +111,7 @@ export default function CreatorsContent() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchCreators(); }, [statusFilter, locationFilter, languageFilter]);
+  useEffect(() => { fetchCreators(); }, [statusFilter, locationFilter, languageFilter, genderFilter]);
 
   // debounced search
   useEffect(() => {
@@ -163,16 +172,12 @@ export default function CreatorsContent() {
     setChatLoading(false);
   }
 
-  async function runEnrichLanguage() {
-    setEnriching(true);
-    const res = await fetch("/api/creators/enrich-language", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ secret: "vyral-enrich-2026" }),
-    });
+  async function runEnrichAll() {
+    setEnrichingAll(true);
+    const res = await fetch("/api/creators/bulk-enrich", { method: "POST" });
     const data = await res.json();
-    setImportResult(`Language enrichment: ${data.updated} creators updated`);
-    setEnriching(false);
+    setImportResult(`Enriched ${data.enriched} creator profiles`);
+    setEnrichingAll(false);
     fetchCreators();
   }
 
@@ -212,13 +217,13 @@ export default function CreatorsContent() {
               Sync Sheet
             </button>
             <button
-              onClick={runEnrichLanguage}
-              disabled={enriching}
-              className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-              title="Auto-fill language for all known creators"
+              onClick={runEnrichAll}
+              disabled={enrichingAll}
+              className="flex items-center gap-1.5 text-xs font-medium text-violet-500 hover:text-violet-800 px-2.5 py-1.5 rounded-lg hover:bg-violet-50 transition-colors"
+              title="AI-enrich all profiles: gender, age, country, language, niche, follower counts"
             >
-              {enriching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span className="text-sm leading-none">🌐</span>}
-              Fill Languages
+              {enrichingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span className="text-sm leading-none">✨</span>}
+              Enrich All
             </button>
           </div>
           {importResult && (
@@ -264,7 +269,7 @@ export default function CreatorsContent() {
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
             </div>
-            <div className="relative col-span-2">
+            <div className="relative">
               <select
                 value={languageFilter}
                 onChange={(e) => setLanguageFilter(e.target.value)}
@@ -280,6 +285,19 @@ export default function CreatorsContent() {
                 <option value="Polish">Polish</option>
                 <option value="Greek">Greek</option>
                 <option value="English">English</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+            </div>
+            <div className="relative">
+              <select
+                value={genderFilter}
+                onChange={(e) => setGenderFilter(e.target.value)}
+                className="w-full appearance-none pl-3 pr-7 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All genders</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+                <option value="Non-binary">Non-binary</option>
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
             </div>
@@ -334,14 +352,17 @@ export default function CreatorsContent() {
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                      <span className="text-xs text-slate-500">{c.location}</span>
+                      <span className="text-xs text-slate-500">{c.country ?? c.location}</span>
+                      {c.gender && <span className="text-xs text-slate-400">{c.gender === "Female" ? "♀" : c.gender === "Male" ? "♂" : "⚧"}</span>}
+                      {c.ageRange && <span className="text-xs text-slate-400">{c.ageRange}</span>}
                       {c.language && (
                         <>
                           <span className="text-slate-300">·</span>
-                          <span className="text-xs text-blue-500 font-medium">{c.language}</span>
+                          <span className="text-xs text-blue-500 font-medium">{c.language.split(",")[0].trim()}</span>
                         </>
                       )}
                     </div>
+                    {c.niche && <p className="text-xs text-slate-400 mt-0.5">{c.niche}</p>}
                     {c.notes && (
                       <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{c.notes}</p>
                     )}
@@ -372,11 +393,14 @@ export default function CreatorsContent() {
                   {selected.firstName} {selected.lastName}
                 </h2>
                 <p className="text-sm text-slate-500">{selected.email}</p>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="text-sm text-slate-600">{selected.location}</span>
+                  <span className="text-sm text-slate-600">{selected.country ?? selected.location}</span>
                   {!selected.over18 && (
                     <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">Under 18</span>
+                  )}
+                  {!selected.enrichedAt && (
+                    <span className="text-xs bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">Not enriched</span>
                   )}
                 </div>
               </div>
@@ -463,6 +487,32 @@ export default function CreatorsContent() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Enriched profile data */}
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              {[
+                { label: "Gender", value: selected.gender },
+                { label: "Age range", value: selected.ageRange },
+                { label: "Country", value: selected.country },
+                { label: "Language", value: selected.language },
+                { label: "Niche", value: selected.niche },
+                { label: "TikTok followers", value: selected.tiktokFollowers?.toLocaleString() },
+                { label: "Instagram followers", value: selected.instagramFollowers?.toLocaleString() },
+              ].map(({ label, value }) => (
+                <div key={label} className="px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</p>
+                  <p className={cn("text-sm font-medium mt-0.5", value ? "text-slate-800" : "text-slate-300")}>
+                    {value ?? "—"}
+                  </p>
+                </div>
+              ))}
+              <div className="px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100 col-span-1">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Enriched</p>
+                <p className={cn("text-sm font-medium mt-0.5", selected.enrichedAt ? "text-emerald-600" : "text-slate-300")}>
+                  {selected.enrichedAt ? new Date(selected.enrichedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "Pending"}
+                </p>
+              </div>
             </div>
 
             {/* Application notes */}

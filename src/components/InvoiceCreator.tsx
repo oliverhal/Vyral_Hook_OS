@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Download, ChevronDown, ChevronUp, RotateCcw, Save, Check, Loader2, BookOpen } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Plus, Trash2, Download, ChevronDown, ChevronUp, RotateCcw, Save, Check, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Vyral Labs sender defaults ────────────────────────────────────────────────
@@ -259,7 +259,7 @@ interface PreviewProps {
   notes: string;
 }
 
-const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function InvoicePreview(p, ref) {
+function InvoicePreview(p: PreviewProps) {
   const subtotal = p.lineItems.reduce((s, i) => s + parseAmt(i.amount), 0);
   const vatAmount = p.vatMode === "vat20" ? subtotal * 0.2 : 0;
   const total = subtotal + vatAmount;
@@ -267,7 +267,7 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
   const visibleCreators = p.creatorLines.filter(c => c.name);
 
   return (
-    <div ref={ref} className="bg-white rounded-2xl shadow-xl p-12 font-sans" style={{ minHeight: 900 }}>
+    <div className="bg-white rounded-2xl shadow-xl p-12 font-sans" style={{ minHeight: 900 }}>
       {/* Header */}
       <div className="flex items-start justify-between mb-12">
         <InvoiceLogo large />
@@ -424,7 +424,7 @@ const InvoicePreview = React.forwardRef<HTMLDivElement, PreviewProps>(function I
       </div>
     </div>
   );
-});
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -612,40 +612,9 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
     }
   }
 
-  const previewRef = useRef<HTMLDivElement>(null);
-  const [downloading, setDownloading] = useState(false);
-
-  async function handleDownload() {
-    if (!previewRef.current) return;
-    setDownloading(true);
+  function handleDownload() {
     if (invoiceNumber) saveCounter(invoiceNumber);
-    try {
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
-      const el = previewRef.current;
-      const canvas = await html2canvas(el, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-      });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgAspect = canvas.width / canvas.height;
-      // Always fit to full page height, centred horizontally
-      const drawH = pageH;
-      const drawW = drawH * imgAspect;
-      const xOffset = (pageW - drawW) / 2;
-      pdf.addImage(imgData, "PNG", xOffset, 0, drawW, drawH);
-      const filename = invoiceNumber ? `${invoiceNumber}.pdf` : "invoice.pdf";
-      pdf.save(filename);
-    } catch (err) {
-      console.error("PDF generation failed", err);
-    } finally {
-      setDownloading(false);
-    }
+    window.print();
   }
 
   function resetForm() {
@@ -929,10 +898,10 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
               {saveToast ? <Check className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
               {saveToast ? "Saved!" : "Save"}
             </button>
-            <button onClick={handleDownload} disabled={downloading}
-              className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60">
-              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {downloading ? "Generating…" : "Download PDF"}
+            <button onClick={handleDownload}
+              className="btn-primary flex-1 flex items-center justify-center gap-2">
+              <Download className="w-4 h-4" />
+              Save as PDF
             </button>
           </div>
         </div>
@@ -942,14 +911,14 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
           <div className="sticky top-6">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Preview</p>
-              <button onClick={handleDownload} disabled={downloading}
-                className="btn-primary flex items-center gap-2 text-sm disabled:opacity-60">
-                {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {downloading ? "Generating…" : "Download PDF"}
+              <button onClick={handleDownload}
+                className="btn-primary flex items-center gap-2 text-sm">
+                <Download className="w-4 h-4" />
+                Save as PDF
               </button>
             </div>
+            <div id="invoice-print-zone">
             <InvoicePreview
-              ref={previewRef}
               fromCompany={fromCompany}
               fromAddress={fromAddress}
               fromVatId={fromVatId}
@@ -970,9 +939,23 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
               currency={currency}
               notes={notes}
             />
+            </div>
           </div>
         </div>
       </div>
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #invoice-print-zone,
+          #invoice-print-zone * { visibility: visible; }
+          #invoice-print-zone {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+          }
+        }
+      `}</style>
     </>
   );
 }

@@ -602,8 +602,8 @@ export default function CreatorsContent() {
         {children}
       </th>
     );
-    const TD = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-      <td className={cn("px-3 py-2.5 text-xs text-slate-700 border-b border-slate-100 align-top", className)}>
+    const TD = ({ children, className, onClick }: { children: React.ReactNode; className?: string; onClick?: (e: React.MouseEvent) => void }) => (
+      <td onClick={onClick} className={cn("px-3 py-2.5 text-xs text-slate-700 border-b border-slate-100 align-top", className)}>
         {children}
       </td>
     );

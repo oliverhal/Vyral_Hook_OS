@@ -889,7 +889,7 @@ export default function CreatorsContent() {
                       {c.language && (
                         <>
                           <span className="text-slate-300">·</span>
-                          <span className="text-xs text-blue-500 font-medium">{c.language.split(",")[0].trim()}</span>
+                          <span className="text-xs text-blue-500 font-medium">{c.language}</span>
                         </>
                       )}
                     </div>

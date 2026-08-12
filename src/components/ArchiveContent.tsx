@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Search, Flame, ExternalLink, Check, Loader2, ChevronDown, ChevronUp, Archive, RotateCcw } from "lucide-react";
+import { Search, Flame, ExternalLink, Check, Loader2, ChevronDown, ChevronUp, Archive, RotateCcw, ClipboardCheck, TableProperties, X } from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { FORMAT_COLORS, HOOK_FORMATS } from "@/types";
 import type { Hook, Campaign, Week } from "@/types";
@@ -30,6 +30,8 @@ export default function ArchiveContent() {
   const [viralOnly, setViralOnly] = useState(false);
   const [validating, setValidating] = useState<string | null>(null);
   const [validated, setValidated] = useState<Set<string>>(new Set());
+  const [selectedHookIds, setSelectedHookIds] = useState<Set<string>>(new Set());
+  const [copied, setCopied] = useState(false);
 
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
 
@@ -84,6 +86,43 @@ export default function ArchiveContent() {
 
     return () => clearTimeout(timeout);
   }, [campaignFilter, weekFilter, formatFilter, viralOnly, search]);
+
+  function toggleHook(id: string) {
+    setSelectedHookIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    setSelectedHookIds(new Set(hooks.map(h => h.id)));
+  }
+
+  function clearSelection() {
+    setSelectedHookIds(new Set());
+  }
+
+  function exportToSheets() {
+    const selected = hooks.filter(h => selectedHookIds.has(h.id));
+    const headers = ["Hook Text", "Format", "Caption", "Recording Notes", "Reference Video", "App Footage Required", "App Footage Source"];
+    const clean = (v: string | null | undefined) =>
+      (v ?? "").replace(/\t/g, " ").replace(/\n/g, " | ");
+
+    const rows = selected.map(h => [
+      clean(h.hookText),
+      clean(h.format),
+      clean(h.caption),
+      clean(h.recordingNotes),
+      clean(h.referenceVideo),
+      h.requiresAppFootage ? "Yes" : "No",
+      clean(h.appFootageSource),
+    ].join("\t"));
+
+    navigator.clipboard.writeText([headers.join("\t"), ...rows].join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
 
   async function quickValidate(hook: ArchiveHook) {
     if (!isAdmin || validating || validated.has(hook.id)) return;
@@ -268,8 +307,23 @@ export default function ArchiveContent() {
             const isValidating = validating === hook.id;
 
             return (
-              <div key={hook.id} className="card p-4">
+              <div
+                key={hook.id}
+                className={cn("card p-4 transition-colors", selectedHookIds.has(hook.id) && "ring-2 ring-blue-400 bg-blue-50/30")}
+              >
                 <div className="flex items-start gap-3">
+                  {/* Checkbox */}
+                  <button
+                    onClick={() => toggleHook(hook.id)}
+                    className={cn(
+                      "flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all",
+                      selectedHookIds.has(hook.id)
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-slate-300 hover:border-blue-400"
+                    )}
+                  >
+                    {selectedHookIds.has(hook.id) && <Check className="w-3 h-3" />}
+                  </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className={cn("badge text-xs", formatColor)}>{hook.format}</span>
@@ -357,6 +411,43 @@ export default function ArchiveContent() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Sticky export bar */}
+      {selectedHookIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 bg-slate-900 text-white rounded-2xl shadow-xl border border-slate-700 animate-in slide-in-from-bottom-3 duration-200">
+          <span className="text-sm font-medium text-slate-300">
+            {selectedHookIds.size} hook{selectedHookIds.size !== 1 ? "s" : ""} selected
+          </span>
+          <div className="w-px h-4 bg-slate-600" />
+          <button
+            onClick={selectAllVisible}
+            className="text-sm text-slate-400 hover:text-white transition-colors"
+          >
+            Select all ({hooks.length})
+          </button>
+          <button
+            onClick={exportToSheets}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors",
+              copied
+                ? "bg-emerald-500 text-white"
+                : "bg-blue-500 hover:bg-blue-400 text-white"
+            )}
+          >
+            {copied ? (
+              <><ClipboardCheck className="w-3.5 h-3.5" /> Copied!</>
+            ) : (
+              <><TableProperties className="w-3.5 h-3.5" /> Export to Sheets</>
+            )}
+          </button>
+          <button
+            onClick={clearSelection}
+            className="p-1 text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-slate-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>

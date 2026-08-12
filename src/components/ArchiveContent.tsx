@@ -106,8 +106,13 @@ export default function ArchiveContent() {
   function exportToSheets() {
     const selected = hooks.filter(h => selectedHookIds.has(h.id));
     const headers = ["Hook Text", "Format", "Caption", "Recording Notes", "Reference Video", "App Footage Required", "App Footage Source"];
-    const clean = (v: string | null | undefined) =>
-      (v ?? "").replace(/\t/g, " ").replace(/\n/g, " | ");
+    // Sheets parses pasted TSV with quote semantics: an unescaped " swallows
+    // everything up to the next one, row breaks included. Escape properly so
+    // quoted fields keep their newlines as in-cell line breaks.
+    const clean = (v: string | null | undefined) => {
+      const s = (v ?? "").replace(/\r\n?/g, "\n").replace(/\t/g, " ").trim();
+      return /["\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
 
     const rows = selected.map(h => [
       clean(h.hookText),

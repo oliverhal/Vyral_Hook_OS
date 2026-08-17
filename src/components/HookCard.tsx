@@ -392,7 +392,7 @@ export default function HookCard({
                 <textarea className="textarea" rows={2} value={editForm.recordingNotes} onChange={(e) => setEditField("recordingNotes", e.target.value)}  />
               </div>
               <div className="flex gap-2">
-                <button onClick={saveEdit} disabled={editSaving || !editForm.hookText || !editForm.caption} className="btn-primary flex items-center gap-1.5 text-sm px-4 py-2">
+                <button onClick={saveEdit} disabled={editSaving || !editForm.hookText} className="btn-primary flex items-center gap-1.5 text-sm px-4 py-2">
                   {editSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                   Save
                 </button>

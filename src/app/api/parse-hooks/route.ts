@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const VALID_FORMATS = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Greenscreen", "Other"];
+const VALID_FORMATS = ["Faceless", "Snapchat", "Snapchat + Talking", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Greenscreen", "Other"];
 
 // RFC-4180 TSV parser — handles quoted cells containing newlines and tabs
 function parseTSV(raw: string): string[][] {

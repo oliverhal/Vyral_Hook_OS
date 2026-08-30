@@ -11,7 +11,7 @@ export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Snapchat + T
 
 // Ecosia runs market-specific hooks — these are the markets in play. Keyed off
 // campaign name "Ecosia" wherever the country picker shows up in the UI.
-export const ECOSIA_COUNTRIES = ["France", "Spain", "Italy", "Sweden", "Netherlands"];
+export const ECOSIA_COUNTRIES = ["All", "France", "Spain", "Italy", "Sweden", "Netherlands"];
 
 export const FORMAT_COLORS: Record<string, string> = {
   Faceless: "bg-amber-100 text-amber-800 border-amber-300",

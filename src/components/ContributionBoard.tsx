@@ -37,14 +37,12 @@ export default function ContributionBoard({ data, members, weeks = 20 }: Contrib
   const weekStarts = eachWeekOfInterval(
     { start: startDate, end: now },
     { weekStartsOn: 1 }
-  ).map((d) => d.toISOString().split("T")[0]);
+  ).map((d) => format(d, "yyyy-MM-dd"));
 
   function getCellData(member: string, weekStart: string): WeekData {
     return (
       data.find(
-        (d) =>
-          d.submitterName === member &&
-          d.weekStart.split("T")[0] === weekStart
+        (d) => d.submitterName === member && d.weekStart === weekStart
       ) ?? { weekStart, submitterName: member, count: 0, selected: 0 }
     );
   }

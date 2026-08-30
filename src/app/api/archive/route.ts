@@ -9,15 +9,28 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const campaignId = searchParams.get("campaignId");
+  const weekId = searchParams.get("weekId");
   const format = searchParams.get("format");
   const search = searchParams.get("search");
   const viral = searchParams.get("viral");
 
+  // When filtering by validated, also include hooks referenced as sourceHookId in any ValidatedHook
+  let validatedSourceIds: string[] = [];
+  if (viral === "true") {
+    const refs = await prisma.validatedHook.findMany({
+      where: { sourceHookId: { not: null } },
+      select: { sourceHookId: true },
+    });
+    validatedSourceIds = refs.map(r => r.sourceHookId!);
+  }
+
   const hooks = await prisma.hook.findMany({
     where: {
-      ...(campaignId ? { week: { campaignId } } : {}),
+      ...(weekId ? { weekId } : campaignId ? { week: { campaignId } } : {}),
       ...(format ? { format } : {}),
-      ...(viral === "true" ? { wentViral: true } : {}),
+      ...(viral === "true"
+        ? { OR: [{ wentViral: true }, ...(validatedSourceIds.length ? [{ id: { in: validatedSourceIds } }] : [])] }
+        : {}),
       ...(search
         ? {
             OR: [

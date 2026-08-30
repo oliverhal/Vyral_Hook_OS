@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const VALID_FORMATS = ["Faceless", "Snapchat", "Face-to-camera", "Voiceover", "Text-only"];
+const VALID_FORMATS = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only"];
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -50,7 +50,7 @@ The data may have inconsistent column order, different header names, merged cell
 
 Parse every row and return a JSON array. Each object must have:
 - hookText: string (the hook / text shown on screen — required, clean up whitespace but preserve meaning)
-- format: string (normalise to exactly one of: "Faceless", "Snapchat", "Face-to-camera", "Voiceover", "Text-only" — if unclear, guess from content: POV/talking = Face-to-camera, text overlay only = Text-only, default = Faceless)
+- format: string (normalise to exactly one of: "Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only" — if unclear, guess from content: POV/talking = Talking head, text overlay only = Text-only, default = Faceless)
 - caption: string (the social media caption — empty string if absent)
 - referenceVideo: string | null (URL if present, null if not)
 - recordingNotes: string | null (filming instructions — null if absent)

@@ -3,26 +3,27 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id             String          @id @default(cuid())
-  name           String
-  email          String          @unique
-  password       String
-  color          String          @default("blue")
-  role           String          @default("member")
-  active         Boolean         @default(true)
-  hooks          Hook[]
-  votes          HookVote[]
-  comments       HookComment[]
-  validatedHooks ValidatedHook[]
-  notifications  Notification[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id                  String           @id @default(cuid())
+  name                String
+  email               String           @unique
+  password            String
+  color               String           @default("blue")
+  avatarUrl           String?
+  role                String           @default("member")
+  active              Boolean          @default(true)
+  hooks               Hook[]
+  votes               HookVote[]
+  comments            HookComment[]
+  validatedHooks      ValidatedHook[]
+  notifications       Notification[]
+  campaignMemberships CampaignMember[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 }
 
 model Campaign {
@@ -33,10 +34,15 @@ model Campaign {
   color              String          @default("blue")
   emoji              String          @default("🎯")
   active             Boolean         @default(true)
+  archivedManually   Boolean         @default(false)
   hooksTarget        Int             @default(7)
   validatedTarget    Int             @default(7)
   hashtags           String?
+  validatedSheetUrl  String?
+  logoUrl            String?
+  contractEndDate    DateTime?
   weeks              Week[]
+  members            CampaignMember[]
   validatedHooks     ValidatedHook[]
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
@@ -51,6 +57,7 @@ model Week {
   status            String              @default("open")
   mode              String              @default("mixed")
   notes             String?
+  newHooksSheetUrl  String?
   hooks             Hook[]
   selectedValidated WeekValidatedHook[]
   createdAt         DateTime            @default(now())
@@ -69,15 +76,19 @@ model Hook {
   hookText       String
   format         String        @default("Faceless")
   caption        String
-  referenceVideo String?
-  recordingNotes String?
-  status         String        @default("submitted")
+  country             String?
+  referenceVideo      String?
+  recordingNotes      String?
+  requiresAppFootage  Boolean       @default(false)
+  appFootageSource    String?
+  status              String        @default("submitted")
   isSelected     Boolean       @default(false)
   selectedOrder  Int?
   aiCaption      String?
   wentViral      Boolean       @default(false)
   votes          HookVote[]
   comments       HookComment[]
+  suggestions    HookSuggestion[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 }
@@ -139,13 +150,117 @@ model HookComment {
 }
 
 model Notification {
-  id        String      @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   fromName  String
-  commentId String
-  comment   HookComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId String?
+  comment   HookComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
   hookText  String
-  read      Boolean     @default(false)
-  createdAt DateTime    @default(now())
+  weekId    String?
+  type      String       @default("mention")
+  read      Boolean      @default(false)
+  createdAt DateTime     @default(now())
+}
+
+model CampaignMember {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       String   @default("supporter") // "owner" | "supporter"
+  createdAt  DateTime @default(now())
+
+  @@unique([campaignId, userId])
+}
+
+model HookSuggestion {
+  id          String   @id @default(cuid())
+  hookId      String
+  hook        Hook     @relation(fields: [hookId], references: [id], onDelete: Cascade)
+  suggestedBy String
+  hookText    String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+}
+
+model CalendarClient {
+  id            String                    @id @default(cuid())
+  name          String
+  contractStart DateTime
+  contractEnd   DateTime?
+  firstPostDate DateTime?
+  monthlyValue  Float?
+  notes         String?
+  contractLink  String?
+  color         String                    @default("violet")
+  source        String                    @default("manual")
+  externalId    String?                   @unique
+  archived      Boolean                   @default(false)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  extensions    CalendarClientExtension[]
+}
+
+model CalendarClientExtension {
+  id           String         @id @default(cuid())
+  clientId     String
+  client       CalendarClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  startDate    DateTime
+  endDate      DateTime
+  monthlyValue Float?
+  notes        String?
+  createdAt    DateTime       @default(now())
+}
+
+model Shoutout {
+  id        String   @id @default(cuid())
+  toName    String
+  message   String
+  emoji     String   @default("🌟")
+  createdAt DateTime @default(now())
+}
+
+model CreatorSheet {
+  id               String   @id @default(cuid())
+  client           String   @unique
+  fileId           String
+  languageColIndex Int?
+  active           Boolean  @default(true)
+  lastSyncedAt     DateTime?
+  lastSyncCreated  Int?
+  createdAt        DateTime @default(now())
+}
+
+model CreatorApplication {
+  id           String   @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String
+  over18       Boolean  @default(true)
+  location     String
+  tiktok       String?
+  instagram    String?
+  notes        String?
+  submittedAt  DateTime
+  client             String   @default("Vyral Labs")
+  status             String   @default("new")
+  language           String?
+  country            String?
+  gender             String?
+  ageRange           String?
+  tiktokFollowers    Int?
+  instagramFollowers Int?
+  niche              String?
+  referredBy         String?
+  phone              String?
+  chronicIllness     String?
+  enrichedAt         DateTime?
+  tags               String?
+  internalNote       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([email, submittedAt, client])
 }

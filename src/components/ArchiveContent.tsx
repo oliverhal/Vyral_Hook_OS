@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Search, Flame, ExternalLink, Filter } from "lucide-react";
+import { Search, Flame, ExternalLink, Check, Loader2, ChevronDown, ChevronUp, Archive, RotateCcw, ClipboardCheck, TableProperties, X } from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import { FORMAT_COLORS, HOOK_FORMATS } from "@/types";
-import type { Hook, Campaign } from "@/types";
+import type { Hook, Campaign, Week } from "@/types";
 
 interface ArchiveHook extends Omit<Hook, "week"> {
   week: {
@@ -21,22 +21,58 @@ export default function ArchiveContent() {
   const { data: session } = useSession();
   const [hooks, setHooks] = useState<ArchiveHook[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [weeks, setWeeks] = useState<Week[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [campaignFilter, setCampaignFilter] = useState("");
+  const [weekFilter, setWeekFilter] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
   const [viralOnly, setViralOnly] = useState(false);
+  const [validating, setValidating] = useState<string | null>(null);
+  const [validated, setValidated] = useState<Set<string>>(new Set());
+  const [selectedHookIds, setSelectedHookIds] = useState<Set<string>>(new Set());
+  const [copied, setCopied] = useState(false);
 
   const isAdmin = (session?.user as { role?: string })?.role === "admin";
 
+  const [archivedCampaigns, setArchivedCampaigns] = useState<(Campaign & { _count: { weeks: number } })[]>([]);
+  const [showArchivedCampaigns, setShowArchivedCampaigns] = useState(true);
+  const [restoring, setRestoring] = useState<string | null>(null);
+
+  async function restoreCampaign(id: string) {
+    setRestoring(id);
+    await fetch(`/api/campaigns/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: true, contractEndDate: null }),
+    });
+    setArchivedCampaigns(prev => prev.filter(c => c.id !== id));
+    setRestoring(null);
+  }
+
   useEffect(() => {
-    fetch("/api/campaigns").then((r) => r.json()).then((data) => setCampaigns(data));
+    // Auto-archive first (via the campaigns fetch), then load archived list
+    fetch("/api/campaigns/auto-archive", { method: "POST" })
+      .finally(() => {
+        fetch("/api/campaigns").then((r) => r.json()).then((data) => setCampaigns(data));
+        fetch("/api/campaigns/archived").then((r) => r.json()).then((data) => setArchivedCampaigns(data));
+      });
   }, []);
+
+  // Fetch weeks when campaign changes
+  useEffect(() => {
+    setWeekFilter("");
+    if (!campaignFilter) { setWeeks([]); return; }
+    fetch(`/api/weeks?campaignId=${campaignFilter}`)
+      .then((r) => r.json())
+      .then((data) => setWeeks(Array.isArray(data) ? data : []));
+  }, [campaignFilter]);
 
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (campaignFilter) params.set("campaignId", campaignFilter);
+    if (weekFilter) params.set("weekId", weekFilter);
+    else if (campaignFilter) params.set("campaignId", campaignFilter);
     if (formatFilter) params.set("format", formatFilter);
     if (viralOnly) params.set("viral", "true");
     if (search) params.set("search", search);
@@ -49,7 +85,83 @@ export default function ArchiveContent() {
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [campaignFilter, formatFilter, viralOnly, search]);
+  }, [campaignFilter, weekFilter, formatFilter, viralOnly, search]);
+
+  function toggleHook(id: string) {
+    setSelectedHookIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    setSelectedHookIds(new Set(hooks.map(h => h.id)));
+  }
+
+  function clearSelection() {
+    setSelectedHookIds(new Set());
+  }
+
+  function exportToSheets() {
+    const selected = hooks.filter(h => selectedHookIds.has(h.id));
+    const headers = ["Hook Text", "Format", "Country", "Caption", "Recording Notes", "Reference Video", "App Footage Required", "App Footage Source"];
+    // Sheets parses pasted TSV with quote semantics: an unescaped " swallows
+    // everything up to the next one, row breaks included. Escape properly so
+    // quoted fields keep their newlines as in-cell line breaks.
+    const clean = (v: string | null | undefined) => {
+      const s = (v ?? "").replace(/\r\n?/g, "\n").replace(/\t/g, " ").trim();
+      return /["\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const rows = selected.map(h => [
+      clean(h.hookText),
+      clean(h.format),
+      clean(h.country),
+      clean(h.caption),
+      clean(h.recordingNotes),
+      clean(h.referenceVideo),
+      h.requiresAppFootage ? "Yes" : "No",
+      clean(h.appFootageSource),
+    ].join("\t"));
+
+    navigator.clipboard.writeText([headers.join("\t"), ...rows].join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
+  async function quickValidate(hook: ArchiveHook) {
+    if (!isAdmin || validating || validated.has(hook.id)) return;
+    setValidating(hook.id);
+    try {
+      await Promise.all([
+        fetch(`/api/campaigns/${hook.week.campaignId}/validated`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hookText: hook.hookText,
+            format: hook.format,
+            caption: hook.caption,
+            referenceVideo: hook.referenceVideo,
+            recordingNotes: hook.recordingNotes,
+            sourceHookId: hook.id,
+          }),
+        }),
+        fetch(`/api/hooks/${hook.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wentViral: true }),
+        }),
+      ]);
+      setValidated((prev) => { const next = new Set(prev); next.add(hook.id); return next; });
+      setHooks(prev => prev.map(h => h.id === hook.id ? { ...h, wentViral: true } : h));
+    } catch {}
+    setValidating(null);
+  }
+
+  function formatWeekLabel(weekStart: string) {
+    return new Date(weekStart).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -58,8 +170,54 @@ export default function ArchiveContent() {
         <p className="text-sm text-slate-500">Every hook ever submitted across all campaigns</p>
       </div>
 
+      {/* Archived campaigns */}
+      {archivedCampaigns.length > 0 && (
+        <div className="mb-8">
+          <button
+            onClick={() => setShowArchivedCampaigns(v => !v)}
+            className="flex items-center gap-2 mb-3 group"
+          >
+            <Archive className="w-4 h-4 text-slate-400" />
+            <span className="text-sm font-semibold text-slate-600">Archived campaigns ({archivedCampaigns.length})</span>
+            {showArchivedCampaigns ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+          </button>
+          {showArchivedCampaigns && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {archivedCampaigns.map(c => {
+                const colors = CAMPAIGN_COLORS[c.color] || CAMPAIGN_COLORS.blue;
+                return (
+                  <div key={c.id} className="card p-4 flex items-center gap-3 opacity-70 hover:opacity-100 transition-opacity">
+                    <Link href={`/campaigns/${c.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0", colors.bg)}>
+                        {c.emoji}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{c.name}</p>
+                        <p className="text-xs text-slate-400 truncate">{c.clientName} · {c._count.weeks} weeks</p>
+                      </div>
+                    </Link>
+                    <button
+                      onClick={() => restoreCampaign(c.id)}
+                      disabled={restoring === c.id}
+                      title="Restore campaign"
+                      className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 transition-colors disabled:opacity-50"
+                    >
+                      {restoring === c.id
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <RotateCcw className="w-3.5 h-3.5" />}
+                      Restore
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
+        {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -70,6 +228,7 @@ export default function ArchiveContent() {
           />
         </div>
 
+        {/* Campaign */}
         <select
           value={campaignFilter}
           onChange={(e) => setCampaignFilter(e.target.value)}
@@ -77,10 +236,29 @@ export default function ArchiveContent() {
         >
           <option value="">All campaigns</option>
           {campaigns.map((c) => (
-            <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
 
+        {/* Week — only shown when a campaign is selected */}
+        {campaignFilter && weeks.length > 0 && (
+          <select
+            value={weekFilter}
+            onChange={(e) => setWeekFilter(e.target.value)}
+            className="px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-400 transition-colors"
+          >
+            <option value="">All weeks</option>
+            {[...weeks]
+              .sort((a, b) => new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime())
+              .map((w) => (
+                <option key={w.id} value={w.id}>
+                  Week of {formatWeekLabel(w.weekStart)}
+                </option>
+              ))}
+          </select>
+        )}
+
+        {/* Format */}
         <select
           value={formatFilter}
           onChange={(e) => setFormatFilter(e.target.value)}
@@ -90,6 +268,7 @@ export default function ArchiveContent() {
           {HOOK_FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
 
+        {/* Validated */}
         <button
           onClick={() => setViralOnly(!viralOnly)}
           className={cn(
@@ -100,7 +279,7 @@ export default function ArchiveContent() {
           )}
         >
           <Flame className="w-4 h-4" />
-          Viral only
+          Validated only
         </button>
       </div>
 
@@ -108,6 +287,10 @@ export default function ArchiveContent() {
       {!loading && (
         <div className="text-xs text-slate-400 mb-4">
           {hooks.length} hook{hooks.length !== 1 ? "s" : ""} found
+          {weekFilter && weeks.length > 0 && (() => {
+            const w = weeks.find(x => x.id === weekFilter);
+            return w ? <span className="ml-1">· week of {formatWeekLabel(w.weekStart)}</span> : null;
+          })()}
         </div>
       )}
 
@@ -126,19 +309,42 @@ export default function ArchiveContent() {
             const formatColor = FORMAT_COLORS[hook.format] ?? "bg-slate-100 text-slate-600";
             const campaignColors = CAMPAIGN_COLORS[hook.week.campaign.color] || CAMPAIGN_COLORS.blue;
             const voteScore = (hook.votes ?? []).reduce((sum, v) => sum + v.value, 0);
+            const isValidated = hook.wentViral || validated.has(hook.id);
+            const isValidating = validating === hook.id;
 
             return (
-              <div key={hook.id} className="card p-4">
+              <div
+                key={hook.id}
+                className={cn("card p-4 transition-colors", selectedHookIds.has(hook.id) && "ring-2 ring-blue-400 bg-blue-50/30")}
+              >
                 <div className="flex items-start gap-3">
+                  {/* Checkbox */}
+                  <button
+                    onClick={() => toggleHook(hook.id)}
+                    className={cn(
+                      "flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all",
+                      selectedHookIds.has(hook.id)
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-slate-300 hover:border-blue-400"
+                    )}
+                  >
+                    {selectedHookIds.has(hook.id) && <Check className="w-3 h-3" />}
+                  </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className={cn("badge text-xs", formatColor)}>{hook.format}</span>
+                      {hook.country && (
+                        <span className="badge text-xs bg-indigo-100 text-indigo-700">{hook.country}</span>
+                      )}
                       <span className={cn("badge text-xs", campaignColors.badge)}>
-                        {hook.week.campaign.emoji} {hook.week.campaign.name}
+                        {hook.week.campaign.name}
+                      </span>
+                      <span className="badge text-xs bg-slate-100 text-slate-500">
+                        {formatWeekLabel(hook.week.weekStart)}
                       </span>
                       {hook.wentViral && (
                         <span className="badge text-xs bg-orange-100 text-orange-700 flex items-center gap-1">
-                          <Flame className="w-3 h-3" /> Viral
+                          <Flame className="w-3 h-3" /> Validated
                         </span>
                       )}
                       {hook.isSelected && (
@@ -150,10 +356,6 @@ export default function ArchiveContent() {
 
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
                       <span className="text-xs text-slate-400">{hook.submitterName}</span>
-                      <span className="text-xs text-slate-300">·</span>
-                      <span className="text-xs text-slate-400">
-                        {new Date(hook.week.weekStart).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                      </span>
                       {voteScore !== 0 && (
                         <>
                           <span className="text-xs text-slate-300">·</span>
@@ -171,13 +373,38 @@ export default function ArchiveContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {/* Quick validate button — admins only */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => quickValidate(hook)}
+                        disabled={isValidating || isValidated}
+                        title={isValidated ? "Added to validated hooks" : "Add to validated hooks"}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors",
+                          isValidated
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                            : "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+                        )}
+                      >
+                        {isValidating ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : isValidated ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Flame className="w-3.5 h-3.5" />
+                        )}
+                        {isValidated ? "Validated" : "Validate"}
+                      </button>
+                    )}
+
                     {hook.referenceVideo && (
                       <a
                         href={hook.referenceVideo}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                        title="Reference video"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
@@ -193,6 +420,43 @@ export default function ArchiveContent() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Sticky export bar */}
+      {selectedHookIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 bg-slate-900 text-white rounded-2xl shadow-xl border border-slate-700 animate-in slide-in-from-bottom-3 duration-200">
+          <span className="text-sm font-medium text-slate-300">
+            {selectedHookIds.size} hook{selectedHookIds.size !== 1 ? "s" : ""} selected
+          </span>
+          <div className="w-px h-4 bg-slate-600" />
+          <button
+            onClick={selectAllVisible}
+            className="text-sm text-slate-400 hover:text-white transition-colors"
+          >
+            Select all ({hooks.length})
+          </button>
+          <button
+            onClick={exportToSheets}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors",
+              copied
+                ? "bg-emerald-500 text-white"
+                : "bg-blue-500 hover:bg-blue-400 text-white"
+            )}
+          >
+            {copied ? (
+              <><ClipboardCheck className="w-3.5 h-3.5" /> Copied!</>
+            ) : (
+              <><TableProperties className="w-3.5 h-3.5" /> Export to Sheets</>
+            )}
+          </button>
+          <button
+            onClick={clearSelection}
+            className="p-1 text-slate-500 hover:text-white transition-colors rounded-lg hover:bg-slate-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>

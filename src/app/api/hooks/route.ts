@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { weekId, hookText, format, caption, referenceVideo, recordingNotes } = body;
+  const { weekId, hookText, format, caption, country, referenceVideo, recordingNotes, requiresAppFootage, appFootageSource } = body;
 
   if (!weekId || !hookText || !caption) {
     return NextResponse.json(
@@ -29,8 +29,11 @@ export async function POST(req: NextRequest) {
       hookText,
       format: format ?? "Faceless",
       caption,
+      country: country || null,
       referenceVideo: referenceVideo || null,
       recordingNotes: recordingNotes || null,
+      requiresAppFootage: requiresAppFootage ?? false,
+      appFootageSource: requiresAppFootage ? (appFootageSource || null) : null,
       status: "submitted",
     },
   });

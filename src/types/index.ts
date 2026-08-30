@@ -5,19 +5,35 @@ export type WeekMode = "mixed" | "bulk";
 
 export type HookStatus = "submitted" | "selected" | "rejected";
 
-export type HookFormat = "Faceless" | "Snapchat" | "Face-to-camera" | "Voiceover" | "Text-only" | "Long text" | "Short text";
+export type HookFormat = "Faceless" | "Snapchat" | "Snapchat + Talking" | "Talking head" | "Voiceover" | "Text-only" | "Long text" | "Short text" | "Greenscreen" | "Other";
 
-export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Face-to-camera", "Voiceover", "Text-only", "Long text", "Short text"];
+export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Snapchat + Talking", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Greenscreen", "Other"];
+
+// Ecosia runs market-specific hooks — these are the markets in play. Keyed off
+// campaign name "Ecosia" wherever the country picker shows up in the UI.
+export const ECOSIA_COUNTRIES = ["All", "France", "Spain", "Italy", "Sweden", "Netherlands"];
 
 export const FORMAT_COLORS: Record<string, string> = {
-  Faceless: "bg-yellow-100 text-yellow-800",
-  Snapchat: "bg-green-100 text-green-800",
-  "Face-to-camera": "bg-blue-100 text-blue-800",
-  Voiceover: "bg-purple-100 text-purple-800",
-  "Text-only": "bg-slate-100 text-slate-700",
-  "Long text": "bg-pink-100 text-pink-800",
-  "Short text": "bg-teal-100 text-teal-800",
+  Faceless: "bg-amber-100 text-amber-800 border-amber-300",
+  Snapchat: "bg-lime-100 text-lime-800 border-lime-300",
+  "Snapchat + Talking": "bg-teal-100 text-teal-800 border-teal-300",
+  "Talking head": "bg-blue-100 text-blue-800 border-blue-300",
+  Voiceover: "bg-violet-100 text-violet-800 border-violet-300",
+  "Text-only": "bg-slate-100 text-slate-700 border-slate-300",
+  "Long text": "bg-rose-100 text-rose-800 border-rose-300",
+  "Short text": "bg-cyan-100 text-cyan-800 border-cyan-300",
+  Greenscreen: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  Other: "bg-orange-100 text-orange-800 border-orange-300",
 };
+
+export interface CampaignMember {
+  id: string;
+  campaignId: string;
+  userId: string;
+  role: "owner" | "supporter";
+  user: { id: string; name: string; color: string; avatarUrl: string | null };
+  createdAt: string;
+}
 
 export interface Campaign {
   id: string;
@@ -30,6 +46,10 @@ export interface Campaign {
   hooksTarget: number;
   validatedTarget: number;
   hashtags: string | null;
+  validatedSheetUrl: string | null;
+  logoUrl: string | null;
+  contractEndDate: string | null;
+  members?: CampaignMember[];
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +63,7 @@ export interface Week {
   status: WeekStatus;
   mode: WeekMode;
   notes: string | null;
+  newHooksSheetUrl: string | null;
   hooks?: Hook[];
   selectedValidated?: WeekValidatedHook[];
   createdAt: string;
@@ -61,10 +82,19 @@ export interface HookComment {
   id: string;
   hookId: string;
   userId: string;
-  user: { id: string; name: string; color: string };
+  user: { id: string; name: string; color: string; avatarUrl: string | null };
   content: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface HookSuggestion {
+  id: string;
+  hookId: string;
+  suggestedBy: string;
+  hookText: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: string;
 }
 
 export interface Hook {
@@ -73,11 +103,15 @@ export interface Hook {
   week?: Week;
   submittedById: string | null;
   submitterName: string;
+  submitterAvatarUrl?: string | null;
   hookText: string;
   format: HookFormat;
   caption: string;
+  country: string | null;
   referenceVideo: string | null;
   recordingNotes: string | null;
+  requiresAppFootage: boolean;
+  appFootageSource: string | null;
   status: HookStatus;
   isSelected: boolean;
   selectedOrder: number | null;
@@ -85,6 +119,7 @@ export interface Hook {
   wentViral: boolean;
   votes?: HookVote[];
   commentCount?: number;
+  suggestions?: HookSuggestion[];
   createdAt: string;
   updatedAt: string;
 }

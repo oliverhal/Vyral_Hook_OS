@@ -76,6 +76,7 @@ model Hook {
   hookText       String
   format         String        @default("Faceless")
   caption        String
+  country             String?
   referenceVideo      String?
   recordingNotes      String?
   requiresAppFootage  Boolean       @default(false)

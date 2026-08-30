@@ -9,6 +9,10 @@ export type HookFormat = "Faceless" | "Snapchat" | "Snapchat + Talking" | "Talki
 
 export const HOOK_FORMATS: HookFormat[] = ["Faceless", "Snapchat", "Snapchat + Talking", "Talking head", "Voiceover", "Text-only", "Long text", "Short text", "Greenscreen", "Other"];
 
+// Ecosia runs market-specific hooks — these are the markets in play. Keyed off
+// campaign name "Ecosia" wherever the country picker shows up in the UI.
+export const ECOSIA_COUNTRIES = ["France", "Spain", "Italy", "Sweden", "Netherlands"];
+
 export const FORMAT_COLORS: Record<string, string> = {
   Faceless: "bg-amber-100 text-amber-800 border-amber-300",
   Snapchat: "bg-lime-100 text-lime-800 border-lime-300",
@@ -103,6 +107,7 @@ export interface Hook {
   hookText: string;
   format: HookFormat;
   caption: string;
+  country: string | null;
   referenceVideo: string | null;
   recordingNotes: string | null;
   requiresAppFootage: boolean;

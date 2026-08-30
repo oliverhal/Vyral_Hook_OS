@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       hookText: string;
       format: string;
       caption: string;
+      country?: string | null;
       referenceVideo?: string | null;
       recordingNotes?: string | null;
       requiresAppFootage?: boolean;
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
           hookText: h.hookText,
           format: h.format ?? "Faceless",
           caption: h.caption ?? "Creator to come up with their own caption",
+          country: h.country ?? null,
           referenceVideo: h.referenceVideo ?? null,
           recordingNotes: h.recordingNotes ?? null,
           requiresAppFootage: h.requiresAppFootage ?? false,

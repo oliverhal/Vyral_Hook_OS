@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Loader2, Upload, Check, Trash2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { HOOK_FORMATS } from "@/types";
+import { HOOK_FORMATS, ECOSIA_COUNTRIES } from "@/types";
 import type { HookFormat } from "@/types";
 
 interface ParsedHook {
@@ -12,6 +12,7 @@ interface ParsedHook {
   referenceVideo: string | null;
   caption: string;
   recordingNotes: string;
+  country: string;
   selected: boolean;
 }
 
@@ -19,9 +20,11 @@ interface BulkImportModalProps {
   weekId: string;
   onClose: () => void;
   onSuccess: () => void;
+  campaignName?: string;
 }
 
-export default function BulkImportModal({ weekId, onClose, onSuccess }: BulkImportModalProps) {
+export default function BulkImportModal({ weekId, onClose, onSuccess, campaignName }: BulkImportModalProps) {
+  const showCountryPicker = campaignName === "Ecosia";
   const [step, setStep] = useState<"paste" | "preview">("paste");
   const [rawText, setRawText] = useState("");
   const [hooks, setHooks] = useState<ParsedHook[]>([]);
@@ -41,7 +44,7 @@ export default function BulkImportModal({ weekId, onClose, onSuccess }: BulkImpo
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Parse failed");
-      setHooks(data.hooks.map((h: Omit<ParsedHook, "selected">) => ({ ...h, recordingNotes: h.recordingNotes ?? "", selected: true })));
+      setHooks(data.hooks.map((h: Omit<ParsedHook, "selected" | "country">) => ({ ...h, recordingNotes: h.recordingNotes ?? "", country: "", selected: true })));
       setStep("preview");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -53,6 +56,10 @@ export default function BulkImportModal({ weekId, onClose, onSuccess }: BulkImpo
   async function handleSubmit() {
     const toSubmit = hooks.filter((h) => h.selected);
     if (toSubmit.length === 0) return;
+    if (showCountryPicker && toSubmit.some((h) => !h.country)) {
+      setError("Select a market for every hook you're importing.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -161,6 +168,25 @@ export default function BulkImportModal({ weekId, onClose, onSuccess }: BulkImpo
                           </button>
                         ))}
                       </div>
+                      {showCountryPicker && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {ECOSIA_COUNTRIES.map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => updateHook(i, "country", hook.country === c ? "" : c)}
+                              className={cn(
+                                "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all",
+                                hook.country === c
+                                  ? "bg-indigo-600 text-white border-indigo-600"
+                                  : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
+                              )}
+                            >
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       {hook.referenceVideo && (
                         <p className="text-xs text-blue-600 truncate">📎 {hook.referenceVideo}</p>
                       )}

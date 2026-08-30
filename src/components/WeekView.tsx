@@ -411,6 +411,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 weekId={weekId}
                 teamMembers={[]}
                 onSuccess={() => { fetchWeek(); setShowForm(false); }}
+                campaignName={week.campaign.name}
               />
             </div>
           )}
@@ -697,6 +698,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
         weekId={weekId}
         onClose={() => setShowBulkImport(false)}
         onSuccess={() => { fetchWeek(); }}
+        campaignName={week.campaign.name}
       />
     )}
     </>

@@ -7,7 +7,7 @@ import {
   ThumbsUp, ThumbsDown, MessageSquare, Flame, Send, X, Pencil, Loader2, Wand2
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
-import { FORMAT_COLORS, HOOK_FORMATS } from "@/types";
+import { FORMAT_COLORS, HOOK_FORMATS, ECOSIA_COUNTRIES } from "@/types";
 import type { Hook, Campaign, HookComment, HookSuggestion } from "@/types";
 import MentionInput, { renderWithMentions } from "./MentionInput";
 import UserAvatar from "./UserAvatar";
@@ -64,6 +64,7 @@ export default function HookCard({
     hookText: hook.hookText,
     format: hook.format,
     caption: hook.caption,
+    country: hook.country ?? "",
     referenceVideo: hook.referenceVideo ?? "",
     recordingNotes: hook.recordingNotes ?? "",
     requiresAppFootage: hook.requiresAppFootage,
@@ -144,6 +145,7 @@ export default function HookCard({
     setEditSaving(true);
     const payload = {
       ...editForm,
+      country: editForm.country || null,
       referenceVideo: editForm.referenceVideo || null,
       recordingNotes: editForm.recordingNotes || null,
       requiresAppFootage: isLongText ? false : editForm.requiresAppFootage,
@@ -237,6 +239,9 @@ export default function HookCard({
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className={cn("badge text-xs", formatColor)}>{hook.format}</span>
+              {hook.country && (
+                <span className="badge text-xs bg-indigo-100 text-indigo-700">{hook.country}</span>
+              )}
               {hook.isSelected && (
                 <span className="badge text-xs bg-emerald-100 text-emerald-700 flex items-center gap-1 animate-in fade-in slide-in-from-left-1 duration-200">
                   <Check className="w-3 h-3" /> Selected
@@ -356,6 +361,28 @@ export default function HookCard({
                   ))}
                 </div>
               </div>
+              {campaign.name === "Ecosia" && (
+                <div>
+                  <label className="label">Market</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {ECOSIA_COUNTRIES.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setEditField("country", editForm.country === c ? "" : c)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                          editForm.country === c
+                            ? "bg-slate-900 text-white border-slate-900"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                        )}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {!isLongText && (
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 select-none w-fit cursor-pointer">

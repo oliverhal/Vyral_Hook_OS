@@ -4,17 +4,19 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Plus, Loader2, Link as LinkIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { HOOK_FORMATS } from "@/types";
+import { HOOK_FORMATS, ECOSIA_COUNTRIES } from "@/types";
 
 interface HookFormProps {
   weekId: string;
   teamMembers: { id: string; name: string; color: string }[];
   onSuccess: () => void;
+  campaignName?: string;
 }
 
-export default function HookForm({ weekId, onSuccess }: HookFormProps) {
+export default function HookForm({ weekId, onSuccess, campaignName }: HookFormProps) {
   const { data: session } = useSession();
   const user = session?.user as { name?: string } | undefined;
+  const showCountryPicker = campaignName === "Ecosia";
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,6 +26,7 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
     hookText: "",
     format: "Faceless",
     caption: "",
+    country: "",
     referenceVideo: "",
     recordingNotes: "",
     appFootageSource: "",
@@ -41,6 +44,10 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
       setError("Hook text and caption are required.");
       return;
     }
+    if (showCountryPicker && !form.country) {
+      setError("Select the market this hook is for.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -53,7 +60,7 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
         const data = await res.json();
         throw new Error(data.error ?? "Failed to submit hook");
       }
-      setForm({ hookText: "", format: "Faceless", caption: "", referenceVideo: "", recordingNotes: "", appFootageSource: "" });
+      setForm({ hookText: "", format: "Faceless", caption: "", country: "", referenceVideo: "", recordingNotes: "", appFootageSource: "" });
       setCreatorCaption(false);
       setRequiresAppFootage(false);
       onSuccess();
@@ -117,6 +124,30 @@ export default function HookForm({ weekId, onSuccess }: HookFormProps) {
           ))}
         </div>
       </div>
+
+      {/* Market (Ecosia only) */}
+      {showCountryPicker && (
+        <div>
+          <label className="label">Market *</label>
+          <div className="flex gap-2 flex-wrap">
+            {ECOSIA_COUNTRIES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setField("country", c)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                  form.country === c
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                )}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* App footage / Greenscreen clip */}
       {!isLongText && (

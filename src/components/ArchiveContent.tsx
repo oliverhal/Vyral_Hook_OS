@@ -105,7 +105,7 @@ export default function ArchiveContent() {
 
   function exportToSheets() {
     const selected = hooks.filter(h => selectedHookIds.has(h.id));
-    const headers = ["Hook Text", "Format", "Caption", "Recording Notes", "Reference Video", "App Footage Required", "App Footage Source"];
+    const headers = ["Hook Text", "Format", "Country", "Caption", "Recording Notes", "Reference Video", "App Footage Required", "App Footage Source"];
     // Sheets parses pasted TSV with quote semantics: an unescaped " swallows
     // everything up to the next one, row breaks included. Escape properly so
     // quoted fields keep their newlines as in-cell line breaks.
@@ -117,6 +117,7 @@ export default function ArchiveContent() {
     const rows = selected.map(h => [
       clean(h.hookText),
       clean(h.format),
+      clean(h.country),
       clean(h.caption),
       clean(h.recordingNotes),
       clean(h.referenceVideo),
@@ -332,6 +333,9 @@ export default function ArchiveContent() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span className={cn("badge text-xs", formatColor)}>{hook.format}</span>
+                      {hook.country && (
+                        <span className="badge text-xs bg-indigo-100 text-indigo-700">{hook.country}</span>
+                      )}
                       <span className={cn("badge text-xs", campaignColors.badge)}>
                         {hook.week.campaign.name}
                       </span>

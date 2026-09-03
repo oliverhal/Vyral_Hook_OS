@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Trash2, Download, ChevronDown, ChevronUp, RotateCcw, Save, Check, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
 
 // ── Vyral Labs sender defaults ────────────────────────────────────────────────
 
@@ -614,7 +615,25 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
 
   function handleDownload() {
     if (invoiceNumber) saveCounter(invoiceNumber);
-    window.print();
+    const subtotal = lineItems.reduce((s, i) => s + parseAmt(i.amount), 0);
+    const vatAmount = vatMode === "vat20" ? subtotal * 0.2 : 0;
+    const total = subtotal + vatAmount;
+    generateInvoicePdf({
+      fromCompany, fromAddress, fromVatId, fromIban, fromBic, fromIntBic,
+      invoiceNumber,
+      invoiceDateLabel: fmtDateLong(invoiceDate),
+      dueDateLabel: fmtDateLong(dueDate),
+      toCompany, toAddress, toVatId, toContact,
+      lineItems: lineItems.map((i) => ({ description: i.description, amount: i.amount })),
+      showCreators,
+      creatorLines: creatorLines.map((c) => ({ name: c.name, platform: c.platform, amount: c.amount })),
+      vatMode,
+      notes,
+      subtotalLabel: fmtCurrency(subtotal, currency),
+      vatAmountLabel: fmtCurrency(vatAmount, currency),
+      totalLabel: fmtCurrency(total, currency),
+      amountLabel: (raw) => (raw ? fmtCurrency(parseAmt(raw), currency) : ""),
+    });
   }
 
   function resetForm() {
@@ -898,11 +917,6 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
               {saveToast ? <Check className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
               {saveToast ? "Saved!" : "Save"}
             </button>
-            <button onClick={handleDownload}
-              className="btn-primary flex-1 flex items-center justify-center gap-2">
-              <Download className="w-4 h-4" />
-              Save as PDF
-            </button>
           </div>
         </div>
 
@@ -917,7 +931,6 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
                 Save as PDF
               </button>
             </div>
-            <div id="invoice-print-zone">
             <InvoicePreview
               fromCompany={fromCompany}
               fromAddress={fromAddress}
@@ -939,23 +952,9 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
               currency={currency}
               notes={notes}
             />
-            </div>
           </div>
         </div>
       </div>
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          #invoice-print-zone,
-          #invoice-print-zone * { visibility: visible; }
-          #invoice-print-zone {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-          }
-        }
-      `}</style>
     </>
   );
 }

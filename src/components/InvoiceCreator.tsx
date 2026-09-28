@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Plus, Trash2, Download, ChevronDown, ChevronUp, RotateCcw, Save, Check, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { generateInvoicePdf } from "@/lib/generateInvoicePdf";
+import { storeGet, storeSet } from "@/lib/invoiceStore";
 
 // ── Vyral Labs sender defaults ────────────────────────────────────────────────
 
@@ -181,13 +182,13 @@ export interface SavedInvoice {
 }
 
 function loadSavedBilling(): Record<string, ClientBilling> {
-  try { return JSON.parse(localStorage.getItem(BILLING_KEY) || "{}"); } catch { return {}; }
+  try { return JSON.parse(storeGet(BILLING_KEY) || "{}"); } catch { return {}; }
 }
 
 function saveBillingForClient(clientId: string, billing: ClientBilling) {
   const saved = loadSavedBilling();
   saved[clientId] = billing;
-  localStorage.setItem(BILLING_KEY, JSON.stringify(saved));
+  storeSet(BILLING_KEY, JSON.stringify(saved));
 }
 
 function getBilling(clientId: string, clientName: string): ClientBilling | null {
@@ -198,7 +199,7 @@ function getBilling(clientId: string, clientName: string): ClientBilling | null 
 
 function getNextNumber(series: string): string {
   const counters: Record<string, number> = JSON.parse(
-    localStorage.getItem("vyral-invoice-counters-v1") || "{}"
+    storeGet("vyral-invoice-counters-v1") || "{}"
   );
   const next = (counters[series] ?? 0) + 1;
   return `${series}-${String(next).padStart(3, "0")}`;
@@ -210,10 +211,10 @@ function saveCounter(invoiceNumber: string) {
   const [, series, numStr] = match;
   const num = parseInt(numStr, 10);
   const counters: Record<string, number> = JSON.parse(
-    localStorage.getItem("vyral-invoice-counters-v1") || "{}"
+    storeGet("vyral-invoice-counters-v1") || "{}"
   );
   counters[series] = Math.max(counters[series] ?? 0, num);
-  localStorage.setItem("vyral-invoice-counters-v1", JSON.stringify(counters));
+  storeSet("vyral-invoice-counters-v1", JSON.stringify(counters));
 }
 
 // ── Logo (matches app branding) ───────────────────────────────────────────────
@@ -462,7 +463,7 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
   // From (Vyral) — persisted to localStorage
   const SENDER_KEY = "vyral-sender-details-v1";
   const savedSender = (() => {
-    try { return JSON.parse(localStorage.getItem(SENDER_KEY) || "{}"); } catch { return {}; }
+    try { return JSON.parse(storeGet(SENDER_KEY) || "{}"); } catch { return {}; }
   })();
   const [fromCompany, setFromCompany] = useState<string>(savedSender.company ?? VYRAL.company);
   const [fromAddress, setFromAddress] = useState<string>(savedSender.address ?? VYRAL.address);
@@ -473,7 +474,7 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
   const [showFromEditor, setShowFromEditor] = useState(false);
 
   function saveSenderDetails() {
-    localStorage.setItem(SENDER_KEY, JSON.stringify({
+    storeSet(SENDER_KEY, JSON.stringify({
       company: fromCompany, address: fromAddress, iban: fromIban,
       bic: fromBic, intermediaryBic: fromIntBic, vatId: fromVatId,
     }));
@@ -579,10 +580,10 @@ export default function InvoiceCreator({ clients, loadData, onSaved }: InvoiceCr
       total: lineItems.reduce((s, i) => s + parseAmt(i.amount), 0),
     };
     const existing: SavedInvoice[] = (() => {
-      try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+      try { return JSON.parse(storeGet(HISTORY_KEY) || "[]"); } catch { return []; }
     })();
     existing.unshift(record);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(existing.slice(0, 100)));
+    storeSet(HISTORY_KEY, JSON.stringify(existing.slice(0, 100)));
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 2500);
     onSaved?.();

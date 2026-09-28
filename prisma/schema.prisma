@@ -264,3 +264,13 @@ model CreatorApplication {
 
   @@unique([email, submittedAt, client])
 }
+
+// Cloud copy of the invoice tool's state (clients + statuses, history, billing
+// details, counters, sender details, burn). One row per logical key, value is
+// the JSON string the UI previously kept in localStorage.
+model InvoiceData {
+  key       String   @id
+  value     String
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}

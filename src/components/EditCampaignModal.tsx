@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
 import type { Campaign, Week, Hook, CampaignMember } from "@/types";
 import CampaignLogo from "./CampaignLogo";
+import { storeGet, storeSet, initInvoiceStore } from "@/lib/invoiceStore";
 
 const COLORS = ["blue", "violet", "emerald", "orange", "pink", "teal", "yellow"] as const;
 const EMOJIS = ["🎯", "⚡", "💪", "✨", "🚀", "💡", "🔥", "🌟", "🎬", "📱", "💰", "🏆"];
@@ -54,10 +55,10 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
   );
   const [teamSaving, setTeamSaving] = useState(false);
 
-  // Billing details (localStorage, syncs with InvoiceCreator)
+  // Billing details (cloud invoice store, syncs with InvoiceCreator; only for invoice-access users)
   const BILLING_KEY = "vyral-client-billing-v1";
   function loadBilling() {
-    try { return JSON.parse(localStorage.getItem(BILLING_KEY) || "{}"); } catch { return {}; }
+    try { return JSON.parse(storeGet(BILLING_KEY) || "{}"); } catch { return {}; }
   }
   const existing = typeof window !== "undefined" ? (loadBilling()[campaign.id] ?? {}) : {};
   const [billingCompany, setBillingCompany] = useState<string>(existing.companyName ?? "");
@@ -66,6 +67,21 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
   const [billingContact, setBillingContact] = useState<string>(existing.contactName ?? "");
   const [billingSeries, setBillingSeries] = useState<string>(existing.series ?? "");
   const [billingSaved, setBillingSaved] = useState(false);
+  const [billingForbidden, setBillingForbidden] = useState(false);
+
+  // Pull the cloud copy of billing details before showing them.
+  useEffect(() => {
+    initInvoiceStore().then((mode) => {
+      if (mode === "forbidden") { setBillingForbidden(true); return; }
+      const b = loadBilling()[campaign.id] ?? {};
+      setBillingCompany(b.companyName ?? "");
+      setBillingAddress(b.address ?? "");
+      setBillingVat(b.vatId ?? "");
+      setBillingContact(b.contactName ?? "");
+      setBillingSeries(b.series ?? "");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function saveBillingDetails() {
     const all = loadBilling();
@@ -76,7 +92,7 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
       contactName: billingContact,
       series: billingSeries,
     };
-    localStorage.setItem(BILLING_KEY, JSON.stringify(all));
+    storeSet(BILLING_KEY, JSON.stringify(all));
     setBillingSaved(true);
     setTimeout(() => setBillingSaved(false), 2500);
   }
@@ -251,7 +267,7 @@ export default function EditCampaignModal({ campaign, onClose, onSaved }: EditCa
             { id: "weeks", label: `Weeks (${weeks.length})`, icon: Calendar },
             { id: "team", label: "Team", icon: Users },
             { id: "billing", label: "Billing", icon: Receipt },
-          ].map(({ id, label, icon: Icon }) => (
+          ].filter(t => t.id !== "billing" || !billingForbidden).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id as "settings" | "weeks" | "team" | "billing")}

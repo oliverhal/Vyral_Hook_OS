@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useSyncExternalStore } from "react";
 import {
   Plus, Trash2, Edit2, Download, Upload, Check, X,
   AlertCircle, Clock, TrendingUp, Repeat, ExternalLink,
@@ -8,6 +8,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import InvoiceCreator, { SavedInvoice, HISTORY_KEY } from "./InvoiceCreator";
+import {
+  storeGet, storeSet, initInvoiceStore, uploadLocalToCloud, hasLocalInvoiceData,
+  subscribeStore, getStoreStatus,
+} from "@/lib/invoiceStore";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -515,23 +519,49 @@ export default function InvoiceManagementContent() {
   function saveBurn(month: string, value: number) {
     const updated = { ...burnByMonth, [month]: value };
     setBurnByMonth(updated);
-    localStorage.setItem("vyral-monthly-burn-v2", JSON.stringify(updated));
+    storeSet("vyral-monthly-burn-v2", JSON.stringify(updated));
+  }
+
+  const storeStatus = useSyncExternalStore(subscribeStore, getStoreStatus, getStoreStatus);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    initInvoiceStore().then(() => {
+      if (cancelled) return;
+      try {
+        const saved = storeGet(STORAGE_KEY);
+        setClients(saved ? JSON.parse(saved) : SEED_CLIENTS);
+        const savedBurn = storeGet("vyral-monthly-burn-v2");
+        if (savedBurn) setBurnByMonth(JSON.parse(savedBurn));
+      } catch {
+        setClients(SEED_CLIENTS);
+      }
+      setReady(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleUploadLocal() {
+    setUploading(true);
+    const res = await uploadLocalToCloud();
+    setUploading(false);
+    if (res.ok) notify("Invoice data is now saved in the cloud");
+    else {
+      notify(res.error ?? "Upload failed", false);
+      // the cloud copy may have been adopted instead — reload state from it
+      try {
+        const saved = storeGet(STORAGE_KEY);
+        if (saved) setClients(JSON.parse(saved));
+        const savedBurn = storeGet("vyral-monthly-burn-v2");
+        if (savedBurn) setBurnByMonth(JSON.parse(savedBurn));
+        setHistoryVersion(v => v + 1);
+      } catch { /* keep current state */ }
+    }
   }
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      setClients(saved ? JSON.parse(saved) : SEED_CLIENTS);
-      const savedBurn = localStorage.getItem("vyral-monthly-burn-v2");
-      if (savedBurn) setBurnByMonth(JSON.parse(savedBurn));
-    } catch {
-      setClients(SEED_CLIENTS);
-    }
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (ready) localStorage.setItem(STORAGE_KEY, JSON.stringify(clients));
+    if (ready) storeSet(STORAGE_KEY, JSON.stringify(clients));
   }, [clients, ready]);
 
   function notify(msg: string, ok = true) {
@@ -625,7 +655,7 @@ export default function InvoiceManagementContent() {
   }
 
   const savedInvoices = useMemo<SavedInvoice[]>(() => {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+    try { return JSON.parse(storeGet(HISTORY_KEY) || "[]"); } catch { return []; }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyVersion, tab]);
 
@@ -641,7 +671,7 @@ export default function InvoiceManagementContent() {
 
   function deleteFromHistory(id: string) {
     const updated = savedInvoices.filter(i => i.id !== id);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+    storeSet(HISTORY_KEY, JSON.stringify(updated));
     setHistoryVersion(v => v + 1);
   }
 
@@ -664,6 +694,30 @@ export default function InvoiceManagementContent() {
         )}>
           {toast.ok ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           {toast.msg}
+        </div>
+      )}
+
+      {/* Cloud sync status */}
+      {storeStatus.mode === "local-only" && hasLocalInvoiceData() && (
+        <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3">
+          <p className="text-sm text-amber-800">
+            <strong>Invoice data is only saved in this browser.</strong> Upload it once to move
+            clients, statuses, history and billing details to the cloud so the whole team sees the same data.
+          </p>
+          <button onClick={handleUploadLocal} disabled={uploading}
+            className="btn-primary flex-shrink-0 disabled:opacity-50">
+            {uploading ? "Uploading…" : "Upload to cloud"}
+          </button>
+        </div>
+      )}
+      {storeStatus.mode === "offline" && (
+        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
+          Couldn&apos;t reach the cloud — showing this browser&apos;s copy. Changes won&apos;t sync until you reload.
+        </div>
+      )}
+      {storeStatus.saveError && (
+        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700">
+          Your last change couldn&apos;t be saved to the cloud ({storeStatus.saveError}). Keep this tab open and try again.
         </div>
       )}
 

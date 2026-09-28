@@ -2,8 +2,9 @@
 
 import { useSession } from "next-auth/react";
 import { Lock } from "lucide-react";
+import { INVOICE_ALLOWED_NAMES } from "@/lib/invoiceAccess";
 
-const ALLOWED = ["Ethan Dichoso", "Oliver Barnes", "Oliver Hale"];
+const ALLOWED = INVOICE_ALLOWED_NAMES;
 
 export default function InvoicePasswordGate({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();

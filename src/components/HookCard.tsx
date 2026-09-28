@@ -4,24 +4,27 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   Check, ChevronDown, ChevronUp, ExternalLink, Sparkles, Trash2,
-  ThumbsUp, ThumbsDown, MessageSquare, Flame, Send, X
+  ThumbsUp, ThumbsDown, MessageSquare, Flame, Send, X, Pencil, Loader2, Wand2
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS } from "@/lib/utils";
-import { FORMAT_COLORS } from "@/types";
-import type { Hook, Campaign, HookComment } from "@/types";
+import { FORMAT_COLORS, HOOK_FORMATS, ECOSIA_COUNTRIES } from "@/types";
+import type { Hook, Campaign, HookComment, HookSuggestion } from "@/types";
 import MentionInput, { renderWithMentions } from "./MentionInput";
+import UserAvatar from "./UserAvatar";
 
 interface HookCardProps {
   hook: Hook;
   campaign: Campaign;
   onSelect?: (hookId: string, selected: boolean) => void;
   onDelete?: (hookId: string) => void;
+  onEdit?: (hookId: string, updates: Partial<Hook>) => void;
   onGenerateCaption?: (hookId: string) => void;
   onViralToggle?: (hookId: string, wentViral: boolean) => void;
   showSubmitter?: boolean;
   selectable?: boolean;
   rank?: number;
   isAdmin?: boolean;
+  weekId?: string;
 }
 
 export default function HookCard({
@@ -29,15 +32,18 @@ export default function HookCard({
   campaign,
   onSelect,
   onDelete,
+  onEdit,
   onGenerateCaption,
   onViralToggle,
   showSubmitter = true,
   selectable = false,
   rank,
   isAdmin = false,
+  weekId,
 }: HookCardProps) {
   const { data: session } = useSession();
   const [expanded, setExpanded] = useState(false);
+  const [textExpanded, setTextExpanded] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<HookComment[]>([]);
@@ -47,6 +53,23 @@ export default function HookCard({
   const [commentCount, setCommentCount] = useState(hook.commentCount ?? 0);
   const [votes, setVotes] = useState(hook.votes ?? []);
   const [viralLoading, setViralLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [suggestions, setSuggestions] = useState<HookSuggestion[]>(hook.suggestions ?? []);
+  const [showSuggest, setShowSuggest] = useState(false);
+  const [suggestText, setSuggestText] = useState(hook.hookText);
+  const [submittingSuggestion, setSubmittingSuggestion] = useState(false);
+  const [hookText, setHookText] = useState(hook.hookText);
+  const [editForm, setEditForm] = useState({
+    hookText: hook.hookText,
+    format: hook.format,
+    caption: hook.caption,
+    country: hook.country ?? "",
+    referenceVideo: hook.referenceVideo ?? "",
+    recordingNotes: hook.recordingNotes ?? "",
+    requiresAppFootage: hook.requiresAppFootage,
+    appFootageSource: hook.appFootageSource ?? "",
+  });
 
   const colors = CAMPAIGN_COLORS[campaign.color] || CAMPAIGN_COLORS.blue;
   const formatColor = FORMAT_COLORS[hook.format] ?? "bg-slate-100 text-slate-600";
@@ -65,7 +88,6 @@ export default function HookCard({
 
   async function handleVote(value: number) {
     const newValue = myVote === value ? 0 : value;
-    // Optimistic update
     setVotes((prev) => {
       const without = prev.filter((v) => v.userId !== currentUserId);
       if (newValue === 0) return without;
@@ -113,20 +135,82 @@ export default function HookCard({
     setCommentCount((n) => Math.max(0, n - 1));
   }
 
+  const isLongText = editForm.format === "Long text";
+
+  function setEditField(field: string, value: string | boolean) {
+    setEditForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function saveEdit() {
+    setEditSaving(true);
+    const payload = {
+      ...editForm,
+      country: editForm.country || null,
+      referenceVideo: editForm.referenceVideo || null,
+      recordingNotes: editForm.recordingNotes || null,
+      requiresAppFootage: isLongText ? false : editForm.requiresAppFootage,
+      appFootageSource: editForm.requiresAppFootage && !isLongText ? (editForm.appFootageSource || null) : null,
+    };
+    const res = await fetch(`/api/hooks/${hook.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const updated = await res.json();
+    onEdit?.(hook.id, updated);
+    setEditing(false);
+    setEditSaving(false);
+  }
+
   async function handleViralToggle() {
     setViralLoading(true);
-    const res = await fetch(`/api/hooks/${hook.id}/viral`, { method: "POST" });
+    const res = await fetch(`/api/hooks/${hook.id}/viral`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weekId: weekId ?? null }),
+    });
     const data = await res.json();
     onViralToggle?.(hook.id, data.wentViral);
     setViralLoading(false);
+  }
+
+  async function submitSuggestion(e: React.FormEvent) {
+    e.preventDefault();
+    if (!suggestText.trim() || suggestText.trim() === hookText || submittingSuggestion) return;
+    setSubmittingSuggestion(true);
+    const res = await fetch(`/api/hooks/${hook.id}/suggestions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hookText: suggestText.trim() }),
+    });
+    const data = await res.json();
+    setSuggestions((prev) => [...prev, data]);
+    setShowSuggest(false);
+    setSubmittingSuggestion(false);
+  }
+
+  async function handleSuggestion(suggestionId: string, status: "accepted" | "declined") {
+    const res = await fetch(`/api/suggestions/${suggestionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    const data = await res.json();
+    if (status === "accepted") {
+      setHookText(data.hookText ?? suggestText);
+      onEdit?.(hook.id, { hookText: data.hookText ?? suggestText });
+      setSuggestions([]);
+    } else {
+      setSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
+    }
   }
 
   return (
     <div
       className={cn(
         "card p-4 transition-all duration-200",
-        hook.isSelected && "ring-2 ring-blue-500 shadow-md",
-        hook.wentViral && "ring-1 ring-orange-300",
+        hook.isSelected && "ring-2 ring-blue-500 bg-blue-50/30 shadow-md",
+        hook.wentViral && !hook.isSelected && "ring-1 ring-orange-300",
         !hook.isSelected && selectable && "hover:shadow-md cursor-pointer"
       )}
       onClick={() => selectable && onSelect?.(hook.id, !hook.isSelected)}
@@ -136,28 +220,36 @@ export default function HookCard({
           <button
             onClick={(e) => { e.stopPropagation(); onSelect?.(hook.id, !hook.isSelected); }}
             className={cn(
-              "flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-150 mt-0.5",
+              "flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-200 mt-0.5",
               hook.isSelected
-                ? "bg-blue-600 border-blue-600 text-white"
-                : "border-slate-300 text-transparent hover:border-blue-400"
+                ? "bg-blue-600 border-blue-600 text-white scale-110 shadow-sm shadow-blue-200"
+                : "border-slate-300 text-transparent hover:border-blue-400 hover:scale-105"
             )}
           >
             {rank ? (
               <span className="text-xs font-bold">{rank}</span>
             ) : (
-              <Check className="w-3.5 h-3.5" />
+              <Check className={cn("w-3.5 h-3.5 transition-all duration-200", hook.isSelected ? "opacity-100 scale-100" : "opacity-0 scale-75")} />
             )}
           </button>
         )}
 
         <div className="flex-1 min-w-0">
-          {/* Format badge + viral badge + actions */}
+          {/* Format badge + viral badge + selected badge + actions */}
           <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className={cn("badge text-xs", formatColor)}>{hook.format}</span>
+              {hook.country && (
+                <span className="badge text-xs bg-indigo-100 text-indigo-700">{hook.country}</span>
+              )}
+              {hook.isSelected && (
+                <span className="badge text-xs bg-emerald-100 text-emerald-700 flex items-center gap-1 animate-in fade-in slide-in-from-left-1 duration-200">
+                  <Check className="w-3 h-3" /> Selected
+                </span>
+              )}
               {hook.wentViral && (
                 <span className="badge text-xs bg-orange-100 text-orange-700 flex items-center gap-1">
-                  <Flame className="w-3 h-3" /> Viral
+                  <Flame className="w-3 h-3" /> Validated
                 </span>
               )}
             </div>
@@ -194,11 +286,34 @@ export default function HookCard({
                       ? "text-orange-500 bg-orange-50 hover:bg-orange-100"
                       : "text-slate-400 hover:text-orange-500 hover:bg-orange-50"
                   )}
-                  title={hook.wentViral ? "Remove from validated" : "Mark as went viral"}
+                  title={hook.wentViral ? "Remove validated mark" : "Mark as validated"}
                 >
                   <Flame className="w-3.5 h-3.5" />
                 </button>
               )}
+              {onEdit && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditing(true); setExpanded(false); }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  title="Edit hook"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); setSuggestText(hookText); setShowSuggest((v) => !v); setEditing(false); }}
+                className={cn(
+                  "p-1.5 rounded-lg transition-colors",
+                  showSuggest
+                    ? "text-amber-600 bg-amber-50"
+                    : suggestions.length > 0
+                    ? "text-amber-500 bg-amber-50 hover:bg-amber-100"
+                    : "text-slate-400 hover:text-amber-500 hover:bg-amber-50"
+                )}
+                title={suggestions.length > 0 ? `${suggestions.length} suggestion${suggestions.length !== 1 ? "s" : ""}` : "Suggest a rewording"}
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+              </button>
               {onDelete && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(hook.id); }}
@@ -210,11 +325,131 @@ export default function HookCard({
             </div>
           </div>
 
+          {/* Inline edit form */}
+          {editing && (
+            <div className="space-y-3 mt-1 mb-2" onClick={(e) => e.stopPropagation()}>
+              <div>
+                <label className="label">Hook text *</label>
+                <textarea
+                  className="textarea font-medium"
+                  rows={2}
+                  value={editForm.hookText}
+                  onChange={(e) => setEditField("hookText", e.target.value)}
+                  
+                />
+              </div>
+              <div>
+                <label className="label">Format *</label>
+                <div className="flex gap-2 flex-wrap">
+                  {HOOK_FORMATS.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => {
+                        setEditField("format", f);
+                        if (f === "Long text") { setEditField("requiresAppFootage", false); setEditField("appFootageSource", ""); }
+                      }}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                        editForm.format === f
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                      )}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {campaign.name === "Ecosia" && (
+                <div>
+                  <label className="label">Market</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {ECOSIA_COUNTRIES.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setEditField("country", editForm.country === c ? "" : c)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                          editForm.country === c
+                            ? "bg-slate-900 text-white border-slate-900"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                        )}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!isLongText && (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 select-none w-fit cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.requiresAppFootage}
+                      onChange={(e) => { setEditField("requiresAppFootage", e.target.checked); if (!e.target.checked) setEditField("appFootageSource", ""); }}
+                      className="rounded border-slate-300 accent-slate-800"
+                    />
+                    <span className="text-sm font-medium text-slate-700">
+                      {editForm.format === "Greenscreen" ? "Requires greenscreen clip" : "Requires app footage"}
+                    </span>
+                  </label>
+                  {editForm.requiresAppFootage && (
+                    <input
+                      className="input"
+                      placeholder={editForm.format === "Greenscreen" ? "Link or description (e.g. Drive folder, 'ask @name')" : "Link or description"}
+                      value={editForm.appFootageSource}
+                      onChange={(e) => setEditField("appFootageSource", e.target.value)}
+                    />
+                  )}
+                </div>
+              )}
+              <div>
+                <label className="label">Caption *</label>
+                <textarea className="textarea" rows={3} value={editForm.caption} onChange={(e) => setEditField("caption", e.target.value)}  />
+              </div>
+              <div>
+                <label className="label">Reference video URL</label>
+                <input className="input" type="url" placeholder="https://..." value={editForm.referenceVideo} onChange={(e) => setEditField("referenceVideo", e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Recording notes</label>
+                <textarea className="textarea" rows={2} value={editForm.recordingNotes} onChange={(e) => setEditField("recordingNotes", e.target.value)}  />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={saveEdit} disabled={editSaving || !editForm.hookText} className="btn-primary flex items-center gap-1.5 text-sm px-4 py-2">
+                  {editSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  Save
+                </button>
+                <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+              </div>
+            </div>
+          )}
+
           {/* Hook text */}
-          <p className="font-semibold text-slate-900 text-sm leading-snug mb-2">{hook.hookText}</p>
+          {!editing && (
+            <div className="mb-2">
+              <p
+                className={cn("font-semibold text-slate-900 text-sm leading-snug select-text cursor-text", !textExpanded && "line-clamp-3")}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {hookText}
+              </p>
+              {hookText.length > 120 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setTextExpanded(!textExpanded); }}
+                  className="text-[11px] text-blue-500 hover:text-blue-700 font-medium mt-0.5 transition-colors"
+                >
+                  {textExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
+            </div>
+          )}
 
           {/* AI caption */}
-          {hook.aiCaption && (
+          {!editing && hook.aiCaption && (
             <div className="mt-2 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
               <div className="flex items-center gap-1 mb-1">
                 <Sparkles className="w-3 h-3 text-blue-500" />
@@ -224,20 +459,20 @@ export default function HookCard({
             </div>
           )}
 
-          {!hook.aiCaption && (
+          {!editing && !hook.aiCaption && (
             <p className="text-slate-500 text-xs leading-relaxed line-clamp-2 mb-1">{hook.caption}</p>
           )}
 
           {/* Expand toggle */}
-          <button
+          {!editing && <button
             onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
             className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors mt-1"
           >
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             {expanded ? "Less" : "Caption & notes"}
-          </button>
+          </button>}
 
-          {expanded && (
+          {!editing && expanded && (
             <div className="mt-2 space-y-2">
               <div className="p-3 bg-slate-50 rounded-xl">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Caption</div>
@@ -249,6 +484,89 @@ export default function HookCard({
                   <p className="text-sm text-amber-800 leading-relaxed">{hook.recordingNotes}</p>
                 </div>
               )}
+              {hook.referenceVideo && (
+                <a
+                  href={hook.referenceVideo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Reference Video</div>
+                    <p className="text-xs text-blue-500 truncate max-w-xs">{hook.referenceVideo}</p>
+                  </div>
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Suggest rewording form */}
+          {showSuggest && !editing && (
+            <form
+              onSubmit={submitSuggestion}
+              className="mt-2 p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-xs font-semibold text-amber-700 flex items-center gap-1.5">
+                <Wand2 className="w-3.5 h-3.5" /> Suggest a rewording
+              </div>
+              <textarea
+                value={suggestText}
+                onChange={(e) => setSuggestText(e.target.value)}
+                rows={3}
+                autoFocus
+                className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg outline-none focus:border-amber-400 bg-white resize-none font-medium"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={submittingSuggestion || !suggestText.trim() || suggestText.trim() === hookText}
+                  className="px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {submittingSuggestion ? "Sending…" : "Submit suggestion"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSuggest(false)}
+                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Pending suggestions */}
+          {suggestions.length > 0 && !editing && (
+            <div className="mt-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+              {suggestions.map((s) => (
+                <div key={s.id} className="p-3 rounded-xl border-l-4 border-amber-400 bg-amber-50">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
+                      <Wand2 className="w-3 h-3" /> Suggested by {s.suggestedBy}
+                    </span>
+                    {isAdmin && (
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => handleSuggestion(s.id, "accepted")}
+                          className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-emerald-500 hover:bg-emerald-600 text-white rounded-md transition-colors"
+                        >
+                          <Check className="w-3 h-3" /> Accept
+                        </button>
+                        <button
+                          onClick={() => handleSuggestion(s.id, "declined")}
+                          className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 rounded-md transition-colors"
+                        >
+                          <X className="w-3 h-3" /> Decline
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-800 leading-snug font-medium">{s.hookText}</p>
+                </div>
+              ))}
             </div>
           )}
 
@@ -304,13 +622,14 @@ export default function HookCard({
 
             {/* Submitter */}
             {showSubmitter && (
-              <div className="flex items-center gap-1.5 ml-1">
-                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center">
-                  <span className="text-xs font-medium text-slate-600">
-                    {hook.submitterName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <span className="text-xs text-slate-500">{hook.submitterName}</span>
+              <div className="flex items-center gap-1.5 ml-1" title={hook.submitterName}>
+                <UserAvatar
+                  name={hook.submitterName}
+                  avatarUrl={hook.submitterAvatarUrl ?? null}
+                  color="blue"
+                  size="xs"
+                />
+                <span className="text-xs text-slate-500">{hook.submitterName.split(" ")[0]}</span>
               </div>
             )}
           </div>

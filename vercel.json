@@ -1,4 +1,14 @@
 {
-  "buildCommand": "prisma generate && prisma db push && next build",
-  "framework": "nextjs"
+  "buildCommand": "prisma generate && prisma db push --accept-data-loss && next build",
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/creators/sync-sheet",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/creators/bulk-enrich",
+      "schedule": "0 9 * * *"
+    }
+  ]
 }

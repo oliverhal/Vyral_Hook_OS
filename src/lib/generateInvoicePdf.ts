@@ -131,8 +131,11 @@ export function generateInvoicePdf(d: InvoicePdfData) {
     doc.setFont("NotoSans", "bold");
     doc.setFontSize(10.5);
     setColor("text", COLORS.slate900);
-    doc.text(company || "—", x, cy);
-    cy += 14;
+    for (const w of doc.splitTextToSize(company || "—", colWidth)) {
+      doc.text(w, x, cy);
+      cy += 13;
+    }
+    cy += 1;
     doc.setFont("NotoSans", "normal");
     doc.setFontSize(9.5);
     setColor("text", COLORS.slate500);

@@ -199,36 +199,55 @@ export default function CreatorsContent() {
     setChatInput("");
     setChatMessages((prev) => [...prev, { role: "user", text: msg }]);
     setChatLoading(true);
-    const res = await fetch("/api/creators/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: msg }),
-    });
-    const data = await res.json();
-    setChatMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
-    setChatLoading(false);
+    try {
+      const res = await fetch("/api/creators/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg }),
+      });
+      const data = await res.json().catch(() => null);
+      const reply = res.ok && data?.reply
+        ? data.reply
+        : `⚠️ ${data?.error ?? `AI search failed (HTTP ${res.status}). Try again in a moment.`}`;
+      setChatMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+    } catch {
+      setChatMessages((prev) => [...prev, { role: "assistant", text: "⚠️ Couldn't reach the server. Check your connection and try again." }]);
+    } finally {
+      setChatLoading(false);
+    }
   }
 
   async function runEnrichAll() {
     setEnrichingAll(true);
     let totalEnriched = 0;
     let batch = 0;
-    while (true) {
-      batch++;
-      setImportResult(`Enriching… batch ${batch} (${totalEnriched} done so far)`);
-      // First batch resets all enrichedAt so everyone gets re-processed;
-      // subsequent batches use normal filter to work through the queue
-      const res = await fetch("/api/creators/bulk-enrich", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force: batch === 1 }),
-      });
-      const data = await res.json();
-      totalEnriched += data.enriched ?? 0;
-      if (!data.enriched || data.enriched === 0) break;
+    let failure: string | null = null;
+    try {
+      while (true) {
+        batch++;
+        setImportResult(`Enriching… batch ${batch} (${totalEnriched} done so far)`);
+        // First batch resets all enrichedAt so everyone gets re-processed;
+        // subsequent batches use normal filter to work through the queue
+        const res = await fetch("/api/creators/bulk-enrich", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ force: batch === 1 }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data) { failure = `batch ${batch} failed (HTTP ${res.status})`; break; }
+        totalEnriched += data.enriched ?? 0;
+        if (!data.enriched || data.enriched === 0) break;
+      }
+    } catch (e) {
+      failure = e instanceof Error ? e.message : "network error";
+    } finally {
+      setEnrichingAll(false);
     }
-    setImportResult(`✓ Enriched ${totalEnriched} creator profiles`);
-    setEnrichingAll(false);
+    setImportResult(
+      failure
+        ? `⚠️ Enrichment stopped: ${failure}. ${totalEnriched} profiles were enriched before it stopped. Pressing ✨ again starts a fresh run.`
+        : `✓ Enriched ${totalEnriched} creator profiles`
+    );
     fetchCreators();
   }
 

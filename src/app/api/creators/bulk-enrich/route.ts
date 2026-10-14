@@ -4,6 +4,10 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// A batch of 50 profiles takes ~1 minute (scrape + AI call each); be explicit
+// about the limit rather than relying on the platform default.
+export const maxDuration = 300;
+
 function extractHandle(raw: string | null, platform: "tiktok" | "instagram"): string | null {
   if (!raw) return null;
   const skip = ["n/a", "none", "/", ".", "don't have", "no tiktok", "not provided"];

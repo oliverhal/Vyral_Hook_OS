@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 
+// The prompt carries every creator (~70k tokens) so a reply takes 10-25s.
+export const maxDuration = 120;
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
@@ -43,13 +46,23 @@ Format your response clearly. For each recommended creator, include:
 
 Keep your response concise and actionable. If there are no strong matches, say so honestly.`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 1024,
-    system: systemPrompt,
-    messages: [{ role: "user", content: message }],
-  });
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      // 1024 was cutting long match lists off mid-entry
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: "user", content: message }],
+    });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
-  return NextResponse.json({ reply: text });
+    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const truncated = response.stop_reason === "max_tokens";
+    return NextResponse.json({
+      reply: truncated ? `${text}\n\n…(reply cut off — ask for fewer results or narrow the search)` : text,
+    });
+  } catch (e) {
+    console.error("creators/chat failed:", e);
+    const detail = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json({ error: `AI search failed: ${detail}` }, { status: 502 });
+  }
 }

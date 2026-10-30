@@ -23,5 +23,11 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
 
   const res = NextResponse.redirect(url);
   res.cookies.set(`oauth_state_${platform}`, state, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 600, path: "/" });
+  // ?loop=1 (YouTube): after each channel connects, go straight back to
+  // Google's channel picker so lots of brand accounts can be added in a row.
+  if (req.nextUrl.searchParams.get("loop") === "1") {
+    res.cookies.set("oauth_loop", req.cookies.get("oauth_loop")?.value ?? "0", { httpOnly: true, secure: true, sameSite: "lax", maxAge: 1800, path: "/" });  } else {
+    res.cookies.delete("oauth_loop");
+  }
   return res;
 }

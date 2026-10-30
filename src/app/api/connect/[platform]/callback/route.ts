@@ -16,14 +16,18 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
   const platform = params.platform as ConnectPlatform;
   if (!CONNECT_PLATFORMS.includes(platform)) return NextResponse.json({ error: "Unknown platform" }, { status: 404 });
 
+  const looped = req.cookies.get("oauth_loop")?.value;
   const back = (query: string) => {
     const res = NextResponse.redirect(new URL(`/comments?tab=accounts&${query}`, req.url));
     res.cookies.delete(`oauth_state_${platform}`);
+    res.cookies.delete("oauth_loop");
     return res;
   };
 
   const sp = req.nextUrl.searchParams;
   const code = sp.get("code");
+  // Cancelling the picker is how a "connect several" run ends.
+  if (looped !== undefined && sp.get("error") === "access_denied") return back(`connected=${looped}`);
   if (sp.get("error") || !code) return back(`error=${encodeURIComponent(sp.get("error_description") ?? sp.get("error") ?? "cancelled")}`);
   if (!sp.get("state") || sp.get("state") !== req.cookies.get(`oauth_state_${platform}`)?.value) {
     return back("error=Login+expired%2C+try+again");
@@ -56,6 +60,11 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
       create: { platform, externalId: ch.channelId, name: ch.title, handles, connectedBy, ...tokens },
       update: { name: ch.title, handles, connectedBy, lastError: null, ...tokens },
     });
+    if (looped !== undefined) {
+      const res = NextResponse.redirect(new URL(`/api/connect/${platform}?loop=1`, req.url));
+      res.cookies.set("oauth_loop", String(Number(looped) + 1), { httpOnly: true, secure: true, sameSite: "lax", maxAge: 1800, path: "/" });
+      return res;
+    }
     return back("connected=1");
   } catch (err) {
     return back(`error=${encodeURIComponent(err instanceof Error ? err.message : String(err))}`);

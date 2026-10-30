@@ -481,6 +481,7 @@ function AutoReplyPanel() {
     const sp = new URLSearchParams(window.location.search);
     if (sp.get("error")) return `Couldn't connect: ${sp.get("error")}`;
     if (sp.get("connected")) return `Connected ${sp.get("connected")} account(s). They start in draft-only mode.`;
+    if (sp.get("error") === "access_denied") return null;
     return null;
   });
 
@@ -548,6 +549,12 @@ function AutoReplyPanel() {
               <Icon className="w-4 h-4" /> {label} (not set up)
             </span>
           )
+        )}
+        {configured.youtube && (
+          <a href="/api/connect/youtube?loop=1" className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+            title="After each channel, Google's picker opens again. Click Cancel when you're done.">
+            <Youtube className="w-4 h-4 text-[#FF0000]" /> Connect several channels
+          </a>
         )}
         <button
           onClick={runNow}

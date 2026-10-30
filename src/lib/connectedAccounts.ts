@@ -17,9 +17,10 @@ export function redirectUri(platform: ConnectPlatform): string {
 
 /**
  * The connected Page/channel that posted a video, matched on its creator
- * handle. Trackers often identify a Facebook Page by its profile id (615…)
- * rather than the Page id the Graph API returns, so when nothing matches we
- * ask Facebook which connected Page owns the video and remember that handle.
+ * handle. Trackers often use a different id than the platform API returns
+ * (Facebook profile ids, old YouTube handles), so when nothing matches we
+ * ask the platform which connected account owns the video and remember
+ * that handle.
  */
 export async function accountForVideo(
   platform: string,
@@ -31,17 +32,28 @@ export async function accountForVideo(
     const match = await prisma.connectedAccount.findFirst({ where: { platform, handles: { has: handle } } });
     if (match) return match;
   }
-  if (platform !== "facebook" || !platformVideoId) return null;
+  if (!platformVideoId) return null;
 
-  for (const account of await prisma.connectedAccount.findMany({ where: { platform } })) {
-    const ownerId = await facebook.videoOwnerId(platformVideoId, decryptToken(account.accessToken)).catch(() => null);
-    if (ownerId !== account.externalId) continue;
-    if (handle && !account.handles.includes(handle)) {
-      return prisma.connectedAccount.update({ where: { id: account.id }, data: { handles: { push: handle } } });
+  const accounts = await prisma.connectedAccount.findMany({ where: { platform } });
+  let owner: ConnectedAccount | undefined;
+  if (platform === "youtube" && accounts.length > 0) {
+    // Any connected channel's token can look up who uploaded a public video.
+    const channelId = await youtube.videoChannelId(platformVideoId, await accessToken(accounts[0])).catch(() => null);
+    owner = accounts.find((a) => a.externalId === channelId);
+  } else if (platform === "facebook") {
+    for (const account of accounts) {
+      const ownerId = await facebook.videoOwnerId(platformVideoId, decryptToken(account.accessToken)).catch(() => null);
+      if (ownerId === account.externalId) {
+        owner = account;
+        break;
+      }
     }
-    return account;
   }
-  return null;
+  if (!owner) return null;
+  if (handle && !owner.handles.includes(handle)) {
+    return prisma.connectedAccount.update({ where: { id: owner.id }, data: { handles: { push: handle } } });
+  }
+  return owner;
 }
 
 /** A usable access token, refreshing YouTube's short-lived token when needed. */

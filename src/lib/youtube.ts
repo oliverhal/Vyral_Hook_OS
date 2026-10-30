@@ -81,6 +81,12 @@ export async function refreshAccessToken(refreshToken: string) {
   return { accessToken: t.access_token, expiresAt: new Date(Date.now() + (t.expires_in - 60) * 1000) };
 }
 
+/** Channel id that uploaded a video. */
+export async function videoChannelId(videoId: string, accessToken: string): Promise<string | null> {
+  const res = await yt<{ items: { snippet: { channelId: string } }[] }>("/videos", accessToken, { part: "snippet", id: videoId });
+  return res.items?.[0]?.snippet.channelId ?? null;
+}
+
 export async function listComments(videoId: string, accessToken: string): Promise<YtComment[]> {
   const res = await yt<{ items: any[] }>("/commentThreads", accessToken, {
     part: "snippet,replies",

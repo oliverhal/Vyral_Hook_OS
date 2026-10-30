@@ -9,6 +9,18 @@
     {
       "path": "/api/creators/bulk-enrich",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/comments/cron?step=videos",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/comments/cron?step=comments",
+      "schedule": "15 6-13 * * *"
+    },
+    {
+      "path": "/api/comments/cron?step=reply",
+      "schedule": "45 8-21 * * *"
     }
   ]
 }

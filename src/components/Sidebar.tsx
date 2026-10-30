@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen, CalendarDays, BarChart3, Receipt, UserSearch } from "lucide-react";
+import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen, CalendarDays, BarChart3, Receipt, UserSearch, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
 import UserAvatar from "./UserAvatar";
@@ -11,6 +11,7 @@ import UserAvatar from "./UserAvatar";
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+  { href: "/comments", label: "Comments", icon: MessageCircle },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/admin/team", label: "Team", icon: Users },

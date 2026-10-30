@@ -274,3 +274,109 @@ model InvoiceData {
   updatedBy String?
   updatedAt DateTime @updatedAt
 }
+
+// ── Comments inbox ───────────────────────────────────────────────────────────
+// One row per tracker project: a ViralDeck project, or a whole viral.app org
+// (source "viralapp", externalId "default"). Only enabled projects are synced;
+// replyBrief is the per-campaign angle the AI uses when suggesting replies.
+model CommentProject {
+  id           String         @id @default(cuid())
+  source       String         @default("viraldeck")
+  externalId   String
+  name         String
+  enabled      Boolean        @default(false)
+  replyBrief   String?
+  minViews     Int            @default(10000)
+  lookbackDays Int            @default(7)
+  lastSyncedAt DateTime?
+  videos       TrackedVideo[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([source, externalId])
+}
+
+model TrackedVideo {
+  id                 String         @id @default(cuid())
+  projectId          String
+  project            CommentProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  platform           String
+  platformVideoId    String
+  creatorHandle      String?
+  title              String?
+  url                String
+  thumbnailUrl       String?
+  publishedAt        DateTime?
+  views              Int            @default(0)
+  commentCount       Int            @default(0)
+  lastSeenAt         DateTime       @default(now())
+  commentsFetchedAt  DateTime?
+  commentsFetchError String?
+  comments           VideoComment[]
+  createdAt          DateTime       @default(now())
+
+  @@unique([platform, platformVideoId])
+  @@index([projectId, publishedAt])
+}
+
+model VideoComment {
+  id                String       @id @default(cuid())
+  videoId           String
+  video             TrackedVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  platformCommentId String
+  authorHandle      String?
+  text              String
+  language          String?
+  likeCount         Int          @default(0)
+  // viral.app counts replies but doesn't list them: 0 means nobody (creator
+  // included) has answered yet.
+  replyCount        Int          @default(0)
+  // Set when the replies were actually read (Apify): did the creator answer?
+  repliesChecked    Boolean      @default(false)
+  creatorReplied    Boolean      @default(false)
+  postedAt          DateTime?
+  shareUrl          String?
+  // high_intent | question | positive | negative | spam | other (null until triaged)
+  intent            String?
+  needsReply        Boolean      @default(false)
+  suggestedReply    String?
+  // Auto-reply bot (Facebook Pages / YouTube channels we're connected to)
+  botReplyText      String?
+  botReplyId        String?
+  botRepliedAt      DateTime?
+  botReplyError     String?
+  // open | sent_to_creator | replied | dismissed
+  status            String       @default("open")
+  statusUpdatedBy   String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([videoId, platformCommentId])
+  @@index([needsReply, status])
+}
+
+// A creator's Facebook Page or YouTube channel connected via OAuth so the bot
+// can read comments and reply as that account. Tokens are AES-GCM encrypted
+// with TOKEN_ENCRYPTION_KEY.
+model ConnectedAccount {
+  id              String    @id @default(cuid())
+  platform        String // facebook | youtube
+  externalId      String // Page id / channel id
+  name            String
+  // Lowercased handles/ids matched against TrackedVideo.creatorHandle
+  handles         String[]
+  accessToken     String
+  refreshToken    String?
+  tokenExpiresAt  DateTime?
+  autoReply       Boolean   @default(false)
+  // When true the bot only drafts (botReplyText) without posting.
+  dryRun          Boolean   @default(true)
+  maxPerVideoDay  Int       @default(5)
+  maxPerDay       Int       @default(30)
+  connectedBy     String?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([platform, externalId])
+}

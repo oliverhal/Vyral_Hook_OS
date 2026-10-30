@@ -23,10 +23,11 @@ export default function ValidatedPicker({ weekId, campaignId, selected, target, 
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
+    setLoading(true);
     fetch(`/api/campaigns/${campaignId}/validated`)
       .then((r) => r.json())
       .then((data) => { setLibrary(data); setLoading(false); });
-  }, [campaignId]);
+  }, [campaignId, selected.length]);
 
   const selectedIds = new Set(selected.map((s) => s.validatedHookId));
 

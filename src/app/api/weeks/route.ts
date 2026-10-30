@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { addDays, setHours, startOfDay } from "date-fns";
+import { startOfDay } from "date-fns";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -28,8 +28,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "campaignId and weekStart are required" }, { status: 400 });
   }
 
-  const start = startOfDay(new Date(weekStart));
-  const deadline = setHours(addDays(start, 7), 18);
+  // Snap to Tuesday
+  const raw = new Date(weekStart);
+  const day = raw.getUTCDay();
+  raw.setUTCDate(raw.getUTCDate() + (day === 2 ? 0 : (2 - day + 7) % 7));
+  raw.setUTCHours(0, 0, 0, 0);
+  const start = raw;
+  const deadline = start;
 
   const week = await prisma.week.create({
     data: {

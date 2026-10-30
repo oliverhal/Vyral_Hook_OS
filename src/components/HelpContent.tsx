@@ -12,7 +12,7 @@ const STEPS_SUBMIT = [
   { step: "1", text: "Go to Campaigns in the sidebar, then click the current week for your campaign." },
   { step: "2", text: 'Click "+ Submit experimental hook" on the left side to open the form.' },
   { step: "3", text: "Write your hook text — this is what appears on screen in the video. Keep it punchy." },
-  { step: "4", text: "Choose a format: Faceless, Snapchat, Face-to-camera, Voiceover, or Text-only." },
+  { step: "4", text: "Choose a format: Faceless, Snapchat, Talking head, Voiceover, or Text-only." },
   { step: "5", text: "Write a caption — this is what the creator posts alongside the video." },
   { step: "6", text: "Optionally add a reference video URL (something that inspired the hook) and recording notes." },
   { step: "7", text: "Hit Submit. Your hook appears on the right side immediately." },

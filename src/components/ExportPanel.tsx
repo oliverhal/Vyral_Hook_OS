@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Download, Check, FileSpreadsheet, ExternalLink } from "lucide-react";
+import { Copy, Download, Check, FileSpreadsheet, ExternalLink, Link as LinkIcon } from "lucide-react";
 import { generateSlackMessage, type ExportableHook } from "@/lib/utils";
 import type { Hook, Campaign, WeekValidatedHook } from "@/types";
 
@@ -9,6 +9,8 @@ interface ExportPanelProps {
   weekId: string;
   campaign: Campaign;
   weekStart: string;
+  newHooksSheetUrl?: string | null;
+  validatedSheetUrl?: string | null;
   selectedHooks: Hook[];
   selectedValidated?: WeekValidatedHook[];
 }
@@ -17,6 +19,8 @@ export default function ExportPanel({
   weekId,
   campaign,
   weekStart,
+  newHooksSheetUrl,
+  validatedSheetUrl,
   selectedHooks,
   selectedValidated = [],
 }: ExportPanelProps) {
@@ -34,6 +38,8 @@ export default function ExportPanel({
       aiCaption: h.aiCaption,
       caption: h.caption,
       recordingNotes: h.recordingNotes,
+      requiresAppFootage: h.requiresAppFootage,
+      appFootageSource: h.appFootageSource,
       selectedOrder: h.selectedOrder,
       source: "experimental" as const,
     })),
@@ -44,26 +50,38 @@ export default function ExportPanel({
       aiCaption: null,
       caption: wv.validatedHook.caption,
       recordingNotes: wv.validatedHook.recordingNotes,
+      requiresAppFootage: false,
+      appFootageSource: null,
       selectedOrder: (wv.selectedOrder ?? 0) + expCount,
       source: "validated" as const,
     })),
   ];
 
   const totalCount = exportable.length;
-  const slackMsg = generateSlackMessage(campaign.name, campaign.clientName, new Date(weekStart), exportable);
+  const slackMsg = generateSlackMessage(campaign.name, campaign.clientName, new Date(weekStart), exportable, newHooksSheetUrl, validatedSheetUrl);
 
   // Sheets-ready TSV (tab-separated, ready to paste straight into Google Sheets)
+  // Cells containing newlines or tabs must be quoted (RFC 4180) so they stay in one cell
+  function tsvCell(val: string): string {
+    if (val.includes("\n") || val.includes("\t") || val.includes('"')) {
+      return `"${val.replace(/"/g, '""')}"`;
+    }
+    return val;
+  }
+
   const sheetsRows = [...exportable].sort((a, b) => (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99));
-  const sheetsHeader = ["Hook (text on screen)", "Format", "Reference Vid:", "Captions (pls add your own hashtags)", "Notes:"];
+  const sheetsHeader = ["Hook (text on screen)", "Format", "Reference Vid:", "Captions (pls add your own hashtags)", "Notes:", "Requires App Footage", "App Footage Source"];
   const sheetsTSV = [
     ...(campaign.hashtags ? [campaign.hashtags] : []),
     sheetsHeader.join("\t"),
     ...sheetsRows.map((h) => [
-      h.hookText,
-      h.format,
-      h.referenceVideo ?? "",
-      h.aiCaption || h.caption,
-      h.recordingNotes ?? "",
+      tsvCell(h.hookText),
+      tsvCell(h.format),
+      tsvCell(h.referenceVideo ?? ""),
+      tsvCell(h.aiCaption || h.caption),
+      tsvCell(h.recordingNotes ?? ""),
+      h.requiresAppFootage ? "Yes" : "",
+      tsvCell(h.appFootageSource ?? ""),
     ].join("\t")),
   ].join("\n");
 
@@ -116,6 +134,30 @@ export default function ExportPanel({
       <div className="p-5">
         {activeTab === "sheets" ? (
           <div className="space-y-3">
+            {newHooksSheetUrl && (
+              <a
+                href={newHooksSheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                <LinkIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs font-semibold flex-1 truncate">Open new hooks sheet</span>
+                <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+              </a>
+            )}
+            {validatedSheetUrl && (
+              <a
+                href={validatedSheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-xl text-orange-700 hover:bg-orange-100 transition-colors"
+              >
+                <LinkIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="text-xs font-semibold flex-1 truncate">Open validated hooks sheet</span>
+                <ExternalLink className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+              </a>
+            )}
             <div className="text-sm text-slate-600 leading-relaxed bg-emerald-50 border border-emerald-100 rounded-xl p-3">
               <div className="flex items-center gap-1.5 font-semibold text-emerald-700 mb-1">
                 <FileSpreadsheet className="w-4 h-4" />

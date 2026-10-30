@@ -4,18 +4,24 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { format, isPast, formatDistanceToNow } from "date-fns";
-import { ArrowRight, Clock, Plus, TrendingUp, Users, Zap } from "lucide-react";
+import { ArrowRight, Archive, Clock, Plus, TrendingUp, Users, Zap } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange } from "@/lib/utils";
 import ContributionBoard from "./ContributionBoard";
-import type { Campaign, Week, Hook } from "@/types";
+import ShoutoutCard from "./ShoutoutBoard";
+import CampaignLogo from "./CampaignLogo";
+import UserAvatar from "./UserAvatar";
+import type { Campaign, Week, Hook, CampaignMember } from "@/types";
 
 interface CampaignWithCurrentWeek extends Campaign {
   weeks: (Week & { hooks: Hook[] })[];
+  members?: CampaignMember[];
+  campaignStartDate?: string | null;
 }
 
 interface ContributionData {
   data: { submitterName: string; weekStart: string; count: number; selected: number }[];
   members: string[];
+  memberDetails: { name: string; color: string; avatarUrl: string | null }[];
 }
 
 export default function DashboardContent() {
@@ -92,15 +98,7 @@ export default function DashboardContent() {
           </div>
           <div className="text-3xl font-bold text-slate-900">{totalHooksThisWeek}</div>
         </div>
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center">
-              <Users className="w-4 h-4 text-violet-600" />
-            </div>
-            <span className="text-sm font-medium text-slate-500">Selected</span>
-          </div>
-          <div className="text-3xl font-bold text-slate-900">{totalSelected}</div>
-        </div>
+        <ShoutoutCard />
       </div>
 
       {/* Current Week Campaigns */}
@@ -121,6 +119,12 @@ export default function DashboardContent() {
             ? Array.from(new Set(currentWeek.hooks.map((h) => (h as { submitterName?: string }).submitterName ?? "?")))
             : [];
 
+          const startDate = campaign.campaignStartDate ? new Date(campaign.campaignStartDate) : null;
+          const isFuture = startDate != null && startDate > new Date();
+          const daysUntilStart = isFuture
+            ? Math.ceil((startDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            : null;
+
           return (
             <div key={campaign.id} className={cn("card overflow-hidden group hover:shadow-md transition-shadow duration-200")}>
               {/* Color strip */}
@@ -131,16 +135,45 @@ export default function DashboardContent() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-lg">{campaign.emoji}</span>
+                      <CampaignLogo logoUrl={campaign.logoUrl} emoji={campaign.emoji} name={campaign.name} size="sm" />
                       <h3 className="font-bold text-slate-900 text-base">{campaign.name}</h3>
                     </div>
                     <p className="text-slate-400 text-xs">{campaign.clientName}</p>
                   </div>
-                  <span className={cn("badge text-xs", colors.badge)}>
-                    {currentWeek?.status ?? "no week"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("badge text-xs", colors.badge)}>
+                      {isFuture ? "upcoming" : (currentWeek?.status ?? "no week")}
+                    </span>
+                    <button
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
+                        setCampaigns(prev => prev.filter(c => c.id !== campaign.id));
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                      title="Archive campaign"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
+                {/* Future campaign countdown */}
+                {isFuture && startDate ? (
+                  <div className={cn("rounded-xl p-4 mb-3 text-center", `bg-${campaign.color}-50`)}>
+                    <p className={cn("text-3xl font-black mb-0.5", `text-${campaign.color}-600`)}>
+                      {daysUntilStart === 0 ? "Today!" : `${daysUntilStart}d`}
+                    </p>
+                    <p className="text-xs font-medium text-slate-500">
+                      {daysUntilStart === 0
+                        ? "Campaign starts today"
+                        : daysUntilStart === 1
+                        ? "Campaign starts tomorrow"
+                        : `until campaign starts · ${format(startDate, "d MMM yyyy")}`}
+                    </p>
+                  </div>
+                ) : (
+                  <>
                 {/* Week range */}
                 {currentWeek && (
                   <p className="text-xs text-slate-500 mb-3 font-medium">
@@ -174,24 +207,48 @@ export default function DashboardContent() {
                       : `Due ${formatDistanceToNow(deadline, { addSuffix: true })}`}
                   </div>
                 )}
+                </>
+                )}
 
-                {/* Submitters */}
-                {submitters.length > 0 && (
+                {/* Campaign team */}
+                {campaign.members && campaign.members.length > 0 ? (
+                  <div className="mb-4 space-y-1.5">
+                    {(() => {
+                      const owner = campaign.members!.find(m => m.role === "owner");
+                      const supporters = campaign.members!.filter(m => m.role === "supporter");
+                      return (
+                        <>
+                          {owner && (
+                            <div className="flex items-center gap-2">
+                              <UserAvatar name={owner.user.name} color={owner.user.color} avatarUrl={owner.user.avatarUrl} size="xs" />
+                              <span className="text-xs text-slate-700 font-medium">{owner.user.name}</span>
+                              <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full font-medium">owner</span>
+                            </div>
+                          )}
+                          {supporters.length > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex -space-x-1">
+                                {supporters.slice(0, 4).map(m => (
+                                  <UserAvatar key={m.id} name={m.user.name} color={m.user.color} avatarUrl={m.user.avatarUrl} size="xs" />
+                                ))}
+                              </div>
+                              <span className="text-xs text-slate-400">
+                                {supporters.length === 1 ? supporters[0].user.name : `${supporters.length} supporting`}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                ) : submitters.length > 0 && (
                   <div className="flex items-center gap-1.5 mb-4">
                     {submitters.map((name) => (
-                      <div
-                        key={name}
-                        className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center"
-                        title={name}
-                      >
-                        <span className="text-xs font-semibold text-slate-600">
-                          {name.charAt(0)}
-                        </span>
+                      <div key={name} className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center" title={name}>
+                        <span className="text-xs font-semibold text-slate-600">{name.charAt(0)}</span>
                       </div>
                     ))}
-                    <span className="text-xs text-slate-400 ml-1">
-                      {submitters.length} contributor{submitters.length !== 1 ? "s" : ""}
-                    </span>
+                    <span className="text-xs text-slate-400 ml-1">{submitters.length} contributor{submitters.length !== 1 ? "s" : ""}</span>
                   </div>
                 )}
 
@@ -240,7 +297,7 @@ export default function DashboardContent() {
 
       {/* Contribution Board */}
       {contributions && contributions.members.length > 0 && (
-        <div className="bg-[#0d1117] rounded-2xl p-6 mb-8">
+        <div className="mb-6 bg-[#0d1117] rounded-2xl p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-white font-bold text-base">Team Contributions</h2>
@@ -257,6 +314,7 @@ export default function DashboardContent() {
           />
         </div>
       )}
+
     </div>
   );
 }

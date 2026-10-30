@@ -11,7 +11,7 @@ interface BulkRow {
   recordingNotes?: string;
 }
 
-const VALID_FORMATS = ["Faceless", "Snapchat", "Face-to-camera", "Voiceover", "Text-only"];
+const VALID_FORMATS = ["Faceless", "Snapchat", "Talking head", "Voiceover", "Text-only"];
 
 function normalizeFormat(input?: string): string {
   if (!input) return "Faceless";

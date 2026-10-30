@@ -4,6 +4,14 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
   },
   output: 'standalone',
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.public.blob.vercel-storage.com',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

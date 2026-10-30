@@ -1,6 +1,7 @@
 import type { ConnectedAccount } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptToken, encryptToken } from "@/lib/tokenCrypto";
+import * as facebook from "@/lib/facebook";
 import * as youtube from "@/lib/youtube";
 
 export const CONNECT_PLATFORMS = ["facebook", "youtube"] as const;
@@ -14,11 +15,33 @@ export function redirectUri(platform: ConnectPlatform): string {
   return `${process.env.NEXTAUTH_URL}/api/connect/${platform}/callback`;
 }
 
-/** The connected Page/channel that posted a video, matched on its creator handle. */
-export async function accountForVideo(platform: string, creatorHandle: string | null): Promise<ConnectedAccount | null> {
+/**
+ * The connected Page/channel that posted a video, matched on its creator
+ * handle. Trackers often identify a Facebook Page by its profile id (615…)
+ * rather than the Page id the Graph API returns, so when nothing matches we
+ * ask Facebook which connected Page owns the video and remember that handle.
+ */
+export async function accountForVideo(
+  platform: string,
+  creatorHandle: string | null,
+  platformVideoId?: string
+): Promise<ConnectedAccount | null> {
   const handle = normalizeHandle(creatorHandle);
-  if (!handle) return null;
-  return prisma.connectedAccount.findFirst({ where: { platform, handles: { has: handle } } });
+  if (handle) {
+    const match = await prisma.connectedAccount.findFirst({ where: { platform, handles: { has: handle } } });
+    if (match) return match;
+  }
+  if (platform !== "facebook" || !platformVideoId) return null;
+
+  for (const account of await prisma.connectedAccount.findMany({ where: { platform } })) {
+    const ownerId = await facebook.videoOwnerId(platformVideoId, decryptToken(account.accessToken)).catch(() => null);
+    if (ownerId !== account.externalId) continue;
+    if (handle && !account.handles.includes(handle)) {
+      return prisma.connectedAccount.update({ where: { id: account.id }, data: { handles: { push: handle } } });
+    }
+    return account;
+  }
+  return null;
 }
 
 /** A usable access token, refreshing YouTube's short-lived token when needed. */

@@ -90,6 +90,12 @@ export async function pagesFromCode(code: string, redirectUri: string) {
   return Array.from(pages.values()).map((p) => ({ ...p, access_token: p.access_token! }));
 }
 
+/** Id of the Page that posted a video, or null if this Page token can't see it. */
+export async function videoOwnerId(videoId: string, pageToken: string): Promise<string | null> {
+  const res = await graph<{ from?: { id: string } }>(`/${videoId}`, { fields: "from{id}", access_token: pageToken });
+  return res.from?.id ?? null;
+}
+
 export async function listComments(videoId: string, pageToken: string, limit = 100): Promise<FbComment[]> {
   const res = await graph<{ data: any[] }>(`/${videoId}/comments`, {
     fields: "id,message,from{id,name},created_time,like_count,comment_count,comments.limit(25){from{id}}",

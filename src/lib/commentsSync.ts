@@ -148,7 +148,7 @@ async function commentsForVideo(
   const creatorKeys = new Set([normalizeHandle(video.creatorHandle)].filter(Boolean));
 
   if (video.platform === "facebook" || video.platform === "youtube") {
-    const account = await accountForVideo(video.platform, video.creatorHandle);
+    const account = await accountForVideo(video.platform, video.creatorHandle, video.platformVideoId);
     if (account) {
       creatorKeys.add(account.externalId.toLowerCase());
       const token = await accessToken(account);

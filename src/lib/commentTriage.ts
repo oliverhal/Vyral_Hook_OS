@@ -31,7 +31,7 @@ interface VideoContext {
 const CTA: Record<string, string> = {
   tiktok: 'point to "link in bio" or searching the app in the app store.',
   instagram: 'point to "link in bio" or searching the app in the app store.',
-  youtube: "point to searching the app in the app store (or the link in the description) — never say \"link in bio\".",
+  youtube: "point to searching the app in the app store — never mention a link in the bio or description (many videos have none).",
   facebook: "point to searching the app in the app store — never say \"link in bio\".",
 };
 

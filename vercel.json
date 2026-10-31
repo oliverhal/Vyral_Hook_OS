@@ -16,7 +16,7 @@
     },
     {
       "path": "/api/comments/cron?step=comments",
-      "schedule": "15 6-13 * * *"
+      "schedule": "15 6-11,16-21 * * *"
     },
     {
       "path": "/api/comments/cron?step=reply",

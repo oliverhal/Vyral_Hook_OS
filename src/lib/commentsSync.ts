@@ -14,7 +14,8 @@ import * as youtube from "@/lib/youtube";
 export const TRACKED_PLATFORMS = ["facebook", "youtube"];
 
 const COMMENT_PAGES_PER_VIDEO = 3; // ~45–90 comments, 9 viral.app credits
-const REFETCH_AFTER_HOURS = 20;
+// Comments are checked twice a day (morning and evening cron batches).
+const REFETCH_AFTER_HOURS = 8;
 
 function appName(projectName: string): string {
   return projectName.replace(/[^\w\s.&-]/g, "").trim();

@@ -71,7 +71,7 @@ export async function pagesFromCode(code: string, redirectUri: string) {
       const res: Response = await fetch(url, { cache: "no-store" });
       const body: any = await res.json();
       if (!res.ok || body.error) throw new Error(`Facebook API error ${res.status}: ${body.error?.message ?? res.statusText}`);
-      for (const p of body.data ?? []) if (p.access_token && !pages.has(p.id)) pages.set(p.id, p);
+      for (const p of body.data ?? []) if (!pages.get(p.id)?.access_token) pages.set(p.id, p);
       next = body.paging?.next ?? null;
     }
   };
@@ -87,7 +87,17 @@ export async function pagesFromCode(code: string, redirectUri: string) {
     await collect(`/${b.id}/client_pages`).catch(() => undefined);
   }
 
-  return Array.from(pages.values()).map((p) => ({ ...p, access_token: p.access_token! }));
+  // Business-owned Pages come back from owned_pages/client_pages without a
+  // token; ask for each Page's token directly with the user token.
+  for (const p of Array.from(pages.values())) {
+    if (p.access_token) continue;
+    const full = await graph<Page>(`/${p.id}`, { fields: "id,name,access_token,username", access_token: long.access_token }).catch(() => null);
+    if (full?.access_token) pages.set(p.id, full);
+  }
+
+  return Array.from(pages.values())
+    .filter((p) => p.access_token)
+    .map((p) => ({ ...p, access_token: p.access_token! }));
 }
 
 /** Id of the Page that posted a video, or null if this Page token can't see it. */

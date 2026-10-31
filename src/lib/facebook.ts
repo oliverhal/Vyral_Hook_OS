@@ -87,8 +87,19 @@ export async function pagesFromCode(code: string, redirectUri: string) {
     await collect(`/${b.id}/client_pages`).catch(() => undefined);
   }
 
-  // Business-owned Pages come back from owned_pages/client_pages without a
-  // token; ask for each Page's token directly with the user token.
+  // Every Page granted in the login dialog, from the token's granular scopes —
+  // /me/accounts leaves out Pages reached only through a business.
+  const debug = await graph<{ data: { granular_scopes?: { scope: string; target_ids?: string[] }[] } }>("/debug_token", {
+    input_token: long.access_token,
+    access_token: `${id}|${secret}`,
+  }).catch(() => null);
+  for (const g of debug?.data.granular_scopes ?? []) {
+    if (!g.scope.startsWith("pages_")) continue;
+    for (const pageId of g.target_ids ?? []) if (!pages.has(pageId)) pages.set(pageId, { id: pageId, name: pageId });
+  }
+
+  // Business-owned Pages come back without a token; ask for each Page's
+  // token directly with the user token.
   for (const p of Array.from(pages.values())) {
     if (p.access_token) continue;
     const full = await graph<Page>(`/${p.id}`, { fields: "id,name,access_token,username", access_token: long.access_token }).catch(() => null);

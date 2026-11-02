@@ -1,19 +1,16 @@
-import type { CommentProject, TrackedVideo } from "@prisma/client";
+import type { CommentProject, ConnectedAccount, TrackedVideo } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import * as viraldeck from "@/lib/viraldeck";
 import * as viralApp from "@/lib/viralApp";
 import { triageComments } from "@/lib/commentTriage";
-import { apifyEnabled, scrapeComments, type ScrapedComment } from "@/lib/apify";
 import { accessToken, accountForVideo, normalizeHandle } from "@/lib/connectedAccounts";
 import * as facebook from "@/lib/facebook";
 import * as youtube from "@/lib/youtube";
 
-// Only Facebook Pages and YouTube channels for now: those are the accounts
-// the bot can reply as. Add "tiktok" / "instagram" to bring them back into
-// the inbox (Apify reply detection for them is already wired up).
+// Facebook and YouTube: the platforms the bot can reply on (as the posting
+// Page/channel, or on YouTube as the campaign's brand channel).
 export const TRACKED_PLATFORMS = ["facebook", "youtube"];
 
-const COMMENT_PAGES_PER_VIDEO = 3; // ~45–90 comments, 9 viral.app credits
 // Comments are checked twice a day (morning and evening cron batches).
 const REFETCH_AFTER_HOURS = 8;
 
@@ -114,79 +111,69 @@ async function syncProjectVideos(project: CommentProject): Promise<number> {
   return tracked.length;
 }
 
-type FetchedComment = ScrapedComment & { repliesChecked: boolean };
+type FetchedComment = {
+  id: string;
+  authorHandle: string | null;
+  text: string;
+  likeCount: number;
+  replyCount: number;
+  postedAt: string | null;
+  replyAuthors: string[];
+};
 
-function fromViralApp(c: viralApp.LiveComment): FetchedComment | null {
-  if (!c.platform_comment_id || !c.comment_text) return null;
-  if (c.comment_type && c.comment_type !== "top_level") return null;
-  return {
-    id: c.platform_comment_id,
-    authorHandle: c.commenter_username,
-    text: c.comment_text,
-    language: c.comment_language,
-    likeCount: c.like_count ?? 0,
-    replyCount: c.reply_count ?? 0,
-    postedAt: c.commented_at,
-    shareUrl: c.share_url,
-    replyAuthors: [],
-    repliesChecked: false,
-  };
+interface VideoSource {
+  comments: FetchedComment[];
+  // Lowercased ids whose replies count as "already answered".
+  answeredBy: Set<string>;
+  replyAccount: ConnectedAccount;
+  asBrand: boolean;
 }
 
 /**
- * Comments for one video from the best source available:
- *  - Facebook/YouTube via the official API when the Page/channel is connected
- *    (same comment ids the bot replies to, and real reply authors)
- *  - TikTok/Instagram via the Apify batch scraped up front
- *  - otherwise viral.app, which only counts replies
- * creatorKeys are the lowercased ids/handles that identify the creator among
- * reply authors.
+ * Comments for one video, read with the account the bot will reply as:
+ *  - the Page/channel that posted it, when it's connected (replies as the
+ *    creator), or
+ *  - for YouTube, the campaign's brand channel (replies openly as the brand;
+ *    YouTube lets any channel reply under any public video).
+ * Returns null when nobody can reply, so we don't spend API calls on it.
  */
-async function commentsForVideo(
-  video: TrackedVideo,
-  scraped: Map<string, ScrapedComment[]>
-): Promise<{ comments: FetchedComment[]; creatorKeys: Set<string> }> {
-  const creatorKeys = new Set([normalizeHandle(video.creatorHandle)].filter(Boolean));
-
-  if (video.platform === "facebook" || video.platform === "youtube") {
-    const account = await accountForVideo(video.platform, video.creatorHandle, video.platformVideoId);
-    if (account) {
-      creatorKeys.add(account.externalId.toLowerCase());
-      const token = await accessToken(account);
-      const official =
-        video.platform === "facebook"
-          ? (await facebook.listComments(video.platformVideoId, token)).map((c) => ({
-              id: c.id, authorHandle: c.authorName, text: c.text, likeCount: c.likeCount, replyCount: c.replyCount,
-              postedAt: c.postedAt, replyAuthors: c.replyAuthorIds.map((a) => a.toLowerCase()),
-            }))
-          : (await youtube.listComments(video.platformVideoId, token)).map((c) => ({
-              id: c.id, authorHandle: c.authorHandle, text: c.text, likeCount: c.likeCount, replyCount: c.replyCount,
-              postedAt: c.postedAt, replyAuthors: c.replyAuthorChannelIds.map((a) => a.toLowerCase()),
-            }));
-      return {
-        comments: official.map((c) => ({ ...c, language: null, shareUrl: null, repliesChecked: true })),
-        creatorKeys,
-      };
-    }
+async function sourceForVideo(video: TrackedVideo & { project: CommentProject }): Promise<VideoSource | null> {
+  const owner = await accountForVideo(video.platform, video.creatorHandle, video.platformVideoId);
+  if (owner) {
+    const token = await accessToken(owner);
+    const comments =
+      video.platform === "facebook"
+        ? (await facebook.listComments(video.platformVideoId, token)).map((c) => ({
+            id: c.id, authorHandle: c.authorName, text: c.text, likeCount: c.likeCount, replyCount: c.replyCount,
+            postedAt: c.postedAt, replyAuthors: c.replyAuthorIds.map((a) => a.toLowerCase()),
+          }))
+        : (await youtube.listComments(video.platformVideoId, token)).map((c) => ({
+            id: c.id, authorHandle: c.authorHandle, text: c.text, likeCount: c.likeCount, replyCount: c.replyCount,
+            postedAt: c.postedAt, replyAuthors: c.replyAuthorChannelIds.map((a) => a.toLowerCase()),
+          }));
+    const answeredBy = new Set([owner.externalId.toLowerCase(), normalizeHandle(video.creatorHandle)].filter(Boolean));
+    return { comments, answeredBy, replyAccount: owner, asBrand: false };
   }
 
-  const fromApify = scraped.get(`${video.platform}:${video.platformVideoId}`);
-  if (fromApify) return { comments: fromApify.map((c) => ({ ...c, repliesChecked: true })), creatorKeys };
-
-  const live = await viralApp.fetchComments(video.platform, video.platformVideoId, COMMENT_PAGES_PER_VIDEO);
-  return { comments: live.map(fromViralApp).filter((c): c is FetchedComment => c !== null), creatorKeys };
+  if (video.platform !== "youtube" || !video.project.brandYoutubeAccountId) return null;
+  const brand = await prisma.connectedAccount.findUnique({ where: { id: video.project.brandYoutubeAccountId } });
+  if (!brand) return null;
+  const token = await accessToken(brand);
+  const creatorChannel = await youtube.videoChannelId(video.platformVideoId, token).catch(() => null);
+  const comments = (await youtube.listComments(video.platformVideoId, token)).map((c) => ({
+    id: c.id, authorHandle: c.authorHandle, text: c.text, likeCount: c.likeCount, replyCount: c.replyCount,
+    postedAt: c.postedAt, replyAuthors: c.replyAuthorChannelIds.map((a) => a.toLowerCase()),
+  }));
+  // Skip comments the creator or the brand has already answered.
+  const answeredBy = new Set([brand.externalId.toLowerCase(), creatorChannel?.toLowerCase() ?? ""].filter(Boolean));
+  return { comments, answeredBy, replyAccount: brand, asBrand: true };
 }
 
 /**
  * Fetch comments for the most-viewed videos that haven't been checked in the
  * last REFETCH_AFTER_HOURS, then triage any new comments. Processes at most
  * maxVideos per call so it fits inside one serverless invocation; the cron
- * runs several times a morning to work through the queue.
- *
- * TikTok/Instagram go through Apify when APIFY_TOKEN is set, because those
- * scrapers list reply authors — so we know whether the creator answered and
- * can clear the comment from the inbox automatically. Everything else (and
- * any Apify failure) falls back to viral.app, which only counts replies.
+ * runs in morning and evening batches to work through the queue.
  */
 export async function fetchAndTriage(maxVideos: number) {
   const staleBefore = new Date(Date.now() - REFETCH_AFTER_HOURS * 60 * 60 * 1000);
@@ -202,34 +189,38 @@ export async function fetchAndTriage(maxVideos: number) {
     take: maxVideos,
   });
 
-  const scraped = new Map<string, ScrapedComment[]>();
-  if (apifyEnabled()) {
-    for (const platform of ["tiktok", "instagram"] as const) {
-      const urls = videos.filter((v) => v.platform === platform).map((v) => v.url);
-      try {
-        for (const [key, comments] of Array.from((await scrapeComments(platform, urls)).entries())) {
-          scraped.set(`${platform}:${key}`, comments);
-        }
-      } catch (err) {
-        console.error(`Apify ${platform} scrape failed, falling back to viral.app`, err);
-      }
-    }
-  }
-
   const summary: { video: string; comments: number; triaged: number; error?: string }[] = [];
 
   for (const video of videos) {
     try {
-      const { comments, creatorKeys } = await commentsForVideo(video, scraped);
+      const source = await sourceForVideo(video);
+      if (!source) {
+        await prisma.trackedVideo.update({
+          where: { id: video.id },
+          data: { commentsFetchedAt: new Date(), commentsFetchError: null, replyAccountId: null },
+        });
+        summary.push({ video: video.url, comments: 0, triaged: 0, error: "no connected account or brand channel" });
+        continue;
+      }
+      const { comments, answeredBy, replyAccount, asBrand } = source;
+
+      // Switching between creator voice and brand voice: re-draft replies
+      // that haven't been posted yet.
+      if (video.replyAsBrand !== asBrand) {
+        await prisma.videoComment.updateMany({
+          where: { videoId: video.id, botReplyId: null },
+          data: { intent: null, needsReply: false, suggestedReply: null, botReplyText: null },
+        });
+      }
+      await prisma.trackedVideo.update({
+        where: { id: video.id },
+        data: { replyAccountId: replyAccount.id, replyAsBrand: asBrand },
+      });
 
       for (const c of comments) {
         if (!c.text) continue;
-        const creatorReplied = c.repliesChecked && c.replyAuthors.some((a) => creatorKeys.has(a));
-        const fresh = {
-          likeCount: c.likeCount,
-          replyCount: c.replyCount,
-          ...(c.repliesChecked && { repliesChecked: true, creatorReplied }),
-        };
+        const creatorReplied = c.replyAuthors.some((a) => answeredBy.has(a));
+        const fresh = { likeCount: c.likeCount, replyCount: c.replyCount, repliesChecked: true, creatorReplied };
         await prisma.videoComment.upsert({
           where: { videoId_platformCommentId: { videoId: video.id, platformCommentId: c.id } },
           create: {
@@ -237,9 +228,7 @@ export async function fetchAndTriage(maxVideos: number) {
             platformCommentId: c.id,
             authorHandle: c.authorHandle,
             text: c.text,
-            language: c.language,
             postedAt: c.postedAt ? new Date(c.postedAt) : null,
-            shareUrl: c.shareUrl,
             ...fresh,
           },
           update: fresh,
@@ -256,6 +245,7 @@ export async function fetchAndTriage(maxVideos: number) {
             platform: video.platform,
             creatorHandle: video.creatorHandle,
             videoTitle: video.title,
+            asBrand,
           },
           untriaged.map((c) => ({ id: c.id, text: c.text, language: c.language, replyCount: c.replyCount }))
         );
@@ -268,7 +258,7 @@ export async function fetchAndTriage(maxVideos: number) {
         triaged = results.length;
       }
 
-      // The creator answered on their own — take it off the VA's list.
+      // Already answered by the creator (or the brand) — nothing to post.
       await prisma.videoComment.updateMany({
         where: { videoId: video.id, creatorReplied: true, status: "open" },
         data: { status: "replied", statusUpdatedBy: "creator (auto)" },

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { accessToken, normalizeHandle } from "@/lib/connectedAccounts";
+import { accessToken } from "@/lib/connectedAccounts";
 import * as facebook from "@/lib/facebook";
 import * as youtube from "@/lib/youtube";
 
@@ -29,9 +29,6 @@ export async function runAutoReplies() {
 
   for (const account of accounts) {
     if (budget <= 0) break;
-    const handles = new Set(account.handles);
-    const mine = (h: string | null) => handles.has(normalizeHandle(h));
-
     const candidates = (
       await prisma.videoComment.findMany({
         where: {
@@ -43,20 +40,21 @@ export async function runAutoReplies() {
           botReplyId: null,
           botReplyError: null,
           ...(account.dryRun && { botReplyText: null }),
-          video: { platform: account.platform, project: { enabled: true } },
+          // The comment sync assigns each video the account that replies on it:
+          // the Page/channel that posted it, or the campaign's brand channel.
+          video: { replyAccountId: account.id, project: { enabled: true } },
         },
-        include: { video: { select: { id: true, creatorHandle: true } } },
         orderBy: [{ likeCount: "desc" }, { createdAt: "desc" }],
         take: 200,
       })
-    ).filter((c) => mine(c.video.creatorHandle));
+    );
 
     const recent = (
       await prisma.videoComment.findMany({
-        where: { botRepliedAt: { gte: since }, video: { platform: account.platform } },
-        select: { videoId: true, botReplyText: true, video: { select: { creatorHandle: true } } },
+        where: { botRepliedAt: { gte: since }, video: { replyAccountId: account.id } },
+        select: { videoId: true, botReplyText: true },
       })
-    ).filter((c) => mine(c.video.creatorHandle));
+    );
     let postedToday = recent.length;
     const perVideo = new Map<string, number>();
     const usedTexts = new Set<string>();

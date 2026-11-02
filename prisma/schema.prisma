@@ -288,6 +288,9 @@ model CommentProject {
   replyBrief   String?
   minViews     Int            @default(10000)
   lookbackDays Int            @default(7)
+  // Brand YouTube channel (ConnectedAccount id) that replies, openly as the
+  // brand, under this campaign's videos posted by accounts we don't manage.
+  brandYoutubeAccountId String?
   lastSyncedAt DateTime?
   videos       TrackedVideo[]
   createdAt    DateTime       @default(now())
@@ -312,6 +315,10 @@ model TrackedVideo {
   lastSeenAt         DateTime       @default(now())
   commentsFetchedAt  DateTime?
   commentsFetchError String?
+  // Account the bot replies as (ConnectedAccount id), resolved each fetch:
+  // the posting Page/channel, or the campaign's brand channel.
+  replyAccountId     String?
+  replyAsBrand       Boolean        @default(false)
   comments           VideoComment[]
   createdAt          DateTime       @default(now())
 

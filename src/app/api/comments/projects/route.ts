@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, enabled, replyBrief, minViews, lookbackDays } = await req.json();
+  const { id, enabled, replyBrief, minViews, lookbackDays, brandYoutubeAccountId } = await req.json();
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
   const project = await prisma.commentProject.update({
@@ -36,6 +36,7 @@ export async function PATCH(req: NextRequest) {
       ...(typeof replyBrief === "string" && { replyBrief: replyBrief.trim() || null }),
       ...(Number.isInteger(minViews) && minViews > 0 && { minViews }),
       ...(Number.isInteger(lookbackDays) && lookbackDays > 0 && { lookbackDays }),
+      ...(brandYoutubeAccountId !== undefined && { brandYoutubeAccountId: brandYoutubeAccountId || null }),
     },
   });
   return NextResponse.json(project);

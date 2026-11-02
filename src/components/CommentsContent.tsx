@@ -14,9 +14,12 @@ interface Project {
   replyBrief: string | null;
   minViews: number;
   lookbackDays: number;
+  brandYoutubeAccountId: string | null;
   lastSyncedAt: string | null;
   _count: { videos: number };
 }
+
+type ChannelOption = { id: string; name: string };
 
 type Tab = "autoreply" | "settings";
 
@@ -38,6 +41,14 @@ export default function CommentsContent() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const [youtubeChannels, setYoutubeChannels] = useState<ChannelOption[]>([]);
+  useEffect(() => {
+    if (tab !== "settings") return;
+    fetch("/api/comments/accounts")
+      .then((r) => (r.ok ? r.json() : { accounts: [] }))
+      .then((d) => setYoutubeChannels(d.accounts.filter((a: { platform: string }) => a.platform === "youtube")));
+  }, [tab]);
 
   const loadProjects = useCallback(async () => {
     const res = await fetch("/api/comments/projects");
@@ -137,10 +148,10 @@ export default function CommentsContent() {
       {tab === "settings" && (
         <div className="space-y-3">
           <p className="text-sm text-slate-500">
-            Switch on the campaigns to track. The brief is the angle replies should take, e.g. &ldquo;i&apos;ve been using ecosia for agesss and i stg i&apos;ve planted a forest already lol&rdquo;.
+            Switch on the campaigns to track. The brief is the angle replies should take and anything they must never claim. Pick a brand YouTube channel to also reply, openly as the brand, under creators&apos; videos we don&apos;t manage.
           </p>
           {projects.map((p) => (
-            <ProjectRow key={p.id} project={p} onSaved={loadProjects} />
+            <ProjectRow key={p.id} project={p} channels={youtubeChannels} onSaved={loadProjects} />
           ))}
         </div>
       )}
@@ -350,7 +361,7 @@ function compactThreshold(projects: Project[]) {
   return Number.isFinite(min) ? `${compact(min)} views` : "the threshold";
 }
 
-function ProjectRow({ project, onSaved }: { project: Project; onSaved: () => void }) {
+function ProjectRow({ project, channels, onSaved }: { project: Project; channels: ChannelOption[]; onSaved: () => void }) {
   const [brief, setBrief] = useState(project.replyBrief ?? "");
   const [minViews, setMinViews] = useState(project.minViews);
   const [lookbackDays, setLookbackDays] = useState(project.lookbackDays);
@@ -408,6 +419,17 @@ function ProjectRow({ project, onSaved }: { project: Project; onSaved: () => voi
             Last N days
             <input type="number" value={lookbackDays} onChange={(e) => setLookbackDays(Number(e.target.value))}
               className="mt-1 w-24 text-sm rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </label>
+          <label className="text-xs font-medium text-slate-600">
+            Brand YouTube channel
+            <select
+              value={project.brandYoutubeAccountId ?? ""}
+              onChange={(e) => save({ brandYoutubeAccountId: e.target.value })}
+              className="mt-1 block w-56 text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">None (creator accounts only)</option>
+              {channels.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
           </label>
           <button
             onClick={() => save({ replyBrief: brief, minViews, lookbackDays })}

@@ -47,13 +47,13 @@ function prompt(ctx: VideoContext, batch: TriageInput[]): string {
 - Never pretend to be the creator or a regular user, and never claim personal experience ("i've been using it for ages")
 - Same language as the comment (Spanish comment → Spanish reply)
 - Short: one sentence, max ~20 words, 0–1 emoji
-- ${CTA[ctx.platform] ?? CTA.tiktok} Never paste URLs
+- ${CTA[ctx.platform] ?? CTA.tiktok} Never paste URLs, except a link the campaign brief gives for that exact situation (copy it exactly)
 - Never invent features, prices, stats or claims beyond the brief
 - Example tone: "hey it's ecosia 👋 search ecosia in the app store, every search helps plant trees 🌳"`
     : `- Written by the creator, first person, casual, mostly lowercase, like a real person typing on their phone
 - Same language and slang as the comment (Spanish comment → Spanish reply)
 - Short: one sentence, max ~20 words, 0–1 emoji
-- Mention ${ctx.appName} by name when it fits; ${CTA[ctx.platform] ?? CTA.tiktok} Never paste URLs
+- Mention ${ctx.appName} by name when it fits; ${CTA[ctx.platform] ?? CTA.tiktok} Never paste URLs, except a link the campaign brief gives for that exact situation (copy it exactly)
 - Never invent features, prices, stats or claims beyond the brief
 - Example tone: "i've been using ecosia for agesss and i stg i've planted a forest already lol"`;
 

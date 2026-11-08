@@ -43,7 +43,12 @@ export async function runAutoReplies() {
           ...(account.dryRun && { botReplyText: null }),
           // The comment sync assigns each video the account that replies on it:
           // the Page/channel that posted it, or the campaign's brand channel.
-          video: { replyAccountId: account.id, project: { enabled: true } },
+          video: {
+            replyAccountId: account.id,
+            project: { enabled: true },
+            // Brand replies only while the campaign still has this brand channel picked.
+            OR: [{ replyAsBrand: false }, { project: { brandYoutubeAccountId: account.id } }],
+          },
         },
         orderBy: [{ likeCount: "desc" }, { createdAt: "desc" }],
         take: 200,

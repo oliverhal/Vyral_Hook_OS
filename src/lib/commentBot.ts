@@ -3,10 +3,11 @@ import { accessToken } from "@/lib/connectedAccounts";
 import * as facebook from "@/lib/facebook";
 import * as youtube from "@/lib/youtube";
 
-// Only reply where it clearly helps: people asking about the app or asking a
-// real question. Praise, jokes and noise are left alone so the account
-// doesn't look like it answers everything.
-const REPLY_INTENTS = ["high_intent", "question"];
+// Reply where it helps: people asking about the app, real questions, and
+// positive comments where the triage found a natural way to mention the app.
+// Jokes, negativity and noise are left alone. Earlier intents are answered
+// first so praise never uses up a video's cap before an app question.
+const REPLY_INTENTS = ["high_intent", "question", "positive"];
 const MAX_POSTS_PER_RUN = 10;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -47,7 +48,7 @@ export async function runAutoReplies() {
         orderBy: [{ likeCount: "desc" }, { createdAt: "desc" }],
         take: 200,
       })
-    );
+    ).sort((a, b) => REPLY_INTENTS.indexOf(a.intent ?? "") - REPLY_INTENTS.indexOf(b.intent ?? ""));
 
     const recent = (
       await prisma.videoComment.findMany({

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Link2, ExternalLink, Check, AlertTriangle, Loader2, ArrowRight } from "lucide-react";
+import { ChevronDown, Link2, ExternalLink, Check, AlertTriangle, Loader2, ArrowRight, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PLATFORM_LABEL, type ArtieRow, type ArtieDetail } from "./artieTypes";
 import ArtieAvatar from "./ArtieAvatar";
@@ -28,9 +28,10 @@ interface Props {
   onChanged: () => void; // refresh the list's totals after an action
   notify: (msg: string, ok?: boolean) => void;
   copyLink: (row: ArtieRow) => void;
+  copyNudge: (row: ArtieRow) => void;
 }
 
-export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onToggle, onChanged, notify, copyLink }: Props) {
+export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onToggle, onChanged, notify, copyLink, copyNudge }: Props) {
   const [detail, setDetail] = useState<ArtieDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -121,6 +122,10 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
           {row.bonus.pending > 0 && <p className="text-[11px] font-semibold text-amber-600">{row.bonus.pending} bonus{row.bonus.pending === 1 ? "" : "es"} to review</p>}
         </div>
 
+        {row.pace.status === "behind" && (
+          <button onClick={(e) => { e.stopPropagation(); copyNudge(row); }} title={`Copy a nudge message for ${row.name} — their numbers and what they're missing, with their link`}
+            className="p-2 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 flex-shrink-0"><Megaphone className="w-4 h-4" /></button>
+        )}
         <button onClick={(e) => { e.stopPropagation(); copyLink(row); }} title={`Copy ${row.name}'s private link`}
           className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex-shrink-0"><Link2 className="w-4 h-4" /></button>
         <ChevronDown className={cn("w-5 h-5 text-slate-400 transition-transform flex-shrink-0", expanded && "rotate-180 text-blue-500")} />

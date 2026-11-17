@@ -5,7 +5,8 @@ export interface ArtieRow {
   id: string; name: string; avatarUrl: string | null; ratePerVideo: number | null; rateSource: string | null;
   estBase: number | null; estTotal: number | null; leavingAfter: string | null;
   startDate: string | null;
-  pace: { expected: number; actual: number; delta: number; days: number; status: "ahead" | "on_track" | "behind" | "just_started" | "not_started"; startedThisCycle: boolean };
+  pace: { expected: number; actual: number; delta: number; days: number; status: "ahead" | "on_track" | "behind" | "just_started" | "not_started"; startedThisCycle: boolean;
+    fullTarget: number; remaining: number; daysLeft: number; neededPerDay: number };
   handles: { instagram: string | null; tiktok: string | null; facebook: string | null };
   counted: number; perPlatform: Record<string, number>; discrepancy: boolean; needsReview: number;
   bonus: { pending: number; pendingChecks: number; approved: number; rejected: number; indicativeAmount: number };

@@ -3,6 +3,7 @@ import { matchCrossPosts } from "../src/lib/artie/match";
 import { parseCsv, parseRoster, sheetExportUrl, extractHandle, parseRate, resolveFacebookShares, FB_SHARE_PREFIX, parseStartDate } from "../src/lib/artie/payrollSheet";
 import { paceFor } from "../src/lib/artie/pace";
 import { rankTier, viewsPerDay, MIN_RANK_POOL } from "../src/lib/artie/rank";
+import { nudgeFacts, creatorNudge, nudgeMessage } from "../src/lib/artie/nudge";
 import { needsLinkCheck, SIMILAR_VIEWS_RATIO, countVideos, detectCandidates, type CountPost } from "../src/lib/artie/bonus";
 
 let failed = 0;
@@ -202,6 +203,28 @@ ok(rankTier(normalised, "late") === 10, "views are per active day: 4,000 views i
 ok(viewsPerDay(700, 2) === 100 && viewsPerDay(700, 14) === 50, "under 7 days is floored at 7 so a hot first day can't dominate");
 const ties = pool(10, () => ({ totalViews: 5000, activeDays: 10 }));
 ok(rankTier(ties, "c3") === 10, "a full tie: everyone shares rank 1");
+
+// ── nudges for creators who are behind ──────────────────────────────────────
+const behindIn = (actual: number, rate: number | null, over: Partial<{ best: any }> = {}) => ({
+  pace: paceFor({ counted: actual, cycle: cyc2, startDate: null, now: new Date("2026-11-17T12:00:00Z"), perDay: 2 }),
+  rate, currency: "USD", bonusAmount: 50, threshold: 100000, cycleEndLabel: "28 Nov", ...over,
+});
+const nz = creatorNudge(behindIn(30, 8.33))!;
+ok(!!nz && nz.points[0].includes("30 videos") && nz.points[0].includes("39") && nz.points[0].includes("9 behind"), "behind creator: told how many videos they have vs need, and how far behind");
+ok(nz.missed === 74.97 && nz.points[1].includes("$74.97"), "money they haven't earned yet = 9 videos × $8.33 = $74.97");
+ok(nz.available === 266.56 && nz.points[2].includes("2.8 a day") && nz.points[2].includes("$266.56"), "what's still on the table: 32 more videos × $8.33, at 2.8 a day, with the deadline");
+ok(nz.points.some((x) => x.includes("$50") && x.includes("100K")), "reminds them a 100K video earns the bonus");
+ok(creatorNudge(behindIn(10, 8.33))!.headline.includes("missing out"), "far behind (<50%): the strongest headline");
+ok(creatorNudge(behindIn(33, 8.33))!.headline.includes("close"), "close (≥75%): an encouraging headline, not a scolding one");
+const noRate = creatorNudge(behindIn(30, null))!;
+ok(noRate.missed === null && noRate.available === null && !noRate.points.some((x) => x.includes("$") && !x.includes("bonus")), "no rate on the sheet: no money figures are invented");
+ok(creatorNudge(behindIn(45, 8.33)) === null && creatorNudge(behindIn(39, 8.33)) === null, "creators who are on track or ahead get no nudge");
+ok(nudgeFacts({ ...behindIn(30, 8.33), pace: { ...behindIn(30, 8.33).pace, daysLeft: 3 } })!.urgent === true, "inside the last 5 days it's flagged as the final stretch");
+const withBest = creatorNudge(behindIn(30, 8.33, { best: { views: 458000, platform: "instagram", url: "https://x/y" } }))!;
+ok(!!(withBest.best?.label.includes("458K") && withBest.best.url === "https://x/y"), "their own best video is called out as inspiration");
+const msg = nudgeMessage({ ...behindIn(30, 8.33), firstName: "Alex", link: "https://link/abc" })!;
+ok(msg.startsWith("Hi Alex!") && msg.includes("https://link/abc") && msg.includes("$74.97") && msg.includes("30 videos"), "copy-paste message: personal, with their numbers and their link");
+ok(nudgeMessage({ ...behindIn(45, 8.33), firstName: "Alex", link: "l" }) === null, "no message for someone who isn't behind");
 
 // ── counting + bonuses ─────────────────────────────────────────────────────
 const P = (id: string, platform: string, views: number, igMatchId: string | null = null, countDecision: string | null = null): CountPost =>

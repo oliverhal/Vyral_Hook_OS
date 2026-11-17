@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, RefreshCw, Settings, AlertTriangle, Loader2, Search, Copy, Users, Film, Gift, Wallet, BadgeCheck, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Settings, AlertTriangle, Loader2, Search, Copy, Megaphone, Users, Film, Gift, Wallet, BadgeCheck, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ArtieCreatorRow from "./ArtieCreatorRow";
 import ArtieHowItWorks from "./ArtieHowItWorks";
+import { nudgeMessage } from "@/lib/artie/nudge";
 import type { ArtieRow } from "./artieTypes";
 
 type Row = ArtieRow;
@@ -93,6 +94,32 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     if (!map?.[row.id]) return;
     await navigator.clipboard.writeText(map[row.id]);
     notify(`Link for ${row.name} copied`);
+  }
+
+  // A ready-to-send message for a creator who's behind, built from the same wording as their own link.
+  function nudgeFor(row: Row, map: Record<string, string>): string | null {
+    if (!data || !map[row.id]) return null;
+    return nudgeMessage({
+      firstName: row.name.split(" ")[0], link: map[row.id], pace: row.pace, rate: row.ratePerVideo, currency: data.settings.currency,
+      bonusAmount: data.settings.bonusAmount, threshold: data.settings.bonusThreshold, cycleEndLabel: data.cycle.endLabel, best: null,
+    });
+  }
+
+  async function copyNudge(row: Row) {
+    const map = await getLinks();
+    const msg = map ? nudgeFor(row, map) : null;
+    if (!msg) return notify(`${row.name} isn't behind pace — nothing to nudge`, false);
+    await navigator.clipboard.writeText(msg);
+    notify(`Nudge for ${row.name} copied — paste it into Slack/WhatsApp/email`);
+  }
+
+  async function copyAllNudges(rows: Row[]) {
+    const map = await getLinks();
+    if (!map) return;
+    const blocks = rows.map((r) => { const m = nudgeFor(r, map); return m ? `=== ${r.name} ===\n${m}` : null; }).filter(Boolean);
+    if (blocks.length === 0) return notify("Nobody here is behind pace", false);
+    await navigator.clipboard.writeText(blocks.join("\n\n"));
+    notify(`${blocks.length} nudge${blocks.length === 1 ? "" : "s"} copied — one block per creator`);
   }
 
   async function copyAllLinks(rows: Row[]) {
@@ -290,6 +317,12 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input className="input pl-9" placeholder="Search creators or @handles…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
+        {creators.some((c) => c.pace.status === "behind") && (
+          <button onClick={() => copyAllNudges(visible.filter((c) => c.pace.status === "behind"))} disabled={!visible.some((c) => c.pace.status === "behind")}
+            className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-rose-700" title="One ready-to-send message per creator who's behind pace, with their numbers and link">
+            <Megaphone className="w-4 h-4" /> Copy {visible.filter((c) => c.pace.status === "behind").length} nudges
+          </button>
+        )}
         <button onClick={() => copyAllLinks(visible)} disabled={visible.length === 0} className="btn-secondary flex items-center gap-2 disabled:opacity-50" title="Copies name + private link for each creator shown">
           <Copy className="w-4 h-4" /> Copy {visible.length === creators.length ? "all " : `${visible.length} `}links
         </button>
@@ -322,7 +355,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
         {visible.map((c) => (
           <ArtieCreatorRow key={c.id} row={c} cycleKey={cycle.key} currency={settings.currency}
             expanded={expandedId === c.id} onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)}
-            onChanged={() => load(cycleKey)} notify={notify} copyLink={copyLink} />
+            onChanged={() => load(cycleKey)} notify={notify} copyLink={copyLink} copyNudge={copyNudge} />
         ))}
       </div>
       <p className="text-xs text-slate-400 mt-3">“Counted” = unique videos: one video posted to several platforms counts once (matched by publish time and caption), and a video that only exists on one platform still counts. “Counts differ” is internal only — creators are never told they missed a cross-post.</p>

@@ -4,6 +4,7 @@ import { cycleFor, shiftCycle, type Cycle } from "./cycle";
 import { countVideos, type CountPost, type CountMode } from "./bonus";
 import { paceFor, type PaceStatus } from "./pace";
 import { rankTier, type RankTier, type RankInput } from "./rank";
+import { creatorNudge, type CreatorNudge } from "./nudge";
 
 // Minimal slice of the Prisma client these loaders use — lets tests inject an
 // in-memory fake to prove one creator's token can never surface another's data.
@@ -60,6 +61,8 @@ export interface CreatorProgress {
     fullTarget: number; remaining: number; daysLeft: number; neededPerDay: number } | null;
   /** Top-10/25/50% tier among active creators this cycle (views per day), or null. Never includes anyone else's data. */
   rank: { tier: RankTier } | null;
+  /** When behind: what they're missing (videos + money) and what to do about it. */
+  nudge: CreatorNudge | null;
   bonusItems: ProgressBonusItem[];
   previousCycles: { key: string; startLabel: string; endLabel: string; countedVideos: number; bonusCount: number; bonusAmount: number; awaitingReview: number }[];
 }
@@ -148,6 +151,13 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
         startLabel: p.startedThisCycle && creator.startDate ? creator.startDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" }) : null };
     })(),
     rank: settings?.showRankToCreators === false ? null : await tierFor(db, creator.id, current, now).then((tier) => (tier ? { tier } : null)),
+    nudge: settings?.showPaceToCreators === false ? null : (() => {
+      const perDay = settings?.videosPerDay ?? 2;
+      const pc = paceFor({ counted: counts.counted, cycle: current, startDate: creator.startDate ?? null, now, perDay });
+      const top = posts.reduce<typeof posts[number] | null>((m, x) => (!m || x.views > m.views ? x : m), null);
+      return creatorNudge({ pace: pc, rate: creator.ratePerVideo ?? null, currency: settings?.currency ?? "USD", bonusAmount: settings?.bonusAmount ?? 50, threshold,
+        cycleEndLabel: current.endLabel, best: top && top.views >= 1000 ? { views: top.views, platform: top.platform, url: top.url } : null });
+    })(),
     potential, bonusItems, previousCycles,
   };
 }

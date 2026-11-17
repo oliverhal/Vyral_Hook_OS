@@ -39,18 +39,19 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
             <p className="text-sm text-white/90 mt-1.5">Based on the views your videos are getting each day since you started, compared with every active Artie creator.</p>
           </section>
         )}
-        {p.pace && p.pace.status === "behind" && (
-          <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5" role="alert">
-            <p className="text-base font-bold text-rose-900">You’re behind schedule.</p>
-            <p className="text-sm text-rose-900/90 mt-1">
-              You need to be at <strong>{p.pace.expected} videos</strong> by now — you’re at <strong>{p.pace.actual}</strong>, so that’s <strong>{Math.abs(p.pace.delta)} to catch up</strong>
-              {p.pace.startedThisCycle && p.pace.startLabel && <> (counted from when you joined on {p.pace.startLabel})</>}.
-            </p>
-            {p.pace.remaining > 0 && p.pace.daysLeft > 0 && (
-              <p className="text-sm text-rose-900/90 mt-2">
-                To finish this cycle on target, post about <strong>{p.pace.neededPerDay} a day</strong> from here — {p.pace.remaining} more by {p.cycle.endLabel}.
-              </p>
-            )}
+        {p.nudge && (
+          <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 sm:p-5" role="alert">
+            <p className="text-lg font-bold text-rose-900 leading-snug">{p.nudge.headline}</p>
+            <ul className="mt-2.5 space-y-2 text-sm text-rose-900/90">
+              {p.nudge.points.map((pt) => (
+                <li key={pt} className="flex gap-2"><span aria-hidden className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-400 flex-shrink-0" /><span>{pt}</span></li>
+              ))}
+              {p.nudge.best && (
+                <li className="flex gap-2"><span aria-hidden className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-400 flex-shrink-0" />
+                  <a href={p.nudge.best.url} target="_blank" rel="noopener noreferrer" className="underline font-semibold py-0.5">{p.nudge.best.label}</a></li>
+              )}
+            </ul>
+            {p.pace?.startedThisCycle && p.pace.startLabel && <p className="mt-2.5 text-xs text-rose-900/70">Counted from when you joined on {p.pace.startLabel}.</p>}
           </section>
         )}
         {p.pace && p.pace.status === "on_track" && (

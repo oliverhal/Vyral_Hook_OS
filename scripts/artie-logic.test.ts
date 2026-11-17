@@ -86,6 +86,32 @@ ok(sheetExportUrl("nonsense") === null, "sheet URL: rejects non-sheet input");
 ok(extractHandle("@Foo_Bar", "instagram") === "foo_bar" && extractHandle("don't have one", "tiktok") === null, "handles: lower-cased, 'don't have' ignored");
 ok(parseRate("n/a") === null && parseRate("1,250.50 USD") === 1250.5, "rate: n/a is null, thousands separators handled");
 
+// ── the real payroll sheet's layout (multi-programme, with sensitive columns) ─
+const real = [
+  " Creator ID,Creator Full Name,Client Name,Tiktok,Instagram,Facebook,Email,Password,Status,Monthly Rate ($),Per-Video Rate ($) (Tiktok only),Payment Details,Notes",
+  "C-001,Kira Piano,Artie,https://www.tiktok.com/@kirapiano,https://www.instagram.com/kira.piano,https://www.facebook.com/profile.php?id=9001,kira@x.com,hunter2,Active,€500,8.33,IBAN DE00 SECRET,secret note",
+  "C-002,Blank Status,Artie,https://www.tiktok.com/@blank,https://www.instagram.com/blank.ig,,b@x.com,pw2,,€500,8.33,acct 999,",
+  "C-003,Fired Person,Artie,https://www.tiktok.com/@fired,https://www.instagram.com/fired.ig,,f@x.com,pw3,Fired,€500,8.33,acct 111,",
+  "C-004,Ecosia Creator,Ecosia,https://www.tiktok.com/@eco,https://www.instagram.com/eco.ig,,e@x.com,pw4,Active,€500,8.33,acct 222,",
+  "C-005,No Handles Artie,Artie,N/A,none,,n@x.com,pw5,Active,€500,8.33,PAYPAL SECRET,",
+  "C-006,artie lower,artie,https://www.tiktok.com/@lowercase,,,l@x.com,pw6,Active,€800,13.33,acct 333,",
+].join("\n");
+const rr = parseRoster(parseCsv(real), { client: "Artie" });
+ok(!rr.error && rr.columns.name === "Creator Full Name" && rr.columns.id === "Creator ID", "real sheet: name is 'Creator Full Name', not 'Creator ID' (leading space in header tolerated)");
+ok(rr.columns.rate === "Per-Video Rate ($) (Tiktok only)", "real sheet: reads the per-video rate, not the monthly retainer");
+ok(rr.creators.map((c) => c.name).sort().join("|") === "Blank Status|Kira Piano|artie lower", "real sheet: Artie only, case-insensitive; Fired and other programmes excluded; blank status kept");
+ok(rr.skipped.otherClient === 1 && rr.skipped.inactive === 1, "real sheet: counts what it skipped (1 other programme, 1 fired)");
+ok(rr.creators.find((c) => c.name === "Kira Piano")!.sheetKey === "id:C-001" && rr.creators.find((c) => c.name === "Kira Piano")!.ratePerVideo === 8.33, "real sheet: Creator ID is the stable key; per-video rate 8.33");
+ok(rr.creators.find((c) => c.name === "Kira Piano")!.facebook === "9001", "real sheet: Facebook profile.php?id= becomes the page id");
+ok(rr.unmapped.length === 1 && rr.unmapped[0].label === "No Handles Artie", "real sheet: unusable row is listed by name only");
+const blob = JSON.stringify(rr);
+ok(!/hunter2|pw\d|SECRET|acct \d+|IBAN|PAYPAL/i.test(blob), "real sheet: no passwords, bank/payment details or notes appear anywhere in the parsed result");
+ok(parseRoster(parseCsv(real), { client: "Nope" }).creators.length === 0, "client filter with no matches imports nobody (and doesn't fall back to everyone)");
+ok(parseRoster(parseCsv(real), {}).creators.length === 4, "blank client filter imports every non-fired row with a handle (4)");
+ok(parseRoster(parseCsv("Creator Name,Instagram\nA,@a"), { client: "Artie" }).error?.includes("Client Name") === true, "a client filter on a sheet with no client column errors instead of importing everyone");
+const monthlyOnly = parseRoster(parseCsv("Creator Name,Instagram,Monthly Rate\nA,@a,€500"));
+ok(monthlyOnly.creators[0].ratePerVideo === null && monthlyOnly.columns.rate === null, "a monthly-only sheet leaves the per-video rate empty rather than mislabelling it");
+
 // ── counting + bonuses ─────────────────────────────────────────────────────
 const P = (id: string, platform: string, views: number, igMatchId: string | null = null, countDecision: string | null = null): CountPost =>
   ({ id, platform, views, igMatchId, countDecision });

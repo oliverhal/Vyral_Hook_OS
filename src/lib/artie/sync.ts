@@ -26,7 +26,7 @@ export async function syncRoster(): Promise<{ created: number; updated: number; 
   };
   if (!settings.payrollSheetUrl) return fail("No payroll sheet link set yet.");
 
-  const roster = await fetchRoster(settings.payrollSheetUrl);
+  const roster = await fetchRoster(settings.payrollSheetUrl, { client: settings.payrollClient });
   if (roster.error) return fail(roster.error);
   // Safety: an empty result almost certainly means a bad/blank sheet — never deactivate everyone over that.
   if (roster.creators.length === 0) return fail("The payroll sheet had no creators in it, so nothing was changed.");
@@ -106,8 +106,10 @@ export async function syncVideos(): Promise<{ matched: number; created: number; 
   const accounts = (await viraldeck.listAccounts(projectId, key)).filter((a) => ["instagram", "tiktok", "facebook"].includes(a.platform));
   const creatorFor = buildAccountLookup(creators);
   const mine = accounts.map((a) => ({ a, creatorId: creatorFor(a) }));
-  const tracked = mine.filter((m) => m.creatorId && m.a.videoCount > 0);
-  const unmatchedAccounts = mine.filter((m) => !m.creatorId && m.a.videoCount > 0);
+  // NB: ViralDeck's /creators reports videoCount 0 for every account, so it can't be used to
+  // skip empty ones — fetch every roster-matched account.
+  const tracked = mine.filter((m) => m.creatorId);
+  const unmatchedAccounts = mine.filter((m) => !m.creatorId);
 
   // Stalest first: if the time budget cuts a run short, the accounts it skipped lead the next one.
   const settings = await getSettings();
@@ -148,9 +150,9 @@ export async function syncVideos(): Promise<{ matched: number; created: number; 
   if (toCreate.length) await prisma.artiePost.createMany({ data: toCreate, skipDuplicates: true });
   for (let i = 0; i < updates.length; i += 100) await prisma.$transaction(updates.slice(i, i + 100));
 
-  const staleOver24h = tracked.filter((m) => now.getTime() - (refreshed[m.a.id] ?? 0) > 24 * 3600 * 1000).length;
-  const top = unmatchedAccounts.sort((x, y) => y.a.videoCount - x.a.videoCount).slice(0, 50)
-    .map((m) => ({ platform: m.a.platform, username: m.a.handle, videos: m.a.videoCount }));
+  const staleOver48h = tracked.filter((m) => now.getTime() - (refreshed[m.a.id] ?? 0) > 48 * 3600 * 1000).length;
+  const top = unmatchedAccounts.sort((x, y) => x.a.handle.localeCompare(y.a.handle)).slice(0, 80)
+    .map((m) => ({ platform: m.a.platform, username: m.a.handle }));
   await prisma.artieSettings.update({
     where: { id: "singleton" },
     data: {
@@ -159,7 +161,7 @@ export async function syncVideos(): Promise<{ matched: number; created: number; 
       // problem isn't hidden by a successful video pull. A full pass takes ~4-5 minutes, so a
       // run that stops early is normal (the next one starts with the stalest accounts); only
       // alarm if some account has gone a whole day without refreshing.
-      ...(staleOver24h ? { lastSyncError: `${staleOver24h} account(s) haven't refreshed in over 24 hours — view counts for those creators may be out of date.` } : {}),
+      ...(staleOver48h ? { lastSyncError: `${staleOver48h} account(s) haven't refreshed in over 48 hours — view counts for those creators may be out of date.` } : {}),
     },
   });
   return { matched, created: toCreate.length, updated: updates.length, unmatchedAccounts: unmatchedAccounts.length, skippedAccounts };

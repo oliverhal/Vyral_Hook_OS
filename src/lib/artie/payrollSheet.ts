@@ -14,14 +14,22 @@ export interface RosterRow {
 export interface UnmappedRow {
   line: number; // 1-based row number in the sheet
   reason: string;
-  cells: string[];
+  // Just enough to find the row. NEVER the raw cells: payroll sheets carry bank
+  // details, addresses and even logins, and none of that may be copied into Hook OS.
+  label: string;
 }
 
 export interface RosterParse {
   creators: RosterRow[];
   unmapped: UnmappedRow[];
   columns: Record<string, string | null>; // which header each field was read from
+  skipped: { otherClient: number; inactive: number };
   error?: string;
+}
+
+export interface RosterOptions {
+  /** Only import rows whose "Client Name" column equals this (case-insensitive). Blank = everyone. */
+  client?: string | null;
 }
 
 /** RFC-4180 CSV: quoted cells may contain commas, quotes ("") and newlines. */
@@ -60,9 +68,13 @@ export function sheetExportUrl(input: string): string | null {
 }
 
 const FIELD_PATTERNS: Record<string, RegExp[]> = {
+  id: [/creator\s*id/i, /^id$/i],
   email: [/^e-?mail/i],
-  name: [/^(creator|full)?\s*name\b/i, /^creator\b/i],
-  rate: [/per\s*video/i, /\brate\b/i, /\bpay\b/i, /\bprice\b/i, /\bfee\b/i],
+  name: [/(creator|full)\s*(full\s*)?name/i, /^name\b/i, /^creator\b(?!\s*id)/i],
+  client: [/^client/i, /^programme/i, /^program\b/i],
+  status: [/^status\b/i],
+  // Only per-video rates: a monthly retainer in this column would be misread as a per-video rate.
+  rate: [/per[\s-]*video/i, /video\s*rate/i],
   instagram: [/instagram/i, /^ig\b/i, /^insta\b/i],
   tiktok: [/tik\s*tok/i, /^tt\b/i],
   facebook: [/facebook/i, /^fb\b/i],
@@ -79,6 +91,8 @@ function detectColumns(header: string[]): Record<string, number | null> {
   }
   return out;
 }
+
+const INACTIVE_STATUS = /^(fired|inactive|ended|terminated|left|quit|paused|former)\b/i;
 
 const EMPTY = /^(n\/?a|none|-|—|no|\/|\.|not provided|don'?t have.*)$/i;
 
@@ -106,7 +120,10 @@ export function parseRate(raw: string | null | undefined): number | null {
   return m ? parseFloat(m[0]) : null;
 }
 
-export function parseRoster(rows: string[][]): RosterParse {
+export function parseRoster(rows: string[][], opts: RosterOptions = {}): RosterParse {
+  const empty = (error: string, columns: Record<string, string | null> = {}): RosterParse =>
+    ({ creators: [], unmapped: [], columns, skipped: { otherClient: 0, inactive: 0 }, error });
+
   // Header = first row that names a creator column plus at least one platform column.
   let headerIdx = -1;
   let cols: Record<string, number | null> = {};
@@ -117,49 +134,58 @@ export function parseRoster(rows: string[][]): RosterParse {
     }
   }
   if (headerIdx === -1) {
-    return { creators: [], unmapped: [], columns: {}, error: "Couldn't find a header row with a creator name column and at least one of Instagram / TikTok / Facebook." };
+    return empty("Couldn't find a header row with a creator name column and at least one of Instagram / TikTok / Facebook.");
   }
 
   const header = rows[headerIdx];
   const columns: Record<string, string | null> = {};
   for (const [f, i] of Object.entries(cols)) columns[f] = i == null ? null : header[i].trim();
 
+  const wantClient = (opts.client ?? "").trim().toLowerCase();
+  if (wantClient && cols.client == null) {
+    return empty(`The sheet has no "Client Name" column, so I can't limit it to ${opts.client}. Clear the programme filter in Settings to import every row.`, columns);
+  }
+
   const creators: RosterRow[] = [];
   const unmapped: UnmappedRow[] = [];
+  const skipped = { otherClient: 0, inactive: 0 };
   const seen = new Set<string>();
   for (let r = headerIdx + 1; r < rows.length; r++) {
     const cells = rows[r];
     if (cells.every((c) => !c.trim())) continue;
     const at = (f: string) => (cols[f] != null ? (cells[cols[f] as number] ?? "").trim() : "");
+
+    if (wantClient && at("client").toLowerCase() !== wantClient) { skipped.otherClient++; continue; }
+    if (INACTIVE_STATUS.test(at("status"))) { skipped.inactive++; continue; }
+
     const name = at("name");
-    if (!name) { unmapped.push({ line: r + 1, reason: "No creator name", cells }); continue; }
+    const label = name || at("id") || `row ${r + 1}`;
+    if (!name) { unmapped.push({ line: r + 1, reason: "No creator name", label }); continue; }
 
     const instagram = extractHandle(at("instagram"), "instagram");
     const tiktok = extractHandle(at("tiktok"), "tiktok");
     const facebook = extractHandle(at("facebook"), "facebook");
     if (!instagram && !tiktok && !facebook) {
-      unmapped.push({ line: r + 1, reason: "No Instagram / TikTok / Facebook handle", cells });
+      unmapped.push({ line: r + 1, reason: "No Instagram / TikTok / Facebook handle", label });
       continue;
     }
+    // Prefer the sheet's own creator id (stable across renames), then email, then the name.
     const email = at("email").toLowerCase();
-    const sheetKey = /@/.test(email) ? email : name.toLowerCase().replace(/\s+/g, " ");
-    if (seen.has(sheetKey)) { unmapped.push({ line: r + 1, reason: `Duplicate of an earlier row (${sheetKey})`, cells }); continue; }
+    const sheetKey = at("id") ? `id:${at("id")}` : /@/.test(email) ? email : name.toLowerCase().replace(/\s+/g, " ");
+    if (seen.has(sheetKey)) { unmapped.push({ line: r + 1, reason: "Duplicate of an earlier row", label }); continue; }
     seen.add(sheetKey);
     creators.push({ sheetKey, name, ratePerVideo: parseRate(at("rate")), instagram, tiktok, facebook });
   }
-  return { creators, unmapped, columns };
+  return { creators, unmapped, columns, skipped };
 }
 
-export async function fetchRoster(sheetUrl: string): Promise<RosterParse> {
+export async function fetchRoster(sheetUrl: string, opts: RosterOptions = {}): Promise<RosterParse> {
+  const fail = (error: string): RosterParse => ({ creators: [], unmapped: [], columns: {}, skipped: { otherClient: 0, inactive: 0 }, error });
   const url = sheetExportUrl(sheetUrl);
-  if (!url) return { creators: [], unmapped: [], columns: {}, error: "That doesn't look like a Google Sheets link." };
+  if (!url) return fail("That doesn't look like a Google Sheets link.");
   const res = await fetch(url, { cache: "no-store", redirect: "follow" });
-  if (!res.ok) {
-    return { creators: [], unmapped: [], columns: {}, error: `Couldn't read the sheet (HTTP ${res.status}). It must be shared as "anyone with the link can view".` };
-  }
+  if (!res.ok) return fail(`Couldn't read the sheet (HTTP ${res.status}). It must be shared as "anyone with the link can view".`);
   const text = await res.text();
-  if (/^\s*<(!doctype|html)/i.test(text)) {
-    return { creators: [], unmapped: [], columns: {}, error: 'Google returned a sign-in page, not CSV. Share the sheet as "anyone with the link can view".' };
-  }
-  return parseRoster(parseCsv(text));
+  if (/^\s*<(!doctype|html)/i.test(text)) return fail('Google returned a sign-in page, not CSV. Share the sheet as "anyone with the link can view".');
+  return parseRoster(parseCsv(text), opts);
 }

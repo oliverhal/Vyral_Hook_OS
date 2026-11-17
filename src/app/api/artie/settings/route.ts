@@ -16,6 +16,10 @@ export async function PUT(req: NextRequest) {
     if (url && !sheetExportUrl(url)) return NextResponse.json({ error: "That doesn't look like a Google Sheets link" }, { status: 400 });
     data.payrollSheetUrl = url || null;
   }
+  if ("payrollClient" in body) {
+    if (typeof body.payrollClient !== "string" || body.payrollClient.length > 60) return NextResponse.json({ error: "Invalid programme name" }, { status: 400 });
+    data.payrollClient = body.payrollClient.trim();
+  }
   if ("bonusThreshold" in body) {
     const n = Math.round(Number(body.bonusThreshold));
     if (!Number.isFinite(n) || n < 1 || n > 100_000_000) return NextResponse.json({ error: "Invalid bonus threshold" }, { status: 400 });

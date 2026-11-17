@@ -106,10 +106,10 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
         </div>
 
         <div className="text-right w-44 flex-shrink-0">
-          {row.estTotal != null ? (
+          {row.estBase != null ? (
             <>
-              <p className="font-bold text-slate-900 text-sm">{money(row.estTotal)}</p>
-              <p className="text-[11px] text-slate-400">potential{row.bonus.approved + row.bonus.pending > 0 && <> · incl. {money(row.bonus.indicativeAmount)} bonus</>}</p>
+              <p className="font-bold text-slate-900 text-sm" title={`${row.counted} unique videos × ${money(row.ratePerVideo as number)}`}>{money(row.estBase)}</p>
+              <p className="text-[11px] text-slate-400">{row.counted} × {money(row.ratePerVideo as number)}{row.bonus.approved + row.bonus.pending > 0 && <> · + {money(row.bonus.indicativeAmount)} bonus</>}</p>
             </>
           ) : <p className="text-[11px] text-slate-300">no rate on the sheet</p>}
           {row.bonus.pending > 0 && <p className="text-[11px] font-semibold text-amber-600">{row.bonus.pending} bonus{row.bonus.pending === 1 ? "" : "es"} to review</p>}

@@ -155,6 +155,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   const costRows = creators.filter((c) => c.estTotal != null);
   const totals = {
     cost: costRows.reduce((n, c) => n + (c.estTotal as number), 0),
+    spent: creators.reduce((n, c) => n + (c.estBase ?? 0), 0),
     noRate: creators.filter((c) => c.ratePerVideo == null).length,
     leaving: creators.filter((c) => c.leavingAfter).length,
     counted: creators.reduce((n, c) => n + c.counted, 0),
@@ -242,7 +243,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
           {[
             { icon: Users, label: "Active creators", value: String(creators.length), sub: totals.leaving ? `${totals.leaving} leaving after this cycle` : "on the payroll sheet", cls: "bg-blue-50 text-blue-600" },
             { icon: Film, label: "Unique videos", value: String(totals.counted), sub: "counted this cycle", cls: "bg-violet-50 text-violet-600" },
-            { icon: Wallet, label: "Expected creator cost", value: money(totals.cost), sub: totals.noRate ? `videos × rate + bonuses · ${totals.noRate} without a rate` : "videos × rate + bonuses", cls: "bg-emerald-50 text-emerald-600" },
+            { icon: Wallet, label: "Spent on creators", value: money(totals.spent), sub: `unique videos × rate · ${money(totals.cost)} with bonuses${totals.noRate ? ` · ${totals.noRate} have no rate` : ""}`, cls: "bg-emerald-50 text-emerald-600" },
             { icon: BadgeCheck, label: "Bonuses given", value: money(bonus.givenAmount), sub: `${bonus.givenCount} approved this cycle`, cls: "bg-teal-50 text-teal-600" },
             { icon: Gift, label: "Bonuses to review", value: String(bonus.pendingCount), sub: bonus.pendingCount ? `${money(bonus.pendingAmount)}${bonus.pendingLinkChecks ? ` · ${bonus.pendingLinkChecks} need a link check` : ""}` : "all clear", cls: "bg-amber-50 text-amber-600" },
           ].map(({ icon: Icon, label, value, sub, cls }) => (

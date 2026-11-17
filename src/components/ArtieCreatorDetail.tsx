@@ -110,6 +110,9 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
         <div className="card p-5 col-span-2">
           <p className="label">Posts found in this cycle</p>
           <p className="text-sm mt-2 text-slate-700">Instagram <strong>{d.counts.perPlatform.instagram ?? 0}</strong> · TikTok <strong>{d.counts.perPlatform.tiktok ?? 0}</strong> · Facebook <strong>{d.counts.perPlatform.facebook ?? 0}</strong></p>
+          {d.creator.ratePerVideo != null && (
+            <p className="text-sm mt-2 text-slate-700">Spend this cycle: <strong>{d.counts.counted}</strong> unique videos × <strong>{money(d.creator.ratePerVideo)}</strong> = <strong>{money(Math.round(d.counts.counted * d.creator.ratePerVideo * 100) / 100)}</strong></p>
+          )}
           {d.counts.discrepancy && <p className="text-xs text-amber-700 mt-2">The platform counts differ — normal if a creator posts different videos on different platforms. “Unique videos” counts a cross-post once.</p>}
         </div>
       </div>

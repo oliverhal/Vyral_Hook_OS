@@ -51,7 +51,7 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
                   <a href={p.nudge.best.url} target="_blank" rel="noopener noreferrer" className="underline font-semibold py-0.5">{p.nudge.best.label}</a></li>
               )}
             </ul>
-            {p.pace?.startedThisCycle && p.pace.startLabel && <p className="mt-2.5 text-xs text-rose-900/70">Counted from when you joined on {p.pace.startLabel}.</p>}
+            {p.pace?.startedThisCycle && p.pace.startLabel && <p className="mt-2.5 text-xs text-rose-900/70">Counted from your first post on {p.pace.startLabel}.</p>}
           </section>
         )}
         {p.pace && p.pace.status === "on_track" && (
@@ -91,7 +91,7 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
             </div>
             <p className="text-xs text-slate-500 mt-2">
               <strong className="text-slate-700">{p.pace.actual}</strong> of <strong className="text-slate-700">{p.pace.expected}</strong> videos expected so far at {p.pace.perDay} a day
-              {p.pace.startedThisCycle && p.pace.startLabel && <> — counted from when you joined on {p.pace.startLabel}</>}.
+              {p.pace.startedThisCycle && p.pace.startLabel && <> — counted from your first post on {p.pace.startLabel}</>}.
             </p>
             <p className="text-sm text-slate-700 mt-2">
               {p.pace.status === "behind" ? `The target is ${p.pace.perDay} videos a day, counted from your first day.`

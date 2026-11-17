@@ -239,7 +239,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
           <div className="max-w-xs">
             <label className="label">Videos each creator should post per day</label>
             <input className="input" value={form.perDay} onChange={(e) => setForm({ ...form, perDay: e.target.value })} />
-            <p className="text-xs text-slate-400 mt-1">Used for “ahead / behind pace”, counted from the later of the cycle start and their start date on the sheet.</p>
+            <p className="text-xs text-slate-400 mt-1">Used for “ahead / behind pace”, counted from the later of the cycle start and their first post (not their onboarding date). Creators with no posts yet aren’t measured.</p>
             <label className="flex items-start gap-2 mt-3 text-sm text-slate-700 cursor-pointer">
               <input type="checkbox" className="mt-0.5 accent-blue-600" checked={form.showPace} onChange={(e) => setForm({ ...form, showPace: e.target.checked })} />
               <span>Tell creators on their link when they’re <strong>behind schedule</strong> (and when they’re on track or ahead). Untick to hide pace from creators while you check the numbers — it stays visible here.</span>

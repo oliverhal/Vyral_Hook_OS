@@ -43,12 +43,14 @@ const matches = (row: Record<string, any>, where: Record<string, any>) =>
 const db = {
   artieCreator: {
     findUnique: async ({ where }: any) => creators.find((c) => c.accessToken === where.accessToken) ?? null,
-    findMany: async ({ where }: any) => creators.filter((c) => (where?.active === undefined || c.active === where.active)).map((c) => ({ id: c.id, startDate: null })),
+    findMany: async ({ where }: any) => creators.filter((c) => (where?.active === undefined || c.active === where.active)).map((c) => ({ id: c.id })),
   },
   artieSettings: { findUnique: async () => ({ bonusThreshold: 100000, bonusAmount: 50, currency: "USD" }) },
   artiePost: {
     findMany: async ({ where }: any) => posts.filter((p) => matches(p, where)),
-    groupBy: async ({ where }: any) => { const m = new Map<string, number>(); for (const p of posts.filter((p) => matches(p, where))) m.set(p.creatorId, (m.get(p.creatorId) ?? 0) + p.views); return Array.from(m, ([creatorId, v]) => ({ creatorId, _sum: { views: v } })); },
+    groupBy: async ({ where, _min }: any) => {
+      if (_min) { const m = new Map<string, Date>(); for (const p of posts.filter((p) => matches(p, where))) { const c = m.get(p.creatorId); if (!c || p.publishedAt < c) m.set(p.creatorId, p.publishedAt); } return Array.from(m, ([creatorId, d]) => ({ creatorId, _min: { publishedAt: d } })); }
+      const m = new Map<string, number>(); for (const p of posts.filter((p) => matches(p, where))) m.set(p.creatorId, (m.get(p.creatorId) ?? 0) + p.views); return Array.from(m, ([creatorId, v]) => ({ creatorId, _sum: { views: v } })); },
   },
   artieBonusCandidate: { findMany: async ({ where }: any) => candidates.filter((c) => matches(c, where)) },
 } as unknown as Db;

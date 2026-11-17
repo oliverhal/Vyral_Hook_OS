@@ -169,7 +169,7 @@ ok(sheetWithStart.creators[0].startDate?.toISOString() === "2026-11-11T00:00:00.
 
 // ── pace (2 a day, from their own start date) ───────────────────────────────
 const cyc2 = cycleFor(NOW); // 29 Oct → 28 Nov
-const pc = (counted: number, startDate: string | null, now = new Date("2026-11-17T12:00:00Z"), cycle = cyc2) => paceFor({ counted, cycle, startDate: startDate ? new Date(startDate) : null, now, perDay: 2 });
+const pc = (counted: number, startDate: string | null, now = new Date("2026-11-17T12:00:00Z"), cycle = cyc2) => paceFor({ counted, cycle, firstPostAt: new Date(startDate ?? cycle.start), now, perDay: 2 });
 ok(pc(40, null).expected === 39 && pc(40, null).status === "ahead" && pc(40, null).delta === 1, "full-cycle creator, 19.5 days in: 39 expected; 40 posted → ahead");
 ok(pc(36, null).status === "on_track" && pc(30, null).status === "behind" && pc(30, null).delta === -9, "36/39 is on track (within 10%); 30/39 is 9 behind");
 const newbie = pc(12, "2026-11-11T00:00:00Z");
@@ -179,6 +179,10 @@ ok(pc(0, "2026-11-20T00:00:00Z").status === "not_started" && pc(0, "2026-11-20T0
 ok(pc(1, "2026-11-17T08:00:00Z").status === "just_started", "under a day in: just started, not judged");
 const closed = pc(60, null, new Date("2026-11-17T12:00:00Z"), shiftCycle(cyc2, -1));
 ok(closed.expected === 60 && closed.status === "ahead", "a closed cycle expects the full 30 days × 2 = 60");
+
+ok(paceFor({ counted: 0, cycle: cyc2, firstPostAt: null, now: new Date("2026-11-17T12:00:00Z"), perDay: 2 }).status === "not_started", "no post yet: the clock hasn't started — never 'behind'");
+ok(paceFor({ counted: 0, cycle: cyc2, firstPostAt: null, now: new Date("2026-11-17T12:00:00Z"), perDay: 2 }).fullTarget === 0, "…and nothing is owed");
+ok(creatorNudge({ pace: paceFor({ counted: 0, cycle: cyc2, firstPostAt: null, now: new Date("2026-11-17T12:00:00Z"), perDay: 2 }), rate: 8, currency: "USD", bonusAmount: 50, threshold: 100000, cycleEndLabel: "28 Nov" }) === null, "a creator who hasn't posted yet isn't nudged");
 
 // ── catch-up maths (what a creator is told when behind) ─────────────────────
 const behindPace = pc(30, null); // 19.5 days into a 31-day cycle
@@ -206,7 +210,7 @@ ok(rankTier(ties, "c3") === 10, "a full tie: everyone shares rank 1");
 
 // ── nudges for creators who are behind ──────────────────────────────────────
 const behindIn = (actual: number, rate: number | null, over: Partial<{ best: any }> = {}) => ({
-  pace: paceFor({ counted: actual, cycle: cyc2, startDate: null, now: new Date("2026-11-17T12:00:00Z"), perDay: 2 }),
+  pace: paceFor({ counted: actual, cycle: cyc2, firstPostAt: cyc2.start, now: new Date("2026-11-17T12:00:00Z"), perDay: 2 }),
   rate, currency: "USD", bonusAmount: 50, threshold: 100000, cycleEndLabel: "28 Nov", ...over,
 });
 const nz = creatorNudge(behindIn(30, 8.33))!;

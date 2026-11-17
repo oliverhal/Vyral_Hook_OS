@@ -5,7 +5,7 @@ import { cycleByKey, cycleFor, shiftCycle, removalGraceEnd } from "@/lib/artie/c
 import { countVideos, needsLinkCheck } from "@/lib/artie/bonus";
 import { paceFor } from "@/lib/artie/pace";
 import { getSettings } from "@/lib/artie/sync";
-import { parseJson } from "@/lib/artie/views";
+import { parseJson, firstPostDates } from "@/lib/artie/views";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +17,12 @@ export async function GET(req: NextRequest) {
   const cycle = cycleByKey(req.nextUrl.searchParams.get("cycle") ?? "") ?? cycleFor(now);
   const settings = await getSettings();
 
-  const [creators, posts, candidates, everByPlatform] = await Promise.all([
+  const [creators, posts, candidates, everByPlatform, firsts] = await Promise.all([
     prisma.artieCreator.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.artiePost.findMany({ where: { publishedAt: { gte: cycle.start, lt: cycle.end } } }),
     prisma.artieBonusCandidate.findMany({ where: { cycleKey: cycle.key } }),
     prisma.artiePost.groupBy({ by: ["creatorId", "platform"], _count: { _all: true } }),
+    firstPostDates(prisma),
   ]);
 
   const ever = new Set(everByPlatform.map((r) => `${r.creatorId}:${r.platform}`));
@@ -39,8 +40,8 @@ export async function GET(req: NextRequest) {
       id: c.id, name: c.name, avatarUrl: c.avatarUrl, ratePerVideo: c.ratePerVideo, rateSource: c.rateSource,
       estBase, estTotal: estBase != null ? estBase + indicative : indicative > 0 ? indicative : null,
       // Removed from the sheet (fired/deleted) but kept until the pay cycle closes + a couple of days.
-      startDate: c.startDate ? c.startDate.toISOString() : null,
-      pace: paceFor({ counted: counts.counted, cycle, startDate: c.startDate, now, perDay: settings.videosPerDay }),
+      startDate: firsts.get(c.id)?.toISOString() ?? null, // first post (not the sheet's onboarding date)
+      pace: paceFor({ counted: counts.counted, cycle, firstPostAt: firsts.get(c.id) ?? null, now, perDay: settings.videosPerDay }),
       leavingAfter: c.removedAt ? removalGraceEnd(c.removedAt).toISOString() : null,
       handles: { instagram: c.instagram, tiktok: c.tiktok, facebook: c.facebook },
       counted: counts.counted, perPlatform: counts.perPlatform, discrepancy: counts.discrepancy,

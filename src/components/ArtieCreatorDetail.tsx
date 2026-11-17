@@ -117,7 +117,7 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
               <span className={cn("ml-2 badge", d.pace.status === "behind" ? "bg-rose-100 text-rose-700" : d.pace.status === "on_track" ? "bg-sky-50 text-sky-700" : "bg-emerald-100 text-emerald-700")}>
                 {d.pace.status === "behind" ? `${Math.abs(d.pace.delta)} behind` : d.pace.status === "on_track" ? "on track" : d.pace.delta > 0 ? `${d.pace.delta} ahead` : "on pace"}</span>
               {d.pace.status === "behind" && d.pace.remaining > 0 && d.pace.daysLeft > 0 && <span className="text-xs text-slate-500"> · needs {d.pace.neededPerDay}/day to finish on target</span>}
-              {d.pace.startedThisCycle && d.creator.startDate && <span className="text-xs text-slate-400"> · joined {new Date(d.creator.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}</span>}
+              {d.pace.startedThisCycle && d.creator.startDate && <span className="text-xs text-slate-400"> · first post {new Date(d.creator.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}</span>}
             </p>
           )}
           {d.creator.ratePerVideo != null && (

@@ -1,8 +1,8 @@
 import type { Cycle } from "./cycle";
 
 // Creators are meant to post VIDEOS_PER_DAY videos a day. Expected-so-far is counted from the later of the
-// cycle start and the creator's own start date on the payroll sheet, so someone who joined mid-cycle is
-// measured only from the day they joined.
+// cycle start and the creator's FIRST POST (not their onboarding date on the sheet — onboarding can be weeks
+// before they actually start posting). No post yet → nothing is expected of them yet.
 
 export type PaceStatus = "ahead" | "on_track" | "behind" | "just_started" | "not_started";
 
@@ -27,8 +27,12 @@ export interface Pace {
 const DAY = 24 * 3600 * 1000;
 const ON_TRACK_FLOOR = 0.9; // within 10% of expected still counts as on track
 
-export function paceFor(opts: { counted: number; cycle: Cycle; startDate: Date | null; now: Date; perDay: number }): Pace {
-  const { counted, cycle, startDate, now, perDay } = opts;
+export function paceFor(opts: { counted: number; cycle: Cycle; firstPostAt: Date | null; now: Date; perDay: number }): Pace {
+  const { counted, cycle, firstPostAt: startDate, now, perDay } = opts;
+  if (!startDate) {
+    // Never posted: no clock has started, so they can't be behind (or ahead).
+    return { expected: 0, actual: counted, delta: counted, days: 0, status: "not_started", startedThisCycle: false, fullTarget: 0, remaining: 0, daysLeft: 0, neededPerDay: 0 };
+  }
   const startedThisCycle = !!startDate && startDate.getTime() > cycle.start.getTime() && startDate.getTime() < cycle.end.getTime();
   const effStart = startDate && startDate.getTime() > cycle.start.getTime() ? startDate : cycle.start;
   const effEnd = new Date(Math.min(now.getTime(), cycle.end.getTime()));

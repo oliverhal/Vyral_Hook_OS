@@ -86,7 +86,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
         <div className="text-center w-16 flex-shrink-0">
           <p className="text-2xl font-black text-slate-900 leading-none">{row.counted}</p>
           <p className="text-[10px] uppercase tracking-wide text-slate-400 mt-1" title="Unique videos: a video posted to several platforms counts once">unique</p>
-          {row.pace.expected > 0 && <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap" title={`Expected so far at the daily target${row.pace.startedThisCycle ? ", counted from their start date" : ""}`}>of {row.pace.expected}</p>}
+          {row.pace.expected > 0 && <p className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap" title={`Expected so far at the daily target${row.pace.startedThisCycle ? ", counted from their first post" : ""}`}>of {row.pace.expected}</p>}
         </div>
 
         {/* Mini per-platform bars */}
@@ -105,7 +105,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
           {row.pace.status === "behind" && <span className="badge bg-rose-100 text-rose-700" title={`${row.counted} unique videos vs ${row.pace.expected} expected so far`}>{Math.abs(row.pace.delta)} behind pace</span>}
           {row.pace.status === "on_track" && <span className="badge bg-sky-50 text-sky-700" title={`${row.counted} vs ${row.pace.expected} expected — within 10%`}>on track</span>}
           {row.pace.status === "ahead" && row.pace.delta > 0 && <span className="badge bg-emerald-100 text-emerald-700" title={`${row.counted} vs ${row.pace.expected} expected so far`}>{row.pace.delta} ahead</span>}
-          {row.pace.startedThisCycle && <span className="badge bg-violet-50 text-violet-700" title="Joined partway through this cycle — the expected count starts from their start date">new · {row.startDate && new Date(row.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}</span>}
+          {row.pace.startedThisCycle && <span className="badge bg-violet-50 text-violet-700" title="Posted for the first time partway through this cycle — the expected count starts from that first post">first post · {row.startDate && new Date(row.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}</span>}
           {row.leavingAfter && <span className="badge bg-amber-50 text-amber-700" title="Removed from the payroll sheet — kept until the pay cycle closes + 2 days so it can still be reviewed and paid">leaving {new Date(row.leavingAfter).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
           {row.bonus.pendingChecks > 0 && <span className="badge bg-amber-100 text-amber-800" title="The same video is on Instagram and Facebook — the accounts may be linked">IG+FB check</span>}
           {row.trackingGaps.length > 0 && <span className="badge bg-slate-200 text-slate-600" title="A handle on the sheet has no videos in ViralDeck">not tracked: {row.trackingGaps.map((g) => PLATFORM_SHORT[g] ?? g).join(", ")}</span>}

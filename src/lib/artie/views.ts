@@ -19,6 +19,14 @@ export const parseJson = <T,>(s: string | null | undefined, fallback: T): T => {
 };
 
 /** What one creator counts for in one cycle. Always filtered by creatorId. */
+/** Earliest post we've ever seen per creator (any platform, any cycle) — when their posting clock starts. */
+export async function firstPostDates(db: Db, creatorIds?: string[]): Promise<Map<string, Date>> {
+  const rows = await db.artiePost.groupBy({ by: ["creatorId"], where: creatorIds ? { creatorId: { in: creatorIds } } : {}, _min: { publishedAt: true } });
+  const m = new Map<string, Date>();
+  for (const r of rows) if (r._min?.publishedAt) m.set(r.creatorId, r._min.publishedAt);
+  return m;
+}
+
 export async function loadCreatorCycle(db: Db, creatorId: string, cycle: Cycle, mode: CountMode = "unique") {
   const posts = await db.artiePost.findMany({
     where: { creatorId, publishedAt: { gte: cycle.start, lt: cycle.end } },
@@ -79,15 +87,17 @@ function bonusState(status: string): ProgressBonusItem["state"] {
  */
 /** Aggregate (id, views, days) for every active creator → this creator's tier. Only the tier leaves this function. */
 async function tierFor(db: Db, creatorId: string, cycle: Cycle, now: Date): Promise<RankTier | null> {
-  const [creators, sums] = await Promise.all([
-    db.artieCreator.findMany({ where: { active: true }, select: { id: true, startDate: true } }),
+  const [creators, sums, firsts] = await Promise.all([
+    db.artieCreator.findMany({ where: { active: true }, select: { id: true } }),
     db.artiePost.groupBy({ by: ["creatorId"], where: { publishedAt: { gte: cycle.start, lt: cycle.end } }, _sum: { views: true } }),
+    firstPostDates(db),
   ]);
   const views = new Map(sums.map((r) => [r.creatorId, r._sum.views ?? 0]));
   const DAY = 24 * 3600 * 1000;
   const end = Math.min(now.getTime(), cycle.end.getTime());
   const inputs: RankInput[] = creators.map((c) => {
-    const start = Math.max(cycle.start.getTime(), c.startDate?.getTime() ?? cycle.start.getTime());
+    const first = firsts.get(c.id);
+    const start = first ? Math.max(cycle.start.getTime(), first.getTime()) : end; // never posted → 0 active days
     return { id: c.id, totalViews: views.get(c.id) ?? 0, activeDays: Math.max(0, (end - start) / DAY) };
   });
   return rankTier(inputs, creatorId);
@@ -102,6 +112,7 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
   const mode: CountMode = settings?.countMode === "instagram" ? "instagram" : "unique";
 
   const current = cycleFor(now);
+  const firstPostAt = (await firstPostDates(db, [creator.id])).get(creator.id) ?? null;
   const { posts, candidates, counts } = await loadCreatorCycle(db, creator.id, current, mode);
   const postById = new Map(posts.map((p) => [p.id, p]));
 
@@ -145,15 +156,15 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
     bonusCount: live.length, indicativeBonus,
     pace: (settings?.showPaceToCreators === false) ? null : (() => {
       const perDay = settings?.videosPerDay ?? 2;
-      const p = paceFor({ counted: counts.counted, cycle: current, startDate: creator.startDate ?? null, now, perDay });
+      const p = paceFor({ counted: counts.counted, cycle: current, firstPostAt, now, perDay });
       return { expected: p.expected, actual: p.actual, delta: p.delta, status: p.status, perDay, startedThisCycle: p.startedThisCycle,
         fullTarget: p.fullTarget, remaining: p.remaining, daysLeft: p.daysLeft, neededPerDay: p.neededPerDay,
-        startLabel: p.startedThisCycle && creator.startDate ? creator.startDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" }) : null };
+        startLabel: p.startedThisCycle && firstPostAt ? firstPostAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" }) : null };
     })(),
     rank: settings?.showRankToCreators === false ? null : await tierFor(db, creator.id, current, now).then((tier) => (tier ? { tier } : null)),
     nudge: settings?.showPaceToCreators === false ? null : (() => {
       const perDay = settings?.videosPerDay ?? 2;
-      const pc = paceFor({ counted: counts.counted, cycle: current, startDate: creator.startDate ?? null, now, perDay });
+      const pc = paceFor({ counted: counts.counted, cycle: current, firstPostAt, now, perDay });
       const top = posts.reduce<typeof posts[number] | null>((m, x) => (!m || x.views > m.views ? x : m), null);
       return creatorNudge({ pace: pc, rate: creator.ratePerVideo ?? null, currency: settings?.currency ?? "USD", bonusAmount: settings?.bonusAmount ?? 50, threshold,
         cycleEndLabel: current.endLabel, best: top && top.views >= 1000 ? { views: top.views, platform: top.platform, url: top.url } : null });

@@ -286,8 +286,8 @@ ok(withTT.length === 2 && withTT.find((c) => c.primaryPostId === "ig1")!.related
 
 
 // ── programme goal (Art Master calculator, 50-creator row) ───────────────────
-const gl = (v: number, now = "2026-11-17T12:00:00Z", cycle = cyc2, spend = 0, views = 0) => goalFor({ cycle, now: new Date(now), actualVideos: v, actualSpend: spend, actualViews: views });
-ok(gl(0).videos.fullTarget === 3000 && gl(0).spend.fullTarget === 30000 && gl(0).views.fullTarget === 12500000, "50 creators: 3,000 videos, 30,000 spend, 12.5M views a month (calculator)");
+const gl = (v: number, now = "2026-11-17T12:00:00Z", cycle = cyc2, spend = 0) => goalFor({ cycle, now: new Date(now), actualVideos: v, actualSpend: spend });
+ok(gl(0).videos.fullTarget === 3000 && gl(0).spend.fullTarget === 30000, "50 creators: 3,000 videos and 30,000 spend a month (calculator)");
 ok(Math.abs(gl(0).videos.expected - 3000 * 19.5 / 31) <= 1, "19.5 of 31 days in → 1,887 videos expected by now");
 ok(gl(2000).videos.status === "ahead" && gl(1500).videos.status === "behind" && gl(1500).videos.gap === 1500 - gl(0).videos.expected, "ahead / behind against the pro rata line");
 ok(gl(1887).videos.projected === 3000 || Math.abs(gl(1887).videos.projected - 3000) <= 2, "exactly on the line projects to the full 3,000");

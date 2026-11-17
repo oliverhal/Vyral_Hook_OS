@@ -3,12 +3,10 @@ import type { Cycle } from "./cycle";
 // Programme goal, taken from the Art Master pricing calculator ("what you pay vs what you get", 50-creator row):
 //   50 creators × 60 posts a month (2 a day)  → 3,000 videos
 //   50 creators × 600 creator cost (incl. bonuses) → 30,000 spend
-//   50 creators × 250,000 views each           → 12,500,000 views
 // Each is spread evenly over the cycle (pro rata), so "expected by now" is the full target × share of the cycle gone.
 
 export const GOAL_CREATORS = 50;
 export const COST_PER_CREATOR = 600; // monthly, includes bonuses (calculator: "Creator Cost (incl. bonuses)")
-export const VIEWS_PER_CREATOR = 250_000; // monthly (calculator: "Avg. Views per Creator")
 const DAY = 24 * 3600 * 1000;
 
 export type GoalStatus = "ahead" | "on_track" | "behind";
@@ -21,7 +19,7 @@ export interface Measure {
 export interface Goal {
   creators: number; perDay: number; perDayTotal: number;
   daysElapsed: number; daysTotal: number; neededPerDay: number; // videos/day from here to hit the target
-  videos: Measure; spend: Measure; views: Measure;
+  videos: Measure; spend: Measure;
 }
 
 function measure(fullTarget: number, frac: number, actual: number, elapsed: number, total: number): Measure {
@@ -36,7 +34,7 @@ function measure(fullTarget: number, frac: number, actual: number, elapsed: numb
 }
 
 export function goalFor(o: {
-  cycle: Cycle; now: Date; actualVideos: number; actualSpend: number; actualViews: number;
+  cycle: Cycle; now: Date; actualVideos: number; actualSpend: number;
   creators?: number; perDay?: number;
 }): Goal {
   const creators = o.creators ?? GOAL_CREATORS;
@@ -49,6 +47,6 @@ export function goalFor(o: {
   return {
     creators, perDay, perDayTotal: creators * perDay, daysElapsed: Math.round(elapsed * 10) / 10, daysTotal: Math.round(total * 10) / 10,
     neededPerDay: daysLeft > 0 ? Math.ceil((videos.remaining / daysLeft) * 10) / 10 : videos.remaining,
-    videos, spend: measure(creators * COST_PER_CREATOR, frac, o.actualSpend, elapsed, total), views: measure(creators * VIEWS_PER_CREATOR, frac, o.actualViews, elapsed, total),
+    videos, spend: measure(creators * COST_PER_CREATOR, frac, o.actualSpend, elapsed, total),
   };
 }

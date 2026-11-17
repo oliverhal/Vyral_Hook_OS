@@ -73,7 +73,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     bonusSummary,
-    totalViews: posts.reduce((n, p) => n + p.views, 0),
     cycle: { key: cycle.key, start: cycle.start, end: cycle.end, startLabel: cycle.startLabel, endLabel: cycle.endLabel,
       prevKey: shiftCycle(cycle, -1).key, nextKey: shiftCycle(cycle, 1).key, isCurrent: cycle.key === cycleFor(now).key },
     creators: rows,

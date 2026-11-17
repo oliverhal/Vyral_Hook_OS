@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import type { Goal, Measure } from "@/lib/artie/goal";
 
 const num = (n: number) => n.toLocaleString("en-US");
-const compact = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 10_000 ? `${Math.round(n / 1000)}K` : num(n));
 const tone = (s: Measure["status"]) => (s === "ahead" ? "emerald" : s === "on_track" ? "amber" : "rose");
 
 export default function ArtieGoalTracker({ goal, currency, isCurrent }: { goal: Goal; currency: string; isCurrent: boolean }) {
@@ -14,7 +13,6 @@ export default function ArtieGoalTracker({ goal, currency, isCurrent }: { goal: 
   const rows: { label: string; m: Measure; f: (n: number) => string }[] = [
     { label: "Videos", m: g.videos, f: num },
     { label: "Spend (incl. bonuses)", m: g.spend, f: money },
-    { label: "Views", m: g.views, f: compact },
   ];
   const v = g.videos;
   const t = tone(v.status);
@@ -57,7 +55,7 @@ export default function ArtieGoalTracker({ goal, currency, isCurrent }: { goal: 
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-[11px] text-slate-400">Targets per creator per month: 60 videos, {money(600)} creator cost including bonuses, 250K views. Pro rata = today’s daily rate carried to the end of the cycle. Spend is shown in the dashboard currency without conversion.</p>
+      <p className="mt-2 text-[11px] text-slate-400">Targets per creator per month: 60 videos and {money(600)} creator cost including bonuses. Pro rata = today’s daily rate carried to the end of the cycle. Spend is shown in the dashboard currency without conversion.</p>
     </section>
   );
 }

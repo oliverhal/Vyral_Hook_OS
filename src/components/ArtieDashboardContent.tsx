@@ -13,6 +13,7 @@ import type { ArtieRow } from "./artieTypes";
 
 type Row = ArtieRow;
 interface Overview {
+  totalViews?: number;
   cycle: { key: string; start: string; end: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
   bonusSummary: { givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number; pendingLinkChecks: number; pendingPlainAmount: number; rejectedCount: number };
   creators: Row[];
@@ -282,10 +283,8 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
       <ArtieHowItWorks threshold={settings.bonusThreshold} currency={settings.currency} bonusAmount={settings.bonusAmount} />
 
       {creators.length > 0 && (() => {
-        const rated = creators.filter((c) => c.ratePerVideo != null);
-        const avgRate = rated.length ? rated.reduce((n, c) => n + (c.ratePerVideo as number), 0) / rated.length : null;
         const goal = goalFor({ cycle: { key: data.cycle.key, start: new Date(data.cycle.start), end: new Date(data.cycle.end), startLabel: data.cycle.startLabel, endLabel: data.cycle.endLabel }, now: new Date(),
-          actual: totals.counted, actualSpend: totals.spent, avgRate, perDay: settings.videosPerDay });
+          actualVideos: totals.counted, actualSpend: totals.cost, actualViews: data.totalViews ?? 0, perDay: settings.videosPerDay });
         return <ArtieGoalTracker goal={goal} currency={settings.currency} isCurrent={data.cycle.isCurrent} />;
       })()}
 

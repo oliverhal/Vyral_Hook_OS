@@ -285,7 +285,7 @@ const withTT = detectCandidates([P("ig1", "instagram", 400000), P("fb1", "facebo
 ok(withTT.length === 2 && withTT.find((c) => c.primaryPostId === "ig1")!.relatedPostIds.join() === "tt1", "a TikTok copy stays attached to the Instagram bonus when IG and FB are awarded separately");
 
 
-// ── programme goal (Art Master calculator, 50-creator row) ───────────────────
+// ── programme goal (Art Master calculator, scaled to the creators on the sheet) ───────────────────
 const gl = (v: number, now = "2026-11-17T12:00:00Z", cycle = cyc2, spend = 0) => goalFor({ cycle, now: new Date(now), actualVideos: v, actualSpend: spend });
 ok(gl(0).videos.fullTarget === 3000 && gl(0).spend.fullTarget === 30000, "50 creators: 3,000 videos and 30,000 spend a month (calculator)");
 ok(Math.abs(gl(0).videos.expected - 3000 * 19.5 / 31) <= 1, "19.5 of 31 days in → 1,887 videos expected by now");
@@ -293,6 +293,8 @@ ok(gl(2000).videos.status === "ahead" && gl(1500).videos.status === "behind" && 
 ok(gl(1887).videos.projected === 3000 || Math.abs(gl(1887).videos.projected - 3000) <= 2, "exactly on the line projects to the full 3,000");
 ok(gl(1500).videos.remaining === 1500 && gl(1500).neededPerDay === 130.5, "1,500 posted: 1,500 left over 11.5 days = 130.5 a day");
 ok(gl(1000, "2026-12-30T00:00:00Z").videos.expected === 3000 && gl(1000, "2026-12-30T00:00:00Z").daysElapsed === 31, "after the cycle closes expectations cap at the full target");
+const g56 = goalFor({ cycle: cyc2, now: new Date("2026-11-17T12:00:00Z"), actualVideos: 0, actualSpend: 0, creators: 56 });
+ok(g56.videos.fullTarget === 3360 && g56.spend.fullTarget === 33600 && g56.perDayTotal === 112, "goal scales with the roster: 56 creators → 3,360 videos, 33,600 spend, 112 a day");
 ok(gl(0, "2026-10-01T00:00:00Z").videos.expected === 0, "before the cycle starts nothing is expected");
 ok(gl(0, undefined, cyc2, 9000).spend.remaining === 21000 && gl(0, undefined, cyc2, 9000).spend.projected === Math.round(9000 / 19.5 * 31), "spend still needed = 30,000 − spent; pro rata = today's daily spend × cycle days");
 import { isArtieReviewer, isArtieOnly } from "../src/lib/artieAccess";

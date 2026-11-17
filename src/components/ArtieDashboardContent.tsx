@@ -283,7 +283,8 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
 
       {creators.length > 0 && (() => {
         const goal = goalFor({ cycle: { key: data.cycle.key, start: new Date(data.cycle.start), end: new Date(data.cycle.end), startLabel: data.cycle.startLabel, endLabel: data.cycle.endLabel }, now: new Date(),
-          actualVideos: totals.counted, actualSpend: totals.cost, perDay: settings.videosPerDay });
+          actualVideos: totals.counted, actualSpend: totals.cost, perDay: settings.videosPerDay,
+          creators: Math.max(1, creators.filter((c) => !c.leavingAfter).length) }); // live roster size, not a fixed 50
         return <ArtieGoalTracker goal={goal} currency={settings.currency} isCurrent={data.cycle.isCurrent} />;
       })()}
 

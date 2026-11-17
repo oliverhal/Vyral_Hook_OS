@@ -25,7 +25,7 @@ export default function ArtieGoalTracker({ goal, currency, isCurrent }: { goal: 
           <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><Target className="w-5 h-5" /></div>
           <div>
             <p className="font-bold text-slate-900 leading-tight">Programme goal</p>
-            <p className="text-xs text-slate-500">{g.creators} creators × {g.perDay} a day = {num(g.perDayTotal)} videos a day · {isCurrent ? `day ${g.daysElapsed} of ${g.daysTotal}` : "closed cycle"} · from the Art Master calculator</p>
+            <p className="text-xs text-slate-500">{g.creators} creators on the sheet × {g.perDay} a day = {num(g.perDayTotal)} videos a day · {isCurrent ? `day ${g.daysElapsed} of ${g.daysTotal}` : "closed cycle"} · per the Art Master calculator</p>
           </div>
         </div>
         <span className={cn("badge", t === "emerald" ? "bg-emerald-50 text-emerald-700" : t === "amber" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700")}>

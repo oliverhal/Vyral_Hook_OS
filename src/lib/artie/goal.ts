@@ -5,7 +5,7 @@ import type { Cycle } from "./cycle";
 //   50 creators × 600 creator cost (incl. bonuses) → 30,000 spend
 // Each is spread evenly over the cycle (pro rata), so "expected by now" is the full target × share of the cycle gone.
 
-export const GOAL_CREATORS = 50;
+export const GOAL_CREATORS = 50; // fallback only — the dashboard passes the live number of creators on the sheet
 export const COST_PER_CREATOR = 600; // monthly, includes bonuses (calculator: "Creator Cost (incl. bonuses)")
 const DAY = 24 * 3600 * 1000;
 

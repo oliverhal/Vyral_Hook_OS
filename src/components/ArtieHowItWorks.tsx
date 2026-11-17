@@ -1,24 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, ChevronDown, X } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const KEY = "artie-howto-dismissed-v1";
+// Remembered per browser, in BOTH directions: minimise it and it stays minimised across reloads until
+// you expand it again (and the other way round). Open the first time you ever visit.
+const KEY = "artie-howto-open-v2";
 
 // A short guide to using this page. Open the first time you visit, then it stays out of the way
 // (re-open any time with the "How this works" button).
 export default function ArtieHowItWorks({ threshold, currency, bonusAmount }: { threshold: number; currency: string; bonusAmount: number }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => { try { setOpen(localStorage.getItem(KEY) !== "1"); } catch { setOpen(true); } }, []);
-  const set = (v: boolean) => { setOpen(v); if (!v) { try { localStorage.setItem(KEY, "1"); } catch { /* ignore */ } } };
+  const [open, setOpen] = useState(true);
+  useEffect(() => { try { const v = localStorage.getItem(KEY); if (v !== null) setOpen(v === "1"); } catch { /* storage blocked: stay open */ } }, []);
+  const set = (v: boolean) => { setOpen(v); try { localStorage.setItem(KEY, v ? "1" : "0"); } catch { /* ignore */ } };
   const money = new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(bonusAmount);
   const views = threshold >= 1000 ? `${Math.round(threshold / 1000)}K` : String(threshold);
 
   if (!open) {
     return (
-      <button onClick={() => set(true)} className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600">
-        <BookOpen className="w-4 h-4" /> How this page works <ChevronDown className="w-4 h-4" />
+      <button onClick={() => set(true)} aria-expanded={false}
+        className="mb-5 w-full flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-2.5 text-sm font-medium text-blue-900 hover:bg-blue-50 transition-colors">
+        <span className="inline-flex items-center gap-2"><BookOpen className="w-4 h-4" /> How this page works</span>
+        <span className="inline-flex items-center gap-1 text-xs text-blue-600">Show <ChevronDown className="w-4 h-4" /></span>
       </button>
     );
   }
@@ -34,9 +38,11 @@ export default function ArtieHowItWorks({ threshold, currency, bonusAmount }: { 
 
   return (
     <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50/60 p-5">
-      <div className="flex items-start justify-between gap-3 mb-3">
+      <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 text-blue-900 font-bold"><BookOpen className="w-4 h-4" /> How this page works</div>
-        <button onClick={() => set(false)} className="p-1 rounded-lg text-blue-400 hover:text-blue-700 hover:bg-blue-100" title="Hide this guide"><X className="w-4 h-4" /></button>
+        <button onClick={() => set(false)} aria-expanded={true} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100" title="Minimise — it stays minimised until you open it again">
+          Minimise <ChevronUp className="w-4 h-4" />
+        </button>
       </div>
       <ol className="grid md:grid-cols-2 gap-x-8 gap-y-3">
         {steps.map((st) => (

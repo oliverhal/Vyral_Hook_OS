@@ -39,8 +39,15 @@ export function groupPosts(posts: CountPost[]): Group[] {
   return Array.from(groups.values()).concat(standalone);
 }
 
+/**
+ * "unique": every unique video counts once, whichever platform it was posted on — a cross-post
+ *           is one video, and a TikTok- or Facebook-only video still counts.
+ * "instagram": only Instagram videos count (TikTok/FB-only ones wait for a reviewer's decision).
+ */
+export type CountMode = "unique" | "instagram";
+
 export interface Counts {
-  /** Baseline per the scope: unique IG posts, plus non-IG posts a reviewer explicitly marked "count". */
+  /** Unique videos (see CountMode). */
   counted: number;
   perPlatform: Record<string, number>;
   /** Non-IG posts with no IG counterpart that nobody has decided on yet. */
@@ -49,7 +56,7 @@ export interface Counts {
   discrepancy: boolean;
 }
 
-export function countVideos(posts: CountPost[]): Counts {
+export function countVideos(posts: CountPost[], mode: CountMode = "unique"): Counts {
   const perPlatform: Record<string, number> = { instagram: 0, tiktok: 0, facebook: 0 };
   for (const p of posts) perPlatform[p.platform] = (perPlatform[p.platform] ?? 0) + 1;
 
@@ -58,8 +65,9 @@ export function countVideos(posts: CountPost[]): Counts {
   const needsReview: CountPost[] = [];
   for (const g of groups) {
     if (g.primary.platform === "instagram") counted++;
-    else if (g.primary.countDecision === "count") counted++;
-    else if (g.primary.countDecision !== "ignore") needsReview.push(g.primary);
+    else if (g.primary.countDecision === "ignore") continue; // reviewer said no
+    else if (mode === "unique" || g.primary.countDecision === "count") counted++;
+    else needsReview.push(g.primary);
   }
 
   const tracked = ["instagram", "tiktok", "facebook"].filter((pl) => perPlatform[pl] > 0);

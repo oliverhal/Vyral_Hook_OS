@@ -16,7 +16,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   const now = new Date();
   const cycle = cycleByKey(req.nextUrl.searchParams.get("cycle") ?? "") ?? cycleFor(now);
-  const { posts, counts } = await loadCreatorCycle(prisma, creator.id, cycle);
+  const settingsRow = await prisma.artieSettings.findUnique({ where: { id: "singleton" } });
+  const { posts, counts } = await loadCreatorCycle(prisma, creator.id, cycle, settingsRow?.countMode === "instagram" ? "instagram" : "unique");
   const candidates = await prisma.artieBonusCandidate.findMany({
     where: { creatorId: creator.id, cycleKey: cycle.key },
     include: { events: { orderBy: { createdAt: "asc" } } },
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   return NextResponse.json({
     creator: {
-      id: creator.id, name: creator.name, ratePerVideo: creator.ratePerVideo, active: creator.active,
+      id: creator.id, name: creator.name, avatarUrl: creator.avatarUrl, ratePerVideo: creator.ratePerVideo, active: creator.active,
       instagram: creator.instagram, tiktok: creator.tiktok, facebook: creator.facebook,
       facebookLinked: creator.facebookLinked, accessToken: creator.accessToken,
     },

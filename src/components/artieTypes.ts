@@ -2,7 +2,7 @@
 // dashboard list and its expandable creator cards.
 
 export interface ArtieRow {
-  id: string; name: string; ratePerVideo: number | null;
+  id: string; name: string; avatarUrl: string | null; ratePerVideo: number | null;
   handles: { instagram: string | null; tiktok: string | null; facebook: string | null };
   counted: number; perPlatform: Record<string, number>; discrepancy: boolean; needsReview: number;
   bonus: { pending: number; approved: number; rejected: number; indicativeAmount: number };
@@ -27,3 +27,7 @@ export interface ArtieDetail {
 }
 
 export const PLATFORM_LABEL: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook" };
+
+export const AVATAR_COLORS = ["bg-blue-500", "bg-violet-500", "bg-emerald-500", "bg-orange-500", "bg-pink-500", "bg-teal-500", "bg-amber-500", "bg-rose-500", "bg-indigo-500", "bg-cyan-600"];
+export const avatarColor = (name: string) => AVATAR_COLORS[Array.from(name).reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % AVATAR_COLORS.length];
+export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "?";

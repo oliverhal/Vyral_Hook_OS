@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { cycleFor, shiftCycle, type Cycle } from "./cycle";
-import { countVideos, type CountPost } from "./bonus";
+import { countVideos, type CountPost, type CountMode } from "./bonus";
 
 // Minimal slice of the Prisma client these loaders use — lets tests inject an
 // in-memory fake to prove one creator's token can never surface another's data.
@@ -16,7 +16,7 @@ export const parseJson = <T,>(s: string | null | undefined, fallback: T): T => {
 };
 
 /** What one creator counts for in one cycle. Always filtered by creatorId. */
-export async function loadCreatorCycle(db: Db, creatorId: string, cycle: Cycle) {
+export async function loadCreatorCycle(db: Db, creatorId: string, cycle: Cycle, mode: CountMode = "unique") {
   const posts = await db.artiePost.findMany({
     where: { creatorId, publishedAt: { gte: cycle.start, lt: cycle.end } },
     orderBy: { publishedAt: "desc" },
@@ -25,7 +25,7 @@ export async function loadCreatorCycle(db: Db, creatorId: string, cycle: Cycle) 
     where: { creatorId, cycleKey: cycle.key },
     orderBy: { maxViews: "desc" },
   });
-  return { posts, candidates, counts: countVideos(posts.map(toCountPost)) };
+  return { posts, candidates, counts: countVideos(posts.map(toCountPost), mode) };
 }
 
 // ── Creator-facing ───────────────────────────────────────────────────────────
@@ -44,6 +44,7 @@ export interface ProgressBonusItem {
 
 export interface CreatorProgress {
   name: string;
+  avatarUrl: string | null;
   currency: string;
   cycle: { key: string; startLabel: string; endLabel: string };
   countedVideos: number;
@@ -70,9 +71,10 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
   if (!creator || !creator.active) return null;
   const settings = await db.artieSettings.findUnique({ where: { id: "singleton" } });
   const threshold = settings?.bonusThreshold ?? 100000;
+  const mode: CountMode = settings?.countMode === "instagram" ? "instagram" : "unique";
 
   const current = cycleFor(now);
-  const { posts, candidates, counts } = await loadCreatorCycle(db, creator.id, current);
+  const { posts, candidates, counts } = await loadCreatorCycle(db, creator.id, current, mode);
   const postById = new Map(posts.map((p) => [p.id, p]));
 
   const bonusItems: ProgressBonusItem[] = [];
@@ -92,7 +94,7 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
   let prev = current;
   for (let i = 0; i < 3; i++) {
     prev = shiftCycle(prev, -1);
-    const d = await loadCreatorCycle(db, creator.id, prev);
+    const d = await loadCreatorCycle(db, creator.id, prev, mode);
     if (d.posts.length === 0 && d.candidates.length === 0) continue;
     const reviewed = d.candidates.filter((c) => c.status === "approved" || c.status === "corrected");
     previousCycles.push({
@@ -104,7 +106,7 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
   }
 
   return {
-    name: creator.name, currency: settings?.currency ?? "USD",
+    name: creator.name, avatarUrl: creator.avatarUrl ?? null, currency: settings?.currency ?? "USD",
     cycle: { key: current.key, startLabel: current.startLabel, endLabel: current.endLabel },
     countedVideos: counts.counted, bonusThreshold: threshold,
     bonusCount: live.length, indicativeBonus: live.reduce((s, b) => s + b.amount, 0),

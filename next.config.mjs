@@ -10,6 +10,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.public.blob.vercel-storage.com',
       },
+      {
+        // Creator profile pictures from ViralDeck (Artie dashboard)
+        protocol: 'https',
+        hostname: 'media.ugc-tracking.com',
+      },
     ],
   },
 };

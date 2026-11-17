@@ -27,11 +27,11 @@ export async function GET(req: NextRequest) {
 
   const rows = creators.map((c) => {
     const mine = posts.filter((p) => p.creatorId === c.id);
-    const counts = countVideos(mine.map((p) => ({ id: p.id, platform: p.platform, views: p.views, igMatchId: p.igMatchId, countDecision: p.countDecision })));
+    const counts = countVideos(mine.map((p) => ({ id: p.id, platform: p.platform, views: p.views, igMatchId: p.igMatchId, countDecision: p.countDecision })), settings.countMode === "instagram" ? "instagram" : "unique");
     const cs = candidates.filter((x) => x.creatorId === c.id);
     const live = cs.filter((x) => x.status !== "rejected");
     return {
-      id: c.id, name: c.name, ratePerVideo: c.ratePerVideo,
+      id: c.id, name: c.name, avatarUrl: c.avatarUrl, ratePerVideo: c.ratePerVideo,
       handles: { instagram: c.instagram, tiktok: c.tiktok, facebook: c.facebook },
       counted: counts.counted, perPlatform: counts.perPlatform, discrepancy: counts.discrepancy,
       needsReview: counts.needsReview.length,
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       prevKey: shiftCycle(cycle, -1).key, nextKey: shiftCycle(cycle, 1).key, isCurrent: cycle.key === cycleFor(now).key },
     creators: rows,
     settings: {
-      payrollSheetUrl: settings.payrollSheetUrl, payrollClient: settings.payrollClient, bonusThreshold: settings.bonusThreshold, bonusAmount: settings.bonusAmount,
+      payrollSheetUrl: settings.payrollSheetUrl, payrollClient: settings.payrollClient, countMode: settings.countMode, bonusThreshold: settings.bonusThreshold, bonusAmount: settings.bonusAmount,
       currency: settings.currency, lastRosterSyncAt: settings.lastRosterSyncAt, lastVideoSyncAt: settings.lastVideoSyncAt,
       lastSyncError: settings.lastSyncError,
       unmappedRows: parseJson(settings.unmappedRows, []), unmatchedAccounts: parseJson(settings.unmatchedAccounts, []),

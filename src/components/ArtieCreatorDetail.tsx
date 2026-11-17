@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronLeft, ChevronRight, Copy, ExternalLink, RotateCcw, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ArtieAvatar from "./ArtieAvatar";
 
 interface PostRow {
   id: string; platform: string; url: string; username: string | null; caption: string | null; publishedAt: string; views: number;
@@ -18,7 +19,7 @@ interface Cand {
   related: { id: string; url: string; platform: string; views: number }[]; events: Ev[];
 }
 interface Detail {
-  creator: { id: string; name: string; ratePerVideo: number | null; instagram: string | null; tiktok: string | null; facebook: string | null; facebookLinked: boolean | null; accessToken: string };
+  creator: { id: string; name: string; avatarUrl: string | null; ratePerVideo: number | null; instagram: string | null; tiktok: string | null; facebook: string | null; facebookLinked: boolean | null; accessToken: string };
   cycle: { key: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
   counts: { counted: number; perPlatform: Record<string, number>; discrepancy: boolean };
   currency: string; posts: PostRow[]; candidates: Cand[];
@@ -86,12 +87,15 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
       <div>
         <Link href={`/artie?cycle=${d.cycle.key}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-3"><ArrowLeft className="w-4 h-4" /> All creators</Link>
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex items-center gap-4">
+            <ArtieAvatar name={d.creator.name} url={d.creator.avatarUrl} size={56} />
+            <div>
             <h1 className="text-2xl font-bold text-slate-900">{d.creator.name}</h1>
             <p className="text-sm text-slate-500 mt-1">
               {[d.creator.instagram && `IG @${d.creator.instagram}`, d.creator.tiktok && `TikTok @${d.creator.tiktok}`, d.creator.facebook && `FB ${d.creator.facebook}`].filter(Boolean).join(" · ")}
               {d.creator.ratePerVideo != null && <> · rate {money(d.creator.ratePerVideo)}/video</>}
             </p>
+            </div>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <button onClick={() => setCycleKey(d.cycle.prevKey)} className="p-2 rounded-lg hover:bg-slate-100"><ChevronLeft className="w-4 h-4" /></button>
@@ -102,11 +106,11 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="card p-5"><p className="label">Counted videos</p><p className="text-3xl font-black mt-1">{d.counts.counted}</p></div>
+        <div className="card p-5"><p className="label">Unique videos</p><p className="text-3xl font-black mt-1">{d.counts.counted}</p></div>
         <div className="card p-5 col-span-2">
           <p className="label">Posts found in this cycle</p>
           <p className="text-sm mt-2 text-slate-700">Instagram <strong>{d.counts.perPlatform.instagram ?? 0}</strong> · TikTok <strong>{d.counts.perPlatform.tiktok ?? 0}</strong> · Facebook <strong>{d.counts.perPlatform.facebook ?? 0}</strong></p>
-          {d.counts.discrepancy && <p className="text-xs text-amber-700 mt-2">The counts differ — could be a missed cross-post or a platform-specific post. Check below before approving.</p>}
+          {d.counts.discrepancy && <p className="text-xs text-amber-700 mt-2">The platform counts differ — normal if a creator posts different videos on different platforms. “Unique videos” counts a cross-post once.</p>}
         </div>
       </div>
 

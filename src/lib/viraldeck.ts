@@ -116,6 +116,7 @@ export interface ViraldeckAccount {
   handle: string;
   displayName: string | null;
   videoCount: number;
+  profileImageUrl: string | null;
 }
 
 export function artieApiKey(): string {
@@ -140,7 +141,7 @@ export async function listAccounts(projectId: string, key = artieApiKey()): Prom
   for (let page = 0; page < 50; page++) {
     const res = await get<{ data: any[]; meta: { nextCursor: number | null } }>("/creators", { projectId, limit: LIMIT, cursor }, key);
     for (const c of res.data ?? []) {
-      out.push({ id: c.id, platform: c.platform, handle: String(c.handle ?? ""), displayName: c.displayName ?? null, videoCount: Number(c.videoCount ?? 0) });
+      out.push({ id: c.id, platform: c.platform, handle: String(c.handle ?? ""), displayName: c.displayName ?? null, videoCount: Number(c.videoCount ?? 0), profileImageUrl: c.profileImageUrl || null });
     }
     if (res.meta?.nextCursor == null) break;
     cursor = res.meta.nextCursor;

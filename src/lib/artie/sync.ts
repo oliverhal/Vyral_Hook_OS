@@ -87,8 +87,10 @@ function parseJsonSafe(s: string | null): Record<string, number> {
   try { return s ? (JSON.parse(s) as Record<string, number>) : {}; } catch { return {}; }
 }
 
-// Stay well inside the 300s function limit; anything not reached is refreshed next run.
-const TIME_BUDGET_MS = 230_000;
+// The whole run (fetch + DB writes + matching + bonus detection) must fit in the 300s function limit.
+// The first full run overran it and died before bonus detection, so the fetch gets half the time;
+// anything not reached is refreshed first on the next run (stalest-first).
+const TIME_BUDGET_MS = 150_000;
 // ViralDeck rate-limits bursts per key, so keep this low.
 const FETCH_CONCURRENCY = 2;
 
@@ -110,6 +112,20 @@ export async function syncVideos(): Promise<{ matched: number; created: number; 
   // skip empty ones — fetch every roster-matched account.
   const tracked = mine.filter((m) => m.creatorId);
   const unmatchedAccounts = mine.filter((m) => !m.creatorId);
+
+  // Profile pictures: IG first, then TikTok, then Facebook. Done before the slow video fetch so
+  // they land even if the run is cut short.
+  const pref = ["instagram", "tiktok", "facebook"];
+  const avatarFor = new Map<string, { rank: number; url: string }>();
+  for (const m of mine) {
+    if (!m.creatorId || !m.a.profileImageUrl) continue;
+    const rank = pref.indexOf(m.a.platform);
+    const cur = avatarFor.get(m.creatorId);
+    if (!cur || rank < cur.rank) avatarFor.set(m.creatorId, { rank, url: m.a.profileImageUrl });
+  }
+  const avatarUpdates = creators.filter((c) => avatarFor.has(c.id) && c.avatarUrl !== avatarFor.get(c.id)!.url)
+    .map((c) => prisma.artieCreator.update({ where: { id: c.id }, data: { avatarUrl: avatarFor.get(c.id)!.url } }));
+  for (let i = 0; i < avatarUpdates.length; i += 50) await prisma.$transaction(avatarUpdates.slice(i, i + 50));
 
   // Stalest first: if the time budget cuts a run short, the accounts it skipped lead the next one.
   const settings = await getSettings();
@@ -247,6 +263,12 @@ export async function runArtieSync() {
   const roster = await syncRoster();
   // A roster error shouldn't stop videos refreshing for creators we already know.
   const videos = await syncVideos();
+  const derived = await deriveAll();
+  return { roster, videos, ...derived };
+}
+
+/** Cross-post matching + bonus candidates for the two open cycles. Cheap, so it can run on its own. */
+export async function deriveAll() {
   const current = cycleFor(new Date());
   const previous = shiftCycle(current, -1);
   const matches = await recomputeMatches(previous.start, current.end);
@@ -254,7 +276,7 @@ export async function runArtieSync() {
     [previous.key]: await recomputeCandidates(previous),
     [current.key]: await recomputeCandidates(current),
   };
-  return { roster, videos, matches, candidates };
+  return { matches, candidates };
 }
 
 export { inCycle };

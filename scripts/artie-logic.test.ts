@@ -44,15 +44,27 @@ ok(m.some((x) => x.postId === "tt1" && x.igId === "ig1"), "TikTok with same runt
 ok(m.some((x) => x.postId === "fb1" && x.igId === "ig1"), "FB with same runtime matches even with no caption");
 ok(!m.some((x) => x.postId === "tt2"), "different runtime does not match");
 ok(matchCrossPosts([ig, { ...tt, publishedAt: t0 + 3 * 24 * H }]).length === 0, "posted 3 days apart is not a cross-post");
-ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, caption: "unrelated words here" }]).length === 0, "no runtime + dissimilar captions: no match");
+ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 8 * H, caption: "unrelated words here" }]).length === 0, "no runtime + dissimilar captions + 8h apart: no match");
 ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null }]).length === 1, "no runtime but matching captions: match");
 // Template captions: identical caption on a different video 5h later must NOT be treated as a cross-post.
-ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 5 * H, caption: ig.caption }]).length === 0, "same template caption but 5h apart: not a cross-post (2h cap)");
+ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 8 * H, caption: ig.caption }]).length === 0, "same template caption but 8h apart: not a cross-post (beyond the 6h leftover window)");
+ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 5 * H, caption: ig.caption }]).length === 1, "5h apart, both otherwise unmatched: paired in the leftover pass");
 ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 10 * 60000, caption: "Learning piano with Artie" }]).length === 1, "posted 10 min apart with overlapping caption: match");
-ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 90 * 60000, caption: "Learning piano" }]).length === 0, "90 min apart needs a strong caption match; a partial one is not enough");
+ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 90 * 60000, caption: "Learning piano" }]).length === 1, "90 min apart with a weak caption match: still paired, because both are otherwise unmatched leftovers");
 const twoTT = matchCrossPosts([ig, tt, { ...tt, id: "tt3", publishedAt: t0 + 20 * H }]);
 ok(twoTT.filter((x) => x.igId === "ig1").length === 1, "one IG post takes at most one TikTok match");
 
+
+// ── leftover pass ───────────────────────────────────────────────────────────
+const L = (id: string, platform: string, mins: number, cap: string | null, dur: number | null = null) => ({ id, platform, publishedAt: t0 + mins * 60000, durationSeconds: dur, caption: cap });
+const lo = matchCrossPosts([L("i1", "instagram", 0, "alpha beta gamma"), L("t1", "tiktok", 25, "completely different words")]);
+ok(lo.length === 1 && lo[0].igId === "i1", "leftover pass: different captions 25 min apart but both unmatched → paired");
+ok(matchCrossPosts([L("i1", "instagram", 0, "alpha beta gamma"), L("t1", "tiktok", 7 * 60, "completely different words")]).length === 0, "leftover pass: 7h apart → not paired");
+ok(matchCrossPosts([L("i1", "instagram", 0, "alpha", 20), L("t1", "tiktok", 25, "other", 45)]).length === 0, "leftover pass: runtimes known and different → not paired");
+const best = matchCrossPosts([L("i1", "instagram", 0, "aa bb"), L("i2", "instagram", 60, "cc dd"), L("t1", "tiktok", 50, "zz yy")]);
+ok(best.length === 1 && best[0].igId === "i2", "leftover pass: pairs with the nearest-in-time IG post");
+const strictFirst = matchCrossPosts([L("i1", "instagram", 0, "same caption text"), L("i2", "instagram", 30, "other words here"), L("t1", "tiktok", 1, "same caption text"), L("t2", "tiktok", 31, "unrelated zzz")]);
+ok(strictFirst.find((m) => m.postId === "t1")!.igId === "i1" && strictFirst.find((m) => m.postId === "t2")!.igId === "i2", "strict matches win first; leftovers then pair with what's left");
 
 // ── payroll sheet ──────────────────────────────────────────────────────────
 const csv = [
@@ -125,11 +137,11 @@ ok(cand.length === 1 && cand[0].primaryPostId === "ig1", "IG+FB pair over thresh
 ok(cand[0].flags.includes("possible_fb_ig_overlap") && cand[0].qualifiesOn.sort().join() === "facebook,instagram", "…flagged for overlap, qualifying on both");
 
 posts = [P("ig1", "instagram", 50000), P("ig2", "instagram", 40000), P("tt9", "tiktok", 20000)];
-c = countVideos(posts);
-ok(c.counted === 2 && c.needsReview.length === 1 && c.needsReview[0].id === "tt9", "TikTok-only post is NOT counted and lands in needs-review");
+c = countVideos(posts, "instagram");
+ok(c.counted === 2 && c.needsReview.length === 1 && c.needsReview[0].id === "tt9", "instagram mode: TikTok-only post is NOT counted and lands in needs-review");
 ok(c.discrepancy, "IG 2 vs TikTok 1 raises the internal discrepancy flag");
-ok(countVideos([P("ig1", "instagram", 1), P("tt9", "tiktok", 1, null, "count")]).counted === 2, "reviewer 'count' decision includes the TikTok-only post");
-ok(countVideos([P("ig1", "instagram", 1), P("tt9", "tiktok", 1, null, "ignore")]).needsReview.length === 0, "reviewer 'ignore' clears it from needs-review");
+ok(countVideos([P("ig1", "instagram", 1), P("tt9", "tiktok", 1, null, "count")], "instagram").counted === 2, "reviewer 'count' decision includes the TikTok-only post");
+ok(countVideos([P("ig1", "instagram", 1), P("tt9", "tiktok", 1, null, "ignore")], "instagram").needsReview.length === 0, "reviewer 'ignore' clears it from needs-review");
 cand = detectCandidates([P("tt9", "tiktok", 150000)], ctx);
 ok(cand.length === 1 && cand[0].flags.includes("tiktok_only") && cand[0].flags.includes("no_ig_counterpart"), "TikTok-only 150K is a flagged candidate, not silently dropped or paid");
 ok(detectCandidates([P("ig1", "instagram", 99999)], ctx).length === 0, "99,999 views is below threshold");
@@ -141,6 +153,15 @@ const unlinked = detectCandidates([P("ig1", "instagram", 200000)], { threshold: 
 ok(!unlinked[0].flags.includes("ig_views_may_include_fb"), "FB known to be unlinked: IG views not flagged as possibly shared");
 const unknown = detectCandidates([P("ig1", "instagram", 200000)], ctx);
 ok(unknown[0].flags.includes("ig_views_may_include_fb") && unknown[0].flags.includes("fb_linkage_unknown"), "FB present, linkage unknown: flagged for the reviewer");
+
+// ── unique-video count mode (default) ──────────────────────────────────────
+const tiktokOnly = Array.from({ length: 31 }, (_, i) => P("t" + i, "tiktok", 1000 + i));
+ok(countVideos(tiktokOnly).counted === 31 && countVideos(tiktokOnly).needsReview.length === 0, "unique mode: a creator with 31 TikToks and no Instagram counts 31 (not 0)");
+ok(countVideos(tiktokOnly, "instagram").counted === 0, "instagram mode: the same creator counts 0");
+const mixed = [P("ig1", "instagram", 1), P("tt1", "tiktok", 1, "ig1"), P("fb1", "facebook", 1, "ig1"), P("ig2", "instagram", 1), P("tt2", "tiktok", 1, "ig2"), P("tt3", "tiktok", 1), P("fb9", "facebook", 1)];
+ok(countVideos(mixed).counted === 4, "unique mode: 2 cross-posted videos (3+2 posts) + a TikTok-only + a Facebook-only = 4 unique videos");
+ok(countVideos([...mixed, P("tt4", "tiktok", 1, null, "ignore")]).counted === 4, "unique mode: a reviewer's 'ignore' still excludes a post");
+ok(countVideos(mixed, "instagram").counted === 2, "instagram mode: only the 2 Instagram videos");
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

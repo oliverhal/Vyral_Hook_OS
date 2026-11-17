@@ -20,6 +20,10 @@ export async function PUT(req: NextRequest) {
     if (typeof body.payrollClient !== "string" || body.payrollClient.length > 60) return NextResponse.json({ error: "Invalid programme name" }, { status: 400 });
     data.payrollClient = body.payrollClient.trim();
   }
+  if ("countMode" in body) {
+    if (body.countMode !== "unique" && body.countMode !== "instagram") return NextResponse.json({ error: "countMode must be unique or instagram" }, { status: 400 });
+    data.countMode = body.countMode;
+  }
   if ("bonusThreshold" in body) {
     const n = Math.round(Number(body.bonusThreshold));
     if (!Number.isFinite(n) || n < 1 || n > 100_000_000) return NextResponse.json({ error: "Invalid bonus threshold" }, { status: 400 });

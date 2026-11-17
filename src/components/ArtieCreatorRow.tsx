@@ -5,10 +5,7 @@ import Link from "next/link";
 import { ChevronDown, Link2, ExternalLink, Check, AlertTriangle, Loader2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PLATFORM_LABEL, type ArtieRow, type ArtieDetail } from "./artieTypes";
-
-const AVATAR_COLORS = ["bg-blue-500", "bg-violet-500", "bg-emerald-500", "bg-orange-500", "bg-pink-500", "bg-teal-500", "bg-amber-500", "bg-rose-500", "bg-indigo-500", "bg-cyan-600"];
-const avatarColor = (name: string) => AVATAR_COLORS[Array.from(name).reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % AVATAR_COLORS.length];
-const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "?";
+import ArtieAvatar from "./ArtieAvatar";
 
 const PLATFORM_BAR: Record<string, string> = { instagram: "bg-fuchsia-500", tiktok: "bg-slate-800", facebook: "bg-blue-500" };
 const PLATFORM_SHORT: Record<string, string> = { instagram: "IG", tiktok: "TT", facebook: "FB" };
@@ -75,7 +72,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
       <div role="button" tabIndex={0} aria-expanded={expanded} onClick={onToggle}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
         className="flex items-center gap-4 px-5 py-4 cursor-pointer select-none">
-        <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0", avatarColor(row.name))}>{initials(row.name)}</div>
+        <ArtieAvatar name={row.name} url={row.avatarUrl} size={44} />
 
         <div className="min-w-0 w-56">
           <p className="font-semibold text-slate-900 truncate">{row.name}</p>
@@ -86,7 +83,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
 
         <div className="text-center w-16 flex-shrink-0">
           <p className="text-2xl font-black text-slate-900 leading-none">{row.counted}</p>
-          <p className="text-[10px] uppercase tracking-wide text-slate-400 mt-1">counted</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 mt-1" title="Unique videos: a video posted to several platforms counts once">unique</p>
         </div>
 
         {/* Mini per-platform bars */}

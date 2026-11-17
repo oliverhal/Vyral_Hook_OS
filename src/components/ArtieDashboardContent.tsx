@@ -12,7 +12,7 @@ interface Overview {
   cycle: { key: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
   creators: Row[];
   settings: {
-    payrollSheetUrl: string | null; payrollClient: string; bonusThreshold: number; bonusAmount: number; currency: string;
+    payrollSheetUrl: string | null; payrollClient: string; countMode: string; bonusThreshold: number; bonusAmount: number; currency: string;
     lastRosterSyncAt: string | null; lastVideoSyncAt: string | null; lastSyncError: string | null;
     unmappedRows: { line: number; reason: string; label: string }[];
     unmatchedAccounts: { platform: string; username: string }[];
@@ -30,9 +30,10 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [syncLabel, setSyncLabel] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [form, setForm] = useState({ url: "", client: "Artie", threshold: "100000", amount: "50", currency: "USD" });
+  const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", threshold: "100000", amount: "50", currency: "USD" });
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     const json = await res.json().catch(() => null);
     if (!res.ok) { setError(json?.error ?? `Failed to load (HTTP ${res.status})`); return; }
     setError(""); setData(json);
-    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency });
+    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", countMode: json.settings.countMode ?? "unique", threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency });
     if (!json.settings.payrollSheetUrl) setShowSettings(true);
   }, []);
 
@@ -55,12 +56,20 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
 
   async function syncNow() {
     setSyncing(true);
-    const res = await fetch("/api/artie/cron", { method: "POST" });
-    const json = await res.json().catch(() => null);
-    setSyncing(false);
-    if (!res.ok) return notify(json?.error ?? `Sync failed (HTTP ${res.status})`, false);
+    // A full pass over every account takes longer than one server run allows, so each run refreshes the
+    // stalest accounts first and reports how many it had to leave; keep going (up to 3 runs) until none are left.
+    let json: any = null;
+    for (let pass = 1; pass <= 3; pass++) {
+      setSyncLabel(pass === 1 ? "Syncing…" : `Syncing… (pass ${pass} of up to 3)`);
+      const res = await fetch("/api/artie/cron", { method: "POST" });
+      json = await res.json().catch(() => null);
+      if (!res.ok) { setSyncing(false); setSyncLabel(""); return notify(json?.error ?? `Sync failed (HTTP ${res.status})`, false); }
+      if (!(json.videos?.skippedAccounts > 0)) break;
+    }
+    setSyncing(false); setSyncLabel("");
     const r = json.roster;
-    notify(r?.error ? `Videos synced, but roster: ${r.error}` : `Synced — ${json.videos.matched} posts matched, ${r.created} new creators`, !r?.error);
+    const left = json.videos?.skippedAccounts ?? 0;
+    notify(r?.error ? `Videos synced, but roster: ${r.error}` : left > 0 ? `Synced — ${left} account(s) left for the next run` : `Synced — ${json.videos.matched} posts, ${r.created} new creators`, !r?.error);
     load(cycleKey);
   }
 
@@ -95,7 +104,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     setSaving(true);
     const res = await fetch("/api/artie/settings", {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), currency: form.currency.toUpperCase() }),
+      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, countMode: form.countMode, bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), currency: form.currency.toUpperCase() }),
     });
     const json = await res.json().catch(() => null);
     setSaving(false);
@@ -146,7 +155,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
         <div className="flex items-center gap-2">
           <button onClick={() => setShowSettings((s) => !s)} className="btn-secondary flex items-center gap-2"><Settings className="w-4 h-4" /> Settings</button>
           <button onClick={syncNow} disabled={syncing} className="btn-primary flex items-center gap-2 disabled:opacity-50">
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Sync now
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} {syncing ? syncLabel || "Syncing…" : "Sync now"}
           </button>
         </div>
       </div>
@@ -168,6 +177,13 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
             <label className="label">Programme to import (matches the sheet’s “Client Name” column)</label>
             <input className="input" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} placeholder="Artie" />
             <p className="text-xs text-slate-400 mt-1">Only these rows are imported. Anyone marked Fired/Inactive is skipped. Leave blank to import every row.</p>
+          </div>
+          <div>
+            <label className="label">How videos are counted</label>
+            <select className="input" value={form.countMode} onChange={(e) => setForm({ ...form, countMode: e.target.value })}>
+              <option value="unique">Unique videos across all platforms (a video on Instagram + TikTok counts once)</option>
+              <option value="instagram">Instagram only (TikTok / Facebook-only videos don’t count)</option>
+            </select>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div><label className="label">Bonus threshold (views)</label><input className="input" value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} /></div>
@@ -201,7 +217,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           {[
             { icon: Users, label: "Active creators", value: String(creators.length), sub: "on the payroll sheet", cls: "bg-blue-50 text-blue-600" },
-            { icon: Film, label: "Videos counted", value: String(totals.counted), sub: "this cycle", cls: "bg-violet-50 text-violet-600" },
+            { icon: Film, label: "Unique videos", value: String(totals.counted), sub: "counted this cycle", cls: "bg-violet-50 text-violet-600" },
             { icon: Gift, label: "Bonuses to review", value: String(totals.pending), sub: `${money(totals.indicative)} indicative`, cls: "bg-amber-50 text-amber-600" },
             { icon: ShieldAlert, label: "Need attention", value: String(totals.attention), sub: "counts differ / not tracked", cls: "bg-orange-50 text-orange-600" },
           ].map(({ icon: Icon, label, value, sub, cls }) => (
@@ -257,7 +273,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
             onChanged={() => load(cycleKey)} notify={notify} copyLink={copyLink} />
         ))}
       </div>
-      <p className="text-xs text-slate-400 mt-3">“Counted” = unique Instagram videos, plus any TikTok/Facebook-only posts you mark as counted. “Counts differ” is internal only — creators are never told they missed a cross-post.</p>
+      <p className="text-xs text-slate-400 mt-3">“Counted” = unique videos: one video posted to several platforms counts once (matched by publish time and caption), and a video that only exists on one platform still counts. “Counts differ” is internal only — creators are never told they missed a cross-post.</p>
     </div>
   );
 }

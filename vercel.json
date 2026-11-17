@@ -23,8 +23,12 @@
       "schedule": "45 8-21 * * *"
     },
     {
-      "path": "/api/artie/cron",
+      "path": "/api/artie/cron?pass=1",
       "schedule": "30 6,18 * * *"
+    },
+    {
+      "path": "/api/artie/cron?pass=2",
+      "schedule": "45 6,18 * * *"
     }
   ]
 }

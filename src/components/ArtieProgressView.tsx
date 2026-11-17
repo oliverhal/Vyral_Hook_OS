@@ -1,4 +1,5 @@
 import type { CreatorProgress, ProgressBonusItem } from "@/lib/artie/views";
+import ArtieAvatar from "./ArtieAvatar";
 
 const PLATFORM: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook" };
 
@@ -19,19 +20,22 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
   return (
     <main className="min-h-screen bg-slate-50 py-10 px-5">
       <div className="max-w-xl mx-auto space-y-5">
-        <header>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Artie creator progress</p>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">Hi {first} 👋</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Current cycle: <strong className="text-slate-700">{p.cycle.startLabel} → {p.cycle.endLabel}</strong>
-          </p>
+        <header className="flex items-center gap-4">
+          <ArtieAvatar name={p.name} url={p.avatarUrl} size={64} className="ring-2 ring-white shadow-sm" />
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Artie creator progress</p>
+            <h1 className="text-2xl font-bold text-slate-900 mt-0.5">Hi {first} 👋</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Current cycle: <strong className="text-slate-700">{p.cycle.startLabel} → {p.cycle.endLabel}</strong>
+            </p>
+          </div>
         </header>
 
         <section className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Videos counted</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Unique videos</p>
             <p className="text-4xl font-black text-slate-900 mt-2">{p.countedVideos}</p>
-            <p className="text-xs text-slate-400 mt-1">this cycle</p>
+            <p className="text-xs text-slate-400 mt-1">counted this cycle · a video on several platforms counts once</p>
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{threshold}+ view bonuses</p>

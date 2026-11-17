@@ -36,7 +36,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "review" | "pending" | "differ" | "untracked">("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "differ" | "untracked">("all");
   const [sort, setSort] = useState<"name" | "counted" | "pending" | "attention">("name");
   const [links, setLinks] = useState<Record<string, string> | null>(null);
 
@@ -114,9 +114,9 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   );
   const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: settings.currency, maximumFractionDigits: 2 }).format(n);
 
-  const attention = (c: Row) => (c.discrepancy ? 1 : 0) + (c.needsReview > 0 ? 1 : 0) + (c.trackingGaps.length > 0 ? 1 : 0);
+  const attention = (c: Row) => (c.discrepancy ? 1 : 0) + (c.trackingGaps.length > 0 ? 1 : 0);
   const predicates: Record<typeof filter, (c: Row) => boolean> = {
-    all: () => true, review: (c) => c.needsReview > 0, pending: (c) => c.bonus.pending > 0,
+    all: () => true, pending: (c) => c.bonus.pending > 0,
     differ: (c) => c.discrepancy, untracked: (c) => c.trackingGaps.length > 0,
   };
   const chipCount = (k: typeof filter) => shown.filter(predicates[k]).length;
@@ -203,7 +203,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
             { icon: Users, label: "Active creators", value: String(creators.length), sub: "on the payroll sheet", cls: "bg-blue-50 text-blue-600" },
             { icon: Film, label: "Videos counted", value: String(totals.counted), sub: "this cycle", cls: "bg-violet-50 text-violet-600" },
             { icon: Gift, label: "Bonuses to review", value: String(totals.pending), sub: `${money(totals.indicative)} indicative`, cls: "bg-amber-50 text-amber-600" },
-            { icon: ShieldAlert, label: "Need attention", value: String(totals.attention), sub: "counts differ / to review / untracked", cls: "bg-orange-50 text-orange-600" },
+            { icon: ShieldAlert, label: "Need attention", value: String(totals.attention), sub: "counts differ / not tracked", cls: "bg-orange-50 text-orange-600" },
           ].map(({ icon: Icon, label, value, sub, cls }) => (
             <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", cls)}><Icon className="w-5 h-5" /></div>
@@ -229,7 +229,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
       {creators.length > 0 && (
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex gap-1.5 flex-wrap">
-            {([["all", "All"], ["review", "Posts to review"], ["pending", "Bonuses pending"], ["differ", "Counts differ"], ["untracked", "Not tracked"]] as const).map(([k, label]) => (
+            {([["all", "All"], ["pending", "Bonuses pending"], ["differ", "Counts differ"], ["untracked", "Not tracked"]] as const).map(([k, label]) => (
               <button key={k} onClick={() => setFilter(k)} className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors", filter === k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400")}>
                 {label} <span className={cn("ml-1", filter === k ? "text-white/60" : "text-slate-400")}>{chipCount(k)}</span>
               </button>

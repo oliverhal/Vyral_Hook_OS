@@ -44,7 +44,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
 
   const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(n);
   const maxCount = Math.max(1, ...["instagram", "tiktok", "facebook"].map((p) => row.perPlatform[p] ?? 0));
-  const attention = (row.discrepancy ? 1 : 0) + (row.needsReview > 0 ? 1 : 0) + (row.trackingGaps.length > 0 ? 1 : 0);
+  const attention = (row.discrepancy ? 1 : 0) + (row.trackingGaps.length > 0 ? 1 : 0);
 
   const loadDetail = useCallback(async () => {
     setLoading(true);
@@ -68,7 +68,6 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
   }
 
   const topPosts = detail ? [...detail.posts].sort((a, b) => b.views - a.views).slice(0, 6) : [];
-  const toReview = detail?.posts.filter((p) => p.needsReview) ?? [];
 
   return (
     <div className={cn("bg-white rounded-2xl border transition-all", expanded ? "border-blue-200 shadow-md" : "border-slate-200 hover:border-slate-300 hover:shadow-sm")}>
@@ -103,7 +102,6 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
 
         <div className="flex-1 flex flex-wrap gap-1.5 min-w-0">
           {row.discrepancy && <span className="badge bg-amber-100 text-amber-800">counts differ</span>}
-          {row.needsReview > 0 && <span className="badge bg-orange-100 text-orange-800">{row.needsReview} to review</span>}
           {row.trackingGaps.length > 0 && <span className="badge bg-slate-200 text-slate-600" title="A handle on the sheet has no videos in ViralDeck">not tracked: {row.trackingGaps.map((g) => PLATFORM_SHORT[g] ?? g).join(", ")}</span>}
           {attention === 0 && <span className="badge bg-emerald-50 text-emerald-700"><Check className="inline w-3 h-3 mr-0.5" />all good</span>}
         </div>
@@ -160,25 +158,6 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
 
               {/* Needs review + recent posts */}
               <section className="space-y-4">
-                {toReview.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wide text-orange-600 mb-2">Posts to review ({toReview.length})</h3>
-                    <ul className="space-y-2">
-                      {toReview.map((p) => (
-                        <li key={p.id} className="bg-white rounded-xl border border-orange-200 p-3 flex items-center justify-between gap-2">
-                          <div className="min-w-0 text-sm">
-                            <a href={p.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:underline">{PLATFORM_LABEL[p.platform] ?? p.platform} · {fmtViews(p.views)}</a>
-                            <p className="text-[11px] text-slate-400 truncate max-w-[240px]">{p.caption || "no caption"}</p>
-                          </div>
-                          <div className="flex gap-1.5 flex-shrink-0">
-                            <button disabled={busy === p.id} className="btn-primary text-xs py-1 px-2.5" onClick={() => act(p.id, `/api/artie/posts/${p.id}`, "PATCH", { countDecision: "count" }, "Counted")}>Count</button>
-                            <button disabled={busy === p.id} className="btn-secondary text-xs py-1 px-2.5" onClick={() => act(p.id, `/api/artie/posts/${p.id}`, "PATCH", { countDecision: "ignore" }, "Not counted")}>Skip</button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Top posts this cycle</h3>
                   {topPosts.length === 0 ? <p className="text-sm text-slate-400">No posts found in this cycle.</p> : (
@@ -201,7 +180,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
               <div className="lg:col-span-2 flex items-center justify-between pt-1 border-t border-slate-200/70">
                 <p className="text-xs text-slate-400">
                   {row.ratePerVideo != null && <>Rate {money(row.ratePerVideo)}/video · </>}
-                  {row.handles.facebook && <>FB {row.handles.facebook} · </>}Reject, correct amounts and match posts on the full page.
+                  {row.handles.facebook && <>FB {row.handles.facebook} · </>}Reject or correct a bonus on the full page.
                 </p>
                 <Link href={`/artie/${row.id}?cycle=${cycleKey}`} className="text-sm font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1">Open full review <ArrowRight className="w-4 h-4" /></Link>
               </div>

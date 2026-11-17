@@ -198,9 +198,9 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
       </section>
 
       {needsReview.length > 0 && (
-        <section>
-          <h2 className="text-lg font-bold text-slate-900 mb-1">Posts to review ({needsReview.length})</h2>
-          <p className="text-xs text-slate-500 mb-3">On TikTok/Facebook but no matching Instagram post. Not counted until you decide — it might be a missed cross-post, or a genuine platform-specific video.</p>
+        <details className="group">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-600 hover:text-slate-900">Other TikTok/Facebook posts with no Instagram match ({needsReview.length}) — optional</summary>
+          <p className="text-xs text-slate-500 my-3">These aren’t counted and need no action. If one reaches the bonus threshold it appears above as a bonus candidate. Only mark a post “Count it” if you’ve decided it should be paid as its own video.</p>
           <div className="card divide-y divide-slate-100">
             {needsReview.map((p) => (
               <div key={p.id} className="p-4 flex items-center justify-between gap-3 flex-wrap">
@@ -217,7 +217,7 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
               </div>
             ))}
           </div>
-        </section>
+        </details>
       )}
 
       <section>

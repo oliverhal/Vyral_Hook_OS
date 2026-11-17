@@ -37,7 +37,8 @@ export default function ArtieGoalTracker({ goal, currency, isCurrent }: { goal: 
         <div className={cn("h-full rounded-full", t === "emerald" ? "bg-emerald-500" : t === "amber" ? "bg-amber-500" : "bg-rose-500")} style={{ width: `${pct}%` }} />
         <div className="absolute top-0 bottom-0 w-0.5 bg-slate-700" style={{ left: `${marker}%` }} title="Where the team should be today" />
       </div>
-      <p className="mt-1.5 text-xs text-slate-500">The line marks today’s goal and moves up {num(g.perDayTotal)} videos a day.{isCurrent && v.remaining > 0 ? ` To hit the cycle target the team now needs ${g.neededPerDay} a day.` : ""}</p>
+      <p className="mt-2 text-sm text-slate-700">{isCurrent ? "At this pace the cycle finishes on" : "The cycle finished on"} <strong className={v.projected >= v.fullTarget ? "text-emerald-700" : "text-rose-700"}>{num(v.projected)} videos</strong> of {num(v.fullTarget)}{g.spend.fullTarget > 0 ? <> and <strong className={g.spend.projected >= g.spend.fullTarget ? "text-emerald-700" : "text-rose-700"}>{money(g.spend.projected)}</strong> spend of {money(g.spend.fullTarget)}</> : null}.</p>
+      <p className="mt-1 text-xs text-slate-500">The line marks today’s goal and moves up {num(g.perDayTotal)} videos a day.{isCurrent && v.remaining > 0 ? ` To hit the cycle target the team now needs ${g.neededPerDay} a day.` : ""}</p>
 
       <div className="mt-3 overflow-x-auto -mx-1">
         <table className="w-full text-xs min-w-[520px]">

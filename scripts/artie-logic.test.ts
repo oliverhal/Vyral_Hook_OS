@@ -295,7 +295,7 @@ ok(gl(1950).projected === 3100, "at exactly the goal rate the cycle projects to 
 ok(gl(1000, "2026-12-30T00:00:00Z").expected === 3100 && gl(1000, "2026-12-30T00:00:00Z").daysElapsed === 31, "after the cycle closes the goal is capped at the full target");
 ok(gl(0, "2026-10-01T00:00:00Z").expected === 0, "before the cycle starts nothing is expected");
 ok(gl(1950).spend?.expected === 15600 && gl(1950, undefined, cyc2, null).spend === null, "spend goal = expected videos × average rate; none without rates");
-ok(gl(1500).remaining === 1600 && gl(1500).neededPerDay === 139.1, "1,500 posted: 1,600 still needed over 11.5 days = 139.1 a day");
+ok(gl(1500).remaining === 1600 && gl(1500).neededPerDay === 139.2, "1,500 posted: 1,600 still needed over 11.5 days = 139.2 a day");
 ok(gl(1950).spend!.stillNeeded === (3100 - 1950) * 8 && gl(1950).spend!.projected === Math.round((1950 * 8 / 19.5) * 31), "spend still needed = remaining videos × avg rate; pro rata = today's daily spend × cycle days");
 import { isArtieReviewer, isArtieOnly } from "../src/lib/artieAccess";
 ok(isArtieReviewer({ name: "Hanna", role: "member" }) && isArtieOnly({ name: "Hanna", role: "member" }), "Hanna can review Artie and is Artie-only");

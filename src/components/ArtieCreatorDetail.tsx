@@ -23,12 +23,13 @@ interface Detail {
   cycle: { key: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
   counts: { counted: number; perPlatform: Record<string, number>; discrepancy: boolean };
   currency: string; posts: PostRow[]; candidates: Cand[];
-  perDay: number; pace: { expected: number; actual: number; delta: number; days: number; status: string; startedThisCycle: boolean };
+  perDay: number; pace: { expected: number; actual: number; delta: number; days: number; status: string; startedThisCycle: boolean; remaining: number; daysLeft: number; neededPerDay: number };
 }
 
 const PL: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook" };
 const FLAG: Record<string, string> = {
   possible_fb_ig_overlap: "Instagram and Facebook versions of this video both exist — IG's view count may already include the Facebook views.",
+  similar_views_ig_fb: "Investigate: viral on Instagram AND Facebook with near-identical views. When the accounts are linked, Facebook shows its views on Instagram too, so this is probably one set of views counted twice — reject it if they're the same views.",
   ig_views_may_include_fb: "This creator has a Facebook account; their Instagram views may include linked Facebook views.",
   fb_linkage_unknown: "We don't know whether this creator's Facebook and Instagram are linked (set it below).",
   tiktok_only: "Only found on TikTok.", facebook_only: "Only found on Facebook.",
@@ -115,6 +116,7 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
             <p className="text-sm mt-2 text-slate-700">Pace: <strong>{d.pace.actual}</strong> of <strong>{d.pace.expected}</strong> expected at {d.perDay} a day
               <span className={cn("ml-2 badge", d.pace.status === "behind" ? "bg-rose-100 text-rose-700" : d.pace.status === "on_track" ? "bg-sky-50 text-sky-700" : "bg-emerald-100 text-emerald-700")}>
                 {d.pace.status === "behind" ? `${Math.abs(d.pace.delta)} behind` : d.pace.status === "on_track" ? "on track" : d.pace.delta > 0 ? `${d.pace.delta} ahead` : "on pace"}</span>
+              {d.pace.status === "behind" && d.pace.remaining > 0 && d.pace.daysLeft > 0 && <span className="text-xs text-slate-500"> · needs {d.pace.neededPerDay}/day to finish on target</span>}
               {d.pace.startedThisCycle && d.creator.startDate && <span className="text-xs text-slate-400"> · joined {new Date(d.creator.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}</span>}
             </p>
           )}
@@ -167,8 +169,8 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
                     {c.related.length > 0 && (
                       <p className="text-xs text-slate-500 mt-1">Also posted as: {c.related.map((r, i) => <span key={r.id}>{i > 0 && ", "}<a className="text-blue-600 hover:underline" href={r.url} target="_blank" rel="noopener noreferrer">{PL[r.platform] ?? r.platform} ({fmtViews(r.views)})</a></span>)}</p>
                     )}
-                    {c.flags.includes("possible_fb_ig_overlap") ? (
-                      <ul className="mt-2 space-y-0.5"><li className="text-xs text-amber-700">⚠ {FLAG.possible_fb_ig_overlap}</li></ul>
+                    {c.flags.includes("similar_views_ig_fb") || c.flags.includes("possible_fb_ig_overlap") ? (
+                      <ul className="mt-2 space-y-0.5"><li className="text-xs text-amber-700">⚠ {c.flags.includes("similar_views_ig_fb") ? FLAG.similar_views_ig_fb : FLAG.possible_fb_ig_overlap}</li></ul>
                     ) : (
                       <p className="mt-1.5 text-sm text-slate-600">Hit {fmtViews(c.maxViews)} views — qualifies for a bonus.{c.flags.includes("no_ig_counterpart") && <span className="text-slate-400"> (No matching Instagram post.)</span>}</p>
                     )}

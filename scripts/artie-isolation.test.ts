@@ -41,9 +41,15 @@ const matches = (row: Record<string, any>, where: Record<string, any>) =>
   });
 
 const db = {
-  artieCreator: { findUnique: async ({ where }: any) => creators.find((c) => c.accessToken === where.accessToken) ?? null },
+  artieCreator: {
+    findUnique: async ({ where }: any) => creators.find((c) => c.accessToken === where.accessToken) ?? null,
+    findMany: async ({ where }: any) => creators.filter((c) => (where?.active === undefined || c.active === where.active)).map((c) => ({ id: c.id, startDate: null })),
+  },
   artieSettings: { findUnique: async () => ({ bonusThreshold: 100000, bonusAmount: 50, currency: "USD" }) },
-  artiePost: { findMany: async ({ where }: any) => posts.filter((p) => matches(p, where)) },
+  artiePost: {
+    findMany: async ({ where }: any) => posts.filter((p) => matches(p, where)),
+    groupBy: async ({ where }: any) => { const m = new Map<string, number>(); for (const p of posts.filter((p) => matches(p, where))) m.set(p.creatorId, (m.get(p.creatorId) ?? 0) + p.views); return Array.from(m, ([creatorId, v]) => ({ creatorId, _sum: { views: v } })); },
+  },
   artieBonusCandidate: { findMany: async ({ where }: any) => candidates.filter((c) => matches(c, where)) },
 } as unknown as Db;
 
@@ -60,6 +66,9 @@ const db = {
   ok(a.potential?.rate === 99 && a.potential.videos === 2 && a.potential.base === 198 && a.potential.bonus === 50 && a.potential.total === 248, "A's potential earnings = 2 videos × 99 + 50 bonus = 248");
   ok(b.potential?.rate === 77 && b.potential.base === 231 && b.potential.bonus === 75 && b.potential.total === 306, "B's potential earnings = 3 × 77 + 75 (rejected bonus excluded) = 306");
   ok(!urlsA.includes('"rate":77') && !urlsA.includes("231") && !urlsB.includes('"rate":99') && !urlsB.includes("198"), "neither creator's page contains the other's rate or earnings");
+  // Ranking: with only 2 active creators there's no meaningful percentile, and nothing about anyone else leaks.
+  ok(a.rank === null && b.rank === null, "a tiny pool (2 active creators) shows no ranking");
+  ok(!JSON.stringify(a).includes("tier") || a.rank === null, "no ranking data leaks when there's no tier");
   ok(a.bonusItems.length === 1 && a.bonusItems[0].url.endsWith("/a1"), "A sees only their own qualifying video");
 
   ok((await getCreatorProgress("X".repeat(43), db, now)) === null, "unknown token returns nothing");

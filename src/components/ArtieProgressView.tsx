@@ -18,35 +18,64 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
   const threshold = views(p.bonusThreshold);
 
   return (
-    <main className="min-h-screen bg-slate-50 py-10 px-5">
-      <div className="max-w-xl mx-auto space-y-5">
-        <header className="flex items-center gap-4">
+    <main className="min-h-screen bg-slate-50 pt-6 sm:pt-10 px-4 sm:px-5 pb-[max(2rem,env(safe-area-inset-bottom))] overflow-x-hidden">
+      <div className="max-w-xl mx-auto space-y-4 sm:space-y-5">
+        <header className="flex items-center gap-3 sm:gap-4">
           <ArtieAvatar name={p.name} url={p.avatarUrl} size={64} className="ring-2 ring-white shadow-sm" />
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Artie creator progress</p>
-            <h1 className="text-2xl font-bold text-slate-900 mt-0.5">Hi {first} 👋</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 break-words">Hi {first} 👋</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               Current cycle: <strong className="text-slate-700">{p.cycle.startLabel} → {p.cycle.endLabel}</strong>
             </p>
           </div>
         </header>
 
-        <section className="grid grid-cols-2 gap-3">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+        {p.rank && (
+          <section className="rounded-2xl p-5 text-white bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 shadow-sm">
+            <p className="text-2xl font-black leading-tight">
+              {p.rank.tier === 10 ? "🏆 You’re in the top 10%" : p.rank.tier === 25 ? "⭐ You’re in the top 25%" : "👍 You’re in the top half"} of Artie creators this cycle
+            </p>
+            <p className="text-sm text-white/90 mt-1.5">Based on the views your videos are getting each day since you started, compared with every active Artie creator.</p>
+          </section>
+        )}
+        {p.pace && p.pace.status === "behind" && (
+          <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5" role="alert">
+            <p className="text-base font-bold text-rose-900">You’re behind schedule.</p>
+            <p className="text-sm text-rose-900/90 mt-1">
+              You need to be at <strong>{p.pace.expected} videos</strong> by now — you’re at <strong>{p.pace.actual}</strong>, so that’s <strong>{Math.abs(p.pace.delta)} to catch up</strong>
+              {p.pace.startedThisCycle && p.pace.startLabel && <> (counted from when you joined on {p.pace.startLabel})</>}.
+            </p>
+            {p.pace.remaining > 0 && p.pace.daysLeft > 0 && (
+              <p className="text-sm text-rose-900/90 mt-2">
+                To finish this cycle on target, post about <strong>{p.pace.neededPerDay} a day</strong> from here — {p.pace.remaining} more by {p.cycle.endLabel}.
+              </p>
+            )}
+          </section>
+        )}
+        {p.pace && p.pace.status === "on_track" && (
+          <section className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900"><strong>You’re on track</strong> — {p.pace.actual} of {p.pace.expected} videos expected so far. Keep it up!</section>
+        )}
+        {p.pace && p.pace.status === "ahead" && (
+          <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><strong>You’re ahead of schedule</strong> — {p.pace.actual} videos against {p.pace.expected} expected so far. Great work! 🎉</section>
+        )}
+
+        <section className="grid grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Unique videos</p>
-            <p className="text-4xl font-black text-slate-900 mt-2">{p.countedVideos}</p>
+            <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-2">{p.countedVideos}</p>
             <p className="text-xs text-slate-400 mt-1">counted this cycle · a video on several platforms counts once</p>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{threshold}+ view bonuses</p>
-            <p className="text-4xl font-black text-slate-900 mt-2">{p.bonusCount}</p>
+            <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-2">{p.bonusCount}</p>
             <p className="text-xs text-slate-400 mt-1">
               {p.bonusCount ? <>Indicative: <strong className="text-slate-600">{money(p.indicativeBonus)}</strong></> : "none yet"}
             </p>
           </div>
         </section>
 
-        {p.pace.expected > 0 && (
+        {p.pace && p.pace.expected > 0 && (
           <section className="bg-white rounded-2xl border border-slate-200 p-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-bold text-slate-900">Posting pace</h2>
@@ -64,9 +93,8 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
               {p.pace.startedThisCycle && p.pace.startLabel && <> — counted from when you joined on {p.pace.startLabel}</>}.
             </p>
             <p className="text-sm text-slate-700 mt-2">
-              {p.pace.status === "behind" ? `Posting ${p.pace.perDay} a day from here keeps you moving back towards the target.`
-                : p.pace.status === "ahead" ? "You're ahead of the daily target — nice work! 🎉"
-                : p.pace.status === "on_track" ? "You're right on track — keep it up!" : "Welcome aboard! Your target starts from your first day."}
+              {p.pace.status === "behind" ? `The target is ${p.pace.perDay} videos a day, counted from your first day.`
+                : p.pace.status === "just_started" ? "Welcome aboard! Your target starts from your first day." : `The target is ${p.pace.perDay} videos a day.`}
             </p>
           </section>
         )}
@@ -74,7 +102,7 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
         {p.potential && (
           <section className="bg-white rounded-2xl border border-slate-200 p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Potential earnings this cycle</p>
-            <p className="text-4xl font-black text-slate-900 mt-2">{money(p.potential.total)}</p>
+            <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-2 break-words">{money(p.potential.total)}</p>
             <p className="text-xs text-slate-500 mt-2">
               {p.potential.videos} unique video{p.potential.videos === 1 ? "" : "s"} × {money(p.potential.rate)} = {money(p.potential.base)}
               {p.potential.bonus > 0 && <> + {money(p.potential.bonus)} in bonuses</>}
@@ -89,22 +117,22 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
           ) : (
             <ul className="mt-3 divide-y divide-slate-100">
               {p.bonusItems.map((b) => (
-                <li key={b.url} className="py-3 flex items-start justify-between gap-3">
+                <li key={b.url} className="py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-3">
                   <div className="min-w-0">
-                    <a href={b.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-blue-600 hover:underline">
+                    <a href={b.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-blue-600 hover:underline inline-block py-1">
                       {PLATFORM[b.platform] ?? b.platform} video · {views(b.views)} views
                     </a>
                     <p className="text-xs text-slate-400 mt-0.5">
                       Posted {new Date(b.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                     </p>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${STATE[b.state].cls}`}>{STATE[b.state].label}</span>
-                    <p className="text-sm font-bold text-slate-800 mt-1">
+                  <div className="sm:text-right flex-shrink-0 flex sm:block items-center gap-2 flex-wrap">
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATE[b.state].cls}`}>{STATE[b.state].label}</span>
+                    <p className="text-sm font-bold text-slate-800 sm:mt-1">
                       {b.state === "not_approved" ? "—" : money(b.amount)}
                     </p>
                     {b.previouslyShown != null && (
-                      <p className="text-[11px] text-slate-400">previously shown {money(b.previouslyShown)}</p>
+                      <p className="text-xs text-slate-400">previously shown {money(b.previouslyShown)}</p>
                     )}
                   </div>
                 </li>
@@ -123,12 +151,12 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
             <h2 className="text-sm font-bold text-slate-900">Previous cycles</h2>
             <ul className="mt-3 divide-y divide-slate-100">
               {p.previousCycles.map((c) => (
-                <li key={c.key} className="py-3 flex items-center justify-between text-sm">
+                <li key={c.key} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 text-sm">
                   <div>
                     <p className="font-semibold text-slate-700">{c.startLabel} → {c.endLabel}</p>
                     <p className="text-xs text-slate-400">{c.countedVideos} videos counted</p>
                   </div>
-                  <div className="text-right">
+                  <div className="sm:text-right">
                     <p className="font-semibold text-slate-700">{c.bonusCount} bonus{c.bonusCount === 1 ? "" : "es"} · {money(c.bonusAmount)}</p>
                     {c.awaitingReview > 0 && <p className="text-xs text-amber-600">{c.awaitingReview} still awaiting review</p>}
                   </div>
@@ -138,7 +166,7 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
           </section>
         )}
 
-        <p className="text-center text-[11px] text-slate-400 pt-2">This is your private link — please don&apos;t share it.</p>
+        <p className="text-center text-xs text-slate-400 pt-2">This is your private link — please don&apos;t share it.</p>
       </div>
     </main>
   );

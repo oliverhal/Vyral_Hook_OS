@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
       prevKey: shiftCycle(cycle, -1).key, nextKey: shiftCycle(cycle, 1).key, isCurrent: cycle.key === cycleFor(now).key },
     creators: rows,
     settings: {
-      payrollSheetUrl: settings.payrollSheetUrl, payrollClient: settings.payrollClient, countMode: settings.countMode, videosPerDay: settings.videosPerDay, bonusThreshold: settings.bonusThreshold, bonusAmount: settings.bonusAmount,
+      payrollSheetUrl: settings.payrollSheetUrl, payrollClient: settings.payrollClient, countMode: settings.countMode, videosPerDay: settings.videosPerDay, showPaceToCreators: settings.showPaceToCreators, showRankToCreators: settings.showRankToCreators, bonusThreshold: settings.bonusThreshold, bonusAmount: settings.bonusAmount,
       currency: settings.currency, lastRosterSyncAt: settings.lastRosterSyncAt, lastVideoSyncAt: settings.lastVideoSyncAt,
       lastSyncError: settings.lastSyncError,
       unmappedRows: parseJson(settings.unmappedRows, []), unmatchedAccounts: parseJson(settings.unmatchedAccounts, []),

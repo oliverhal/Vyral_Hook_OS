@@ -24,6 +24,14 @@ export async function PUT(req: NextRequest) {
     if (body.countMode !== "unique" && body.countMode !== "instagram") return NextResponse.json({ error: "countMode must be unique or instagram" }, { status: 400 });
     data.countMode = body.countMode;
   }
+  if ("showRankToCreators" in body) {
+    if (typeof body.showRankToCreators !== "boolean") return NextResponse.json({ error: "showRankToCreators must be true or false" }, { status: 400 });
+    data.showRankToCreators = body.showRankToCreators;
+  }
+  if ("showPaceToCreators" in body) {
+    if (typeof body.showPaceToCreators !== "boolean") return NextResponse.json({ error: "showPaceToCreators must be true or false" }, { status: 400 });
+    data.showPaceToCreators = body.showPaceToCreators;
+  }
   if ("videosPerDay" in body) {
     const n = Math.round(Number(body.videosPerDay));
     if (!Number.isFinite(n) || n < 1 || n > 20) return NextResponse.json({ error: "Videos per day must be between 1 and 20" }, { status: 400 });

@@ -34,6 +34,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
   const [detail, setDetail] = useState<ArtieDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<{ id: string; reason: string } | null>(null);
   // The parent re-creates `notify` every render; keep the latest in a ref so loading
   // doesn't re-fire (and loop on an error toast) every time the parent re-renders.
   const notifyRef = useRef(notify);
@@ -137,30 +138,59 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
                 {detail.candidates.length === 0 ? <p className="text-sm text-slate-400">Nothing has reached the threshold this cycle.</p> : (
                   <ul className="space-y-2">
                     {detail.candidates.map((c) => {
-                      const linked = c.flags.includes("possible_fb_ig_overlap");
+                      const similar = c.flags.includes("similar_views_ig_fb");
+                      const overlap = c.flags.includes("possible_fb_ig_overlap");
+                      const check = similar || overlap;
+                      const separate = c.flags.includes("also_on_other_platform");
                       const members = [c.primary, ...c.related].filter(Boolean) as { url: string; platform: string; views: number }[];
+                      const igV = members.find((m) => m.platform === "instagram")?.views, fbV = members.find((m) => m.platform === "facebook")?.views;
+                      const isRejecting = rejecting?.id === c.id;
                       return (
-                        <li key={c.id} className={cn("rounded-xl border p-3", linked && c.status === "pending" ? "bg-amber-50/60 border-amber-300" : "bg-white border-slate-200")}>
+                        <li key={c.id} className={cn("rounded-xl border p-3", check && c.status === "pending" ? "bg-amber-50/60 border-amber-300" : "bg-white border-slate-200")}>
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0 flex items-center gap-2 flex-wrap">
                               <span className={cn("badge", STATUS_CLS[c.status])}>{c.status}</span>
                               <span className="text-sm font-bold">{money(c.status === "pending" ? c.initialAmount : c.approvedAmount ?? c.initialAmount)}</span>
                             </div>
-                            {c.status === "pending" && (
-                              <button disabled={busy === c.id} onClick={() => act(c.id, `/api/artie/candidates/${c.id}`, "POST", { action: "approve" }, "Bonus approved")}
-                                className="btn-primary text-xs py-1 px-2.5 flex items-center gap-1 disabled:opacity-50">{busy === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Approve</button>
+                            {c.status === "pending" && !isRejecting && (
+                              <div className="flex gap-1.5">
+                                <button disabled={busy === c.id} onClick={() => setRejecting({ id: c.id, reason: "" })} className="btn-secondary text-xs py-1 px-2.5">Reject</button>
+                                <button disabled={busy === c.id} onClick={() => act(c.id, `/api/artie/candidates/${c.id}`, "POST", { action: "approve" }, "Bonus approved")}
+                                  className="btn-primary text-xs py-1 px-2.5 flex items-center gap-1 disabled:opacity-50">{busy === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Approve</button>
+                              </div>
                             )}
                           </div>
-                          {linked ? (
+                          {similar ? (
                             <div className="mt-2 text-xs text-amber-900">
-                              <p className="font-semibold flex items-start gap-1"><AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /> Same video on Instagram and Facebook — the accounts may be linked, so these could be the same views counted twice.</p>
-                              <p className="mt-1">{members.map((m, i) => <span key={m.url}>{i > 0 && " · "}<a href={m.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-700 hover:underline font-semibold">{PLATFORM_LABEL[m.platform] ?? m.platform} {fmtViews(m.views)}</a></span>)}</p>
-                              <p className="mt-1 text-amber-800/80">Check both, then approve — or open the full review to reject or correct it.</p>
+                              <p className="font-semibold flex items-start gap-1"><AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /> Investigate: Instagram {igV != null && fmtViews(igV)} vs Facebook {fbV != null && fmtViews(fbV)} — nearly identical views.</p>
+                              <p className="mt-1">When the accounts are linked, Facebook shows its views on Instagram too, so this is probably <strong>one</strong> set of views counted twice. Check both, then approve — or reject it if they’re the same views.</p>
+                            </div>
+                          ) : overlap ? (
+                            <div className="mt-2 text-xs text-amber-900">
+                              <p className="font-semibold flex items-start gap-1"><AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /> The same video is on Instagram and Facebook{igV != null && fbV != null && <> (IG {fmtViews(igV)} · FB {fmtViews(fbV)})</>}.</p>
+                              <p className="mt-1">If the accounts are linked, the bigger number may already include the Facebook views. Check before approving.</p>
                             </div>
                           ) : (
                             <p className="mt-1.5 text-sm text-slate-600">
                               Hit <strong>{fmtViews(c.maxViews)}</strong> views{c.primary && <> on <a href={c.primary.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline inline-flex items-center gap-1">{PLATFORM_LABEL[c.primary.platform] ?? c.primary.platform} <ExternalLink className="w-3 h-3" /></a></>} — qualifies for a bonus.
+                              {separate && <span className="block text-xs text-slate-400 mt-0.5">Also viral on the other platform with different views, so that one is awarded as its own bonus.</span>}
                             </p>
+                          )}
+                          {check && <p className="mt-1 text-xs">{members.map((m, i) => <span key={m.url}>{i > 0 && " · "}<a href={m.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-700 hover:underline font-semibold">{PLATFORM_LABEL[m.platform] ?? m.platform} {fmtViews(m.views)}</a></span>)}</p>}
+                          {isRejecting && (
+                            <div className="mt-3 space-y-2 border-t border-slate-200 pt-3" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex flex-wrap gap-1.5">
+                                {["Same views as Instagram (linked accounts)", "Duplicate of another bonus", "Not eligible"].map((r) => (
+                                  <button key={r} onClick={() => setRejecting({ id: c.id, reason: r })} className={cn("px-2.5 py-1 rounded-full text-[11px] font-semibold border", rejecting?.reason === r ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400")}>{r}</button>
+                                ))}
+                              </div>
+                              <input className="input text-sm" placeholder="Reason (required)" value={rejecting?.reason ?? ""} onChange={(e) => setRejecting({ id: c.id, reason: e.target.value })} />
+                              <div className="flex gap-2">
+                                <button disabled={busy === c.id || !(rejecting?.reason ?? "").trim()} className="btn-primary text-xs py-1 px-3 disabled:opacity-50"
+                                  onClick={async () => { await act(c.id, `/api/artie/candidates/${c.id}`, "POST", { action: "reject", reason: rejecting?.reason }, "Bonus rejected"); setRejecting(null); }}>Confirm reject</button>
+                                <button className="btn-secondary text-xs py-1 px-3" onClick={() => setRejecting(null)}>Cancel</button>
+                              </div>
+                            </div>
                           )}
                         </li>
                       );
@@ -193,7 +223,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
               <div className="lg:col-span-2 flex items-center justify-between pt-1 border-t border-slate-200/70">
                 <p className="text-xs text-slate-400">
                   {row.ratePerVideo != null && <>Rate {money(row.ratePerVideo)}/video{row.rateSource === "derived" ? " (monthly ÷ expected videos)" : ""} · </>}
-                  {row.handles.facebook && <>FB {row.handles.facebook} · </>}Reject or correct a bonus on the full page.
+                  {row.handles.facebook && <>FB {row.handles.facebook} · </>}Correct an amount on the full page.
                 </p>
                 <Link href={`/artie/${row.id}?cycle=${cycleKey}`} className="text-sm font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1">Open full review <ArrowRight className="w-4 h-4" /></Link>
               </div>

@@ -398,6 +398,8 @@ model ArtieSettings {
   payrollClient    String    @default("Artie") // only import rows whose Client Name matches (blank = everyone)
   countMode        String    @default("unique") // unique = unique videos across all platforms; instagram = IG only
   videosPerDay     Int       @default(2) // expected posting pace
+  showRankToCreators Boolean @default(true) // show a 'top X% of creators' badge on creator links
+  showPaceToCreators Boolean @default(true) // tell creators on their link when they're behind / ahead
   bonusThreshold   Int       @default(100000)
   bonusAmount      Float     @default(50)
   currency         String    @default("USD")

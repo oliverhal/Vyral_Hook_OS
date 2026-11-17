@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { cycleFor, shiftCycle, type Cycle } from "./cycle";
 import { countVideos, type CountPost, type CountMode } from "./bonus";
 import { paceFor, type PaceStatus } from "./pace";
+import { rankTier, type RankTier, type RankInput } from "./rank";
 
 // Minimal slice of the Prisma client these loaders use — lets tests inject an
 // in-memory fake to prove one creator's token can never surface another's data.
@@ -55,7 +56,10 @@ export interface CreatorProgress {
   /** videos × their per-video rate + indicative bonuses; null if there's no rate on the payroll sheet. */
   potential: { videos: number; rate: number; base: number; bonus: number; total: number } | null;
   /** Where they are against the daily posting target (counted from their own start date). */
-  pace: { expected: number; actual: number; delta: number; status: PaceStatus; perDay: number; startedThisCycle: boolean; startLabel: string | null };
+  pace: { expected: number; actual: number; delta: number; status: PaceStatus; perDay: number; startedThisCycle: boolean; startLabel: string | null;
+    fullTarget: number; remaining: number; daysLeft: number; neededPerDay: number } | null;
+  /** Top-10/25/50% tier among active creators this cycle (views per day), or null. Never includes anyone else's data. */
+  rank: { tier: RankTier } | null;
   bonusItems: ProgressBonusItem[];
   previousCycles: { key: string; startLabel: string; endLabel: string; countedVideos: number; bonusCount: number; bonusAmount: number; awaitingReview: number }[];
 }
@@ -70,6 +74,22 @@ function bonusState(status: string): ProgressBonusItem["state"] {
  * resolved creator id. Internal fields (flags, other platforms' counts,
  * discrepancy, rate, review reasons) are deliberately not included.
  */
+/** Aggregate (id, views, days) for every active creator → this creator's tier. Only the tier leaves this function. */
+async function tierFor(db: Db, creatorId: string, cycle: Cycle, now: Date): Promise<RankTier | null> {
+  const [creators, sums] = await Promise.all([
+    db.artieCreator.findMany({ where: { active: true }, select: { id: true, startDate: true } }),
+    db.artiePost.groupBy({ by: ["creatorId"], where: { publishedAt: { gte: cycle.start, lt: cycle.end } }, _sum: { views: true } }),
+  ]);
+  const views = new Map(sums.map((r) => [r.creatorId, r._sum.views ?? 0]));
+  const DAY = 24 * 3600 * 1000;
+  const end = Math.min(now.getTime(), cycle.end.getTime());
+  const inputs: RankInput[] = creators.map((c) => {
+    const start = Math.max(cycle.start.getTime(), c.startDate?.getTime() ?? cycle.start.getTime());
+    return { id: c.id, totalViews: views.get(c.id) ?? 0, activeDays: Math.max(0, (end - start) / DAY) };
+  });
+  return rankTier(inputs, creatorId);
+}
+
 export async function getCreatorProgress(token: string, db: Db = prisma, now = new Date()): Promise<CreatorProgress | null> {
   if (!token || token.length < 20) return null;
   const creator = await db.artieCreator.findUnique({ where: { accessToken: token } });
@@ -120,12 +140,14 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
     cycle: { key: current.key, startLabel: current.startLabel, endLabel: current.endLabel },
     countedVideos: counts.counted, bonusThreshold: threshold,
     bonusCount: live.length, indicativeBonus,
-    pace: (() => {
+    pace: (settings?.showPaceToCreators === false) ? null : (() => {
       const perDay = settings?.videosPerDay ?? 2;
       const p = paceFor({ counted: counts.counted, cycle: current, startDate: creator.startDate ?? null, now, perDay });
       return { expected: p.expected, actual: p.actual, delta: p.delta, status: p.status, perDay, startedThisCycle: p.startedThisCycle,
+        fullTarget: p.fullTarget, remaining: p.remaining, daysLeft: p.daysLeft, neededPerDay: p.neededPerDay,
         startLabel: p.startedThisCycle && creator.startDate ? creator.startDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" }) : null };
     })(),
+    rank: settings?.showRankToCreators === false ? null : await tierFor(db, creator.id, current, now).then((tier) => (tier ? { tier } : null)),
     potential, bonusItems, previousCycles,
   };
 }

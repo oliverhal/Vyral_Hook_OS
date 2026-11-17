@@ -14,6 +14,14 @@ export interface Pace {
   status: PaceStatus;
   /** They joined partway through this cycle, so the expectation starts from their start date. */
   startedThisCycle: boolean;
+  /** Videos expected over the WHOLE cycle (from their start date). */
+  fullTarget: number;
+  /** Videos still needed to hit that full target (0 if already there). */
+  remaining: number;
+  /** Days left in the cycle. */
+  daysLeft: number;
+  /** Videos per day from here to finish the cycle on target (rounded up to 0.1). */
+  neededPerDay: number;
 }
 
 const DAY = 24 * 3600 * 1000;
@@ -25,8 +33,14 @@ export function paceFor(opts: { counted: number; cycle: Cycle; startDate: Date |
   const effStart = startDate && startDate.getTime() > cycle.start.getTime() ? startDate : cycle.start;
   const effEnd = new Date(Math.min(now.getTime(), cycle.end.getTime()));
 
+  const fullTarget = Math.max(0, Math.round(((cycle.end.getTime() - effStart.getTime()) / DAY) * perDay));
+  const remaining = Math.max(0, fullTarget - counted);
+  const daysLeft = Math.max(0, (cycle.end.getTime() - Math.max(now.getTime(), effStart.getTime())) / DAY);
+  const neededPerDay = daysLeft > 0 ? Math.ceil((remaining / daysLeft) * 10) / 10 : remaining;
+  const catchUp = { fullTarget, remaining, daysLeft: Math.round(daysLeft * 10) / 10, neededPerDay };
+
   if (effEnd.getTime() <= effStart.getTime()) {
-    return { expected: 0, actual: counted, delta: counted, days: 0, status: "not_started", startedThisCycle };
+    return { expected: 0, actual: counted, delta: counted, days: 0, status: "not_started", startedThisCycle, ...catchUp };
   }
   const days = (effEnd.getTime() - effStart.getTime()) / DAY;
   const expected = Math.round(days * perDay);
@@ -35,5 +49,5 @@ export function paceFor(opts: { counted: number; cycle: Cycle; startDate: Date |
   const status: PaceStatus = days < 1 ? "just_started"
     : counted >= expected ? "ahead"
     : counted >= expected * ON_TRACK_FLOOR ? "on_track" : "behind";
-  return { expected, actual: counted, delta, days: Math.round(days * 10) / 10, status, startedThisCycle };
+  return { expected, actual: counted, delta, days: Math.round(days * 10) / 10, status, startedThisCycle, ...catchUp };
 }

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import { getCreatorProgress } from "@/lib/artie/views";
 import ArtieProgressView from "@/components/ArtieProgressView";
@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
   referrer: "no-referrer",
 };
+
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f8fafc" };
 
 export default async function ProgressPage({ params }: { params: { token: string } }) {
   const progress = await getCreatorProgress(params.token);

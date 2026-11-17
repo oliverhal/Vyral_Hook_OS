@@ -2,7 +2,8 @@ import { cycleFor, shiftCycle, cycleByKey, inCycle, zonedMidnight, removalGraceE
 import { matchCrossPosts } from "../src/lib/artie/match";
 import { parseCsv, parseRoster, sheetExportUrl, extractHandle, parseRate, resolveFacebookShares, FB_SHARE_PREFIX, parseStartDate } from "../src/lib/artie/payrollSheet";
 import { paceFor } from "../src/lib/artie/pace";
-import { countVideos, detectCandidates, type CountPost } from "../src/lib/artie/bonus";
+import { rankTier, viewsPerDay, MIN_RANK_POOL } from "../src/lib/artie/rank";
+import { needsLinkCheck, SIMILAR_VIEWS_RATIO, countVideos, detectCandidates, type CountPost } from "../src/lib/artie/bonus";
 
 let failed = 0;
 const ok = (c: boolean, m: string) => { console.log(c ? "ok  " : "FAIL", m); if (!c) failed++; };
@@ -178,6 +179,30 @@ ok(pc(1, "2026-11-17T08:00:00Z").status === "just_started", "under a day in: jus
 const closed = pc(60, null, new Date("2026-11-17T12:00:00Z"), shiftCycle(cyc2, -1));
 ok(closed.expected === 60 && closed.status === "ahead", "a closed cycle expects the full 30 days × 2 = 60");
 
+// ── catch-up maths (what a creator is told when behind) ─────────────────────
+const behindPace = pc(30, null); // 19.5 days into a 31-day cycle
+ok(behindPace.fullTarget === 62 && behindPace.remaining === 32 && behindPace.daysLeft === 11.5 && behindPace.neededPerDay === 2.8, "behind by 9: 32 more needed over 11.5 days = 2.8 a day to finish on target (62)");
+const lateJoiner = pc(2, "2026-11-11T00:00:00Z");
+ok(lateJoiner.fullTarget === 36 && lateJoiner.remaining === 34 && lateJoiner.neededPerDay === 3, "joined 11 Nov: whole-cycle target is 18 days × 2 = 36, not 62");
+ok(pc(70, null).remaining === 0 && pc(70, null).neededPerDay === 0, "already past the full target: nothing more needed");
+ok(closed.daysLeft === 0 && closed.neededPerDay === closed.remaining, "a closed cycle has no days left to catch up");
+
+// ── "top X% of creators" ────────────────────────────────────────────────────
+const pool = (n: number, mk: (i: number) => { totalViews: number; activeDays: number }) => Array.from({ length: n }, (_, i) => ({ id: "c" + i, ...mk(i) }));
+const tenFull = pool(20, (i) => ({ totalViews: (20 - i) * 1000, activeDays: 20 })); // c0 best … c19 worst
+ok(rankTier(tenFull, "c0") === 10 && rankTier(tenFull, "c1") === 10, "20 creators: ranks 1–2 are the top 10%");
+ok(rankTier(tenFull, "c2") === 25 && rankTier(tenFull, "c4") === 25, "ranks 3–5 are the top 25%");
+ok(rankTier(tenFull, "c5") === 50 && rankTier(tenFull, "c9") === 50, "ranks 6–10 are the top half");
+ok(rankTier(tenFull, "c10") === null && rankTier(tenFull, "c19") === null, "below the middle: nothing is shown (only positive tiers)");
+ok(rankTier(pool(MIN_RANK_POOL - 1, (i) => ({ totalViews: 1000 * (i + 1), activeDays: 20 })), "c8") === null, "a pool under the minimum is never ranked");
+const withNewbie = [...tenFull, { id: "new", totalViews: 999999, activeDays: 3 }];
+ok(rankTier(withNewbie, "new") === null && rankTier(withNewbie, "c0") === 10, "someone with under 7 days of activity isn't ranked, and doesn't distort the others");
+const normalised = [...pool(12, (i) => ({ totalViews: 10000, activeDays: 20 })), { id: "late", totalViews: 4000, activeDays: 8 }];
+ok(rankTier(normalised, "late") === 10, "views are per active day: 4,000 views in 8 days (500/day) beats 10,000 over 20 days (500/day, tie) — shares the better rank");
+ok(viewsPerDay(700, 2) === 100 && viewsPerDay(700, 14) === 50, "under 7 days is floored at 7 so a hot first day can't dominate");
+const ties = pool(10, () => ({ totalViews: 5000, activeDays: 10 }));
+ok(rankTier(ties, "c3") === 10, "a full tie: everyone shares rank 1");
+
 // ── counting + bonuses ─────────────────────────────────────────────────────
 const P = (id: string, platform: string, views: number, igMatchId: string | null = null, countDecision: string | null = null): CountPost =>
   ({ id, platform, views, igMatchId, countDecision });
@@ -187,8 +212,8 @@ let posts = [P("ig1", "instagram", 120000), P("tt1", "tiktok", 90000, "ig1"), P(
 let c = countVideos(posts);
 ok(c.counted === 1 && !c.discrepancy && c.needsReview.length === 0, "same video on 3 platforms counts once, no discrepancy");
 let cand = detectCandidates(posts, ctx);
-ok(cand.length === 1 && cand[0].primaryPostId === "ig1", "IG+FB pair over threshold yields ONE candidate (no double bonus)");
-ok(cand[0].flags.includes("possible_fb_ig_overlap") && cand[0].qualifiesOn.sort().join() === "facebook,instagram", "…flagged for overlap, qualifying on both");
+ok(cand.length === 1 && cand[0].primaryPostId === "ig1" && cand[0].flags.includes("similar_views_ig_fb"), "IG 120K + FB 130K (similar views): ONE candidate, flagged to investigate");
+ok(cand[0].qualifiesOn.slice().sort().join() === "facebook,instagram" && needsLinkCheck(cand[0].flags), "…qualifying on both, and counted as needing a look");
 
 posts = [P("ig1", "instagram", 50000), P("ig2", "instagram", 40000), P("tt9", "tiktok", 20000)];
 c = countVideos(posts, "instagram");
@@ -216,6 +241,20 @@ const mixed = [P("ig1", "instagram", 1), P("tt1", "tiktok", 1, "ig1"), P("fb1", 
 ok(countVideos(mixed).counted === 4, "unique mode: 2 cross-posted videos (3+2 posts) + a TikTok-only + a Facebook-only = 4 unique videos");
 ok(countVideos([...mixed, P("tt4", "tiktok", 1, null, "ignore")]).counted === 4, "unique mode: a reviewer's 'ignore' still excludes a post");
 ok(countVideos(mixed, "instagram").counted === 2, "instagram mode: only the 2 Instagram videos");
+
+// ── IG + FB: different views = awarded twice, similar views = investigate ──
+const bothViral = (ig: number, fb: number) => detectCandidates([P("ig1", "instagram", ig), P("fb1", "facebook", fb, "ig1")], ctx);
+let two = bothViral(400000, 150000);
+ok(two.length === 2 && two.map((c) => c.primaryPostId).sort().join() === "fb1,ig1", "viral on both with different views (400K vs 150K): TWO candidates, one per platform");
+ok(two.every((c) => !needsLinkCheck(c.flags) && c.flags.includes("also_on_other_platform")), "…each is a plain approval (no investigation needed)");
+const sim = bothViral(400000, 385000);
+ok(sim.length === 1 && sim[0].flags.includes("similar_views_ig_fb") && needsLinkCheck(sim[0].flags), "viral on both with near-identical views (400K vs 385K): ONE candidate, to investigate");
+ok(bothViral(400000, 400000).length === 1 && bothViral(400000, 360000).length === 1 && bothViral(400000, 359999).length === 2, `the 'similar' line is ${SIMILAR_VIEWS_RATIO * 100}%: 360K vs 400K is similar, 359,999 is not`);
+const oneSided = bothViral(120000, 30000);
+ok(oneSided.length === 1 && oneSided[0].flags.includes("possible_fb_ig_overlap") && needsLinkCheck(oneSided[0].flags), "viral on IG only, with a smaller Facebook copy: one candidate, flagged (IG may include those FB views)");
+ok(bothViral(30000, 150000).length === 1 && bothViral(30000, 150000)[0].qualifiesOn.join() === "facebook", "viral on Facebook only: one candidate qualifying on Facebook");
+const withTT = detectCandidates([P("ig1", "instagram", 400000), P("fb1", "facebook", 150000, "ig1"), P("tt1", "tiktok", 50000, "ig1")], ctx);
+ok(withTT.length === 2 && withTT.find((c) => c.primaryPostId === "ig1")!.relatedPostIds.join() === "tt1", "a TikTok copy stays attached to the Instagram bonus when IG and FB are awarded separately");
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

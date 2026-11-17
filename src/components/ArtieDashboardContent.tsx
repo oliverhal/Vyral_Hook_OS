@@ -14,7 +14,7 @@ interface Overview {
   bonusSummary: { givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number; pendingLinkChecks: number; pendingPlainAmount: number; rejectedCount: number };
   creators: Row[];
   settings: {
-    payrollSheetUrl: string | null; payrollClient: string; countMode: string; videosPerDay: number; bonusThreshold: number; bonusAmount: number; currency: string;
+    payrollSheetUrl: string | null; payrollClient: string; countMode: string; videosPerDay: number; showPaceToCreators: boolean; showRankToCreators: boolean; bonusThreshold: number; bonusAmount: number; currency: string;
     lastRosterSyncAt: string | null; lastVideoSyncAt: string | null; lastSyncError: string | null;
     unmappedRows: { line: number; reason: string; label: string }[];
     unmatchedAccounts: { platform: string; username: string }[];
@@ -36,7 +36,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   const [approvingAll, setApprovingAll] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", perDay: "2", threshold: "100000", amount: "50", currency: "USD" });
+  const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", perDay: "2", showPace: true, showRank: true, threshold: "100000", amount: "50", currency: "USD" });
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     const json = await res.json().catch(() => null);
     if (!res.ok) { setError(json?.error ?? `Failed to load (HTTP ${res.status})`); return; }
     setError(""); setData(json);
-    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", countMode: json.settings.countMode ?? "unique", perDay: String(json.settings.videosPerDay ?? 2), threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency });
+    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", countMode: json.settings.countMode ?? "unique", perDay: String(json.settings.videosPerDay ?? 2), showPace: json.settings.showPaceToCreators !== false, showRank: json.settings.showRankToCreators !== false, threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency });
     if (!json.settings.payrollSheetUrl) setShowSettings(true);
   }, []);
 
@@ -120,7 +120,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     setSaving(true);
     const res = await fetch("/api/artie/settings", {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, countMode: form.countMode, videosPerDay: Number(form.perDay), bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), currency: form.currency.toUpperCase() }),
+      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, countMode: form.countMode, videosPerDay: Number(form.perDay), showPaceToCreators: form.showPace, showRankToCreators: form.showRank, bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), currency: form.currency.toUpperCase() }),
     });
     const json = await res.json().catch(() => null);
     setSaving(false);
@@ -213,6 +213,14 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
             <label className="label">Videos each creator should post per day</label>
             <input className="input" value={form.perDay} onChange={(e) => setForm({ ...form, perDay: e.target.value })} />
             <p className="text-xs text-slate-400 mt-1">Used for “ahead / behind pace”, counted from the later of the cycle start and their start date on the sheet.</p>
+            <label className="flex items-start gap-2 mt-3 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" className="mt-0.5 accent-blue-600" checked={form.showPace} onChange={(e) => setForm({ ...form, showPace: e.target.checked })} />
+              <span>Tell creators on their link when they’re <strong>behind schedule</strong> (and when they’re on track or ahead). Untick to hide pace from creators while you check the numbers — it stays visible here.</span>
+            </label>
+            <label className="flex items-start gap-2 mt-2 text-sm text-slate-700 cursor-pointer">
+              <input type="checkbox" className="mt-0.5 accent-blue-600" checked={form.showRank} onChange={(e) => setForm({ ...form, showRank: e.target.checked })} />
+              <span>Show a <strong>“top 10% / 25% / half of creators”</strong> badge on creators’ links — only to creators in the top half, ranked by views per day since they started (needs 10+ creators with 7+ days of activity). Nobody sees anyone else’s numbers.</span>
+            </label>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div><label className="label">Bonus threshold (views)</label><input className="input" value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} /></div>
@@ -250,7 +258,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
             { icon: Users, label: "Active creators", value: String(creators.length), sub: totals.leaving ? `${totals.leaving} leaving after this cycle` : "on the payroll sheet", cls: "bg-blue-50 text-blue-600" },
             { icon: Film, label: "Unique videos", value: String(totals.counted), sub: "counted this cycle", cls: "bg-violet-50 text-violet-600" },
             { icon: Wallet, label: "Spent on creators", value: money(totals.spent), sub: `unique videos × rate · ${money(totals.cost)} with bonuses${totals.noRate ? ` · ${totals.noRate} have no rate` : ""}`, cls: "bg-emerald-50 text-emerald-600" },
-            { icon: BadgeCheck, label: "Bonuses given", value: money(bonus.givenAmount), sub: `${bonus.givenCount} approved this cycle`, cls: "bg-teal-50 text-teal-600" },
+            { icon: BadgeCheck, label: "Bonuses given", value: money(bonus.givenAmount), sub: `${bonus.givenCount} approved${bonus.rejectedCount ? ` · ${bonus.rejectedCount} rejected` : ""} this cycle`, cls: "bg-teal-50 text-teal-600" },
             { icon: Gift, label: "Bonuses to review", value: String(bonus.pendingCount), sub: bonus.pendingCount ? `${money(bonus.pendingAmount)}${bonus.pendingLinkChecks ? ` · ${bonus.pendingLinkChecks} need a link check` : ""}` : "all clear", cls: "bg-amber-50 text-amber-600" },
           ].map(({ icon: Icon, label, value, sub, cls }) => (
             <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">

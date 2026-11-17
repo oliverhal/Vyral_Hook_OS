@@ -217,8 +217,15 @@ const behindIn = (actual: number, rate: number | null, over: Partial<{ best: any
 const nz = creatorNudge(behindIn(30, 8.33))!;
 ok(!!nz && nz.points[0].includes("30 videos") && nz.points[0].includes("39") && nz.points[0].includes("9 behind"), "behind creator: told how many videos they have vs need, and how far behind");
 ok(nz.missed === 74.97 && nz.points[1].includes("$74.97"), "money they haven't earned yet = 9 videos × $8.33 = $74.97");
-ok(nz.available === 266.56 && nz.points[2].includes("2.8 a day") && nz.points[2].includes("$266.56"), "what's still on the table: 32 more videos × $8.33, at 2.8 a day, with the deadline");
+// Catching up fully here needs 2.8/day, which is faster than the agreed 2/day — we never ask for that.
+ok(nz.capped === true && nz.available === 266.56 && nz.points[2].includes("usual 2 a day") && nz.points[2].includes("$266.56") && !nz.points.join(" ").includes("2.8"), "capped: told to keep their usual pace, never a faster catch-up rate");
 ok(nz.points.some((x) => x.includes("$50") && x.includes("100K")), "reminds them a 100K video earns the bonus");
+const notCappedPace = { status: "behind", actual: 10, expected: 12, delta: -2, remaining: 5, daysLeft: 10, neededPerDay: 0.5, perDay: 2 };
+const notCapped = creatorNudge({ pace: notCappedPace, rate: 8.33, currency: "USD", bonusAmount: 50, threshold: 100000, cycleEndLabel: "28 Nov" })!;
+ok(notCapped.capped === false && notCapped.points.some((x) => x.includes("0.5 a day") && x.includes("finish on target")), "when the catch-up rate is under the agreed pace, it's still shown as normal");
+const cappedPace = { status: "behind", actual: 10, expected: 12, delta: -2, remaining: 40, daysLeft: 5, neededPerDay: 8, perDay: 2 };
+const cappedHard = creatorNudge({ pace: cappedPace, rate: 8.33, currency: "USD", bonusAmount: 50, threshold: 100000, cycleEndLabel: "28 Nov" })!;
+ok(cappedHard.capped === true && cappedHard.points.some((x) => x.includes("usual 2 a day")) && !cappedHard.points.join(" ").includes("8 a day"), "far behind: never told to post 8 a day — only the usual 2");
 ok(creatorNudge(behindIn(10, 8.33))!.headline.includes("missing out"), "far behind (<50%): the strongest headline");
 ok(creatorNudge(behindIn(33, 8.33))!.headline.includes("close"), "close (≥75%): an encouraging headline, not a scolding one");
 const noRate = creatorNudge(behindIn(30, null))!;

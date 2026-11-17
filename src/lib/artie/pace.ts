@@ -22,6 +22,8 @@ export interface Pace {
   daysLeft: number;
   /** Videos per day from here to finish the cycle on target (rounded up to 0.1). */
   neededPerDay: number;
+  /** The agreed daily target this was computed against. */
+  perDay: number;
 }
 
 const DAY = 24 * 3600 * 1000;
@@ -31,7 +33,7 @@ export function paceFor(opts: { counted: number; cycle: Cycle; firstPostAt: Date
   const { counted, cycle, firstPostAt: startDate, now, perDay } = opts;
   if (!startDate) {
     // Never posted: no clock has started, so they can't be behind (or ahead).
-    return { expected: 0, actual: counted, delta: counted, days: 0, status: "not_started", startedThisCycle: false, fullTarget: 0, remaining: 0, daysLeft: 0, neededPerDay: 0 };
+    return { expected: 0, actual: counted, delta: counted, days: 0, status: "not_started", startedThisCycle: false, fullTarget: 0, remaining: 0, daysLeft: 0, neededPerDay: 0, perDay };
   }
   const startedThisCycle = !!startDate && startDate.getTime() > cycle.start.getTime() && startDate.getTime() < cycle.end.getTime();
   const effStart = startDate && startDate.getTime() > cycle.start.getTime() ? startDate : cycle.start;
@@ -41,7 +43,7 @@ export function paceFor(opts: { counted: number; cycle: Cycle; firstPostAt: Date
   const remaining = Math.max(0, fullTarget - counted);
   const daysLeft = Math.max(0, (cycle.end.getTime() - Math.max(now.getTime(), effStart.getTime())) / DAY);
   const neededPerDay = daysLeft > 0 ? Math.ceil((remaining / daysLeft) * 10) / 10 : remaining;
-  const catchUp = { fullTarget, remaining, daysLeft: Math.round(daysLeft * 10) / 10, neededPerDay };
+  const catchUp = { fullTarget, remaining, daysLeft: Math.round(daysLeft * 10) / 10, neededPerDay, perDay };
 
   if (effEnd.getTime() <= effStart.getTime()) {
     return { expected: 0, actual: counted, delta: counted, days: 0, status: "not_started", startedThisCycle, ...catchUp };

@@ -12,7 +12,8 @@ export interface NudgePace {
   delta: number; // negative when behind
   remaining: number; // videos still needed to hit the full-cycle target
   daysLeft: number;
-  neededPerDay: number;
+  neededPerDay: number; // catch-up rate to hit the full target — can exceed perDay when far behind
+  perDay: number; // the agreed daily target — we never ask a creator to post faster than this
 }
 
 export interface NudgeInput {
@@ -63,6 +64,8 @@ export interface CreatorNudge {
   missed: number | null;
   available: number | null;
   best: { label: string; url: string } | null;
+  /** True when catching up to the full target would need more than the agreed daily pace — we don't ask for that. */
+  capped: boolean;
 }
 
 /** What a creator sees on their own link when they're behind. null when they aren't. */
@@ -79,14 +82,19 @@ export function creatorNudge(i: NudgeInput): CreatorNudge | null {
 
   const points: string[] = [`You’ve posted ${p.actual} videos but need to be at ${p.expected} by now — that’s ${f.behindBy} behind.`];
   if (f.missed != null) points.push(`At ${m(i.rate as number)} a video, that’s ${m(f.missed)} you haven’t earned yet.`);
+  // Never ask for more than the agreed daily pace — if catching up fully would take more, say so honestly
+  // instead of pushing a faster rate.
+  const capped = p.neededPerDay > p.perDay;
   if (p.daysLeft > 0 && p.remaining > 0) {
     points.push(
-      `${f.urgent ? "Final stretch: only " : ""}${daysWord(p.daysLeft)} left in this cycle (ends ${i.cycleEndLabel}). Post about ${p.neededPerDay} a day to finish on target${f.available != null ? ` — up to ${m(f.available)} is still on the table` : ""}.`
+      capped
+        ? `${daysWord(p.daysLeft)} left in this cycle (ends ${i.cycleEndLabel}). Keep up your usual ${p.perDay} a day and every video still earns${f.available != null ? ` — up to ${m(f.available)} is still on the table if you keep going` : ""}.`
+        : `${f.urgent ? "Final stretch: only " : ""}${daysWord(p.daysLeft)} left in this cycle (ends ${i.cycleEndLabel}). Post about ${p.neededPerDay} a day to finish on target${f.available != null ? ` — up to ${m(f.available)} is still on the table` : ""}.`
     );
   }
   points.push(`Every video that reaches ${viewsLabel(i.threshold)} views earns an extra ${m(i.bonusAmount)} bonus on top.`);
   const best = i.best ? { label: `Your best video this cycle hit ${viewsLabel(i.best.views)} views — make more like it.`, url: i.best.url } : null;
-  return { headline, points, missed: f.missed, available: f.available, best };
+  return { headline, points, missed: f.missed, available: f.available, best, capped };
 }
 
 /** Plain-text message a reviewer can paste into Slack/WhatsApp/email. */

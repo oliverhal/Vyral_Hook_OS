@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
         rejected: cs.filter((x) => x.status === "rejected").length,
         indicativeAmount: live.reduce((s, x) => s + (x.status === "pending" ? x.initialAmount : x.approvedAmount ?? x.initialAmount), 0),
       },
-      // A handle on the sheet with no video ever seen usually means the account isn't tracked in viral.app yet.
+      // A handle on the sheet with no video ever seen usually means the account isn't tracked in ViralDeck yet.
       trackingGaps: (["instagram", "tiktok", "facebook"] as const).filter((pl) => c[pl] && !ever.has(`${c.id}:${pl}`)),
     };
   });

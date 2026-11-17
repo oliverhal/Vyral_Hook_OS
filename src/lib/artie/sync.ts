@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import * as viralApp from "@/lib/viralApp";
+import * as viraldeck from "@/lib/viraldeck";
 import { normalizeHandle } from "@/lib/connectedAccounts";
 import { cycleFor, shiftCycle, inCycle, type Cycle } from "./cycle";
 import { fetchRoster } from "./payrollSheet";
@@ -63,79 +63,106 @@ export async function syncRoster(): Promise<{ created: number; updated: number; 
 
 type Creator = Awaited<ReturnType<typeof prisma.artieCreator.findMany>>[number];
 
-function buildLookup(creators: Creator[]) {
+function buildAccountLookup(creators: Creator[]) {
   const map = new Map<string, string>(); // `${platform}:${handle}` -> creatorId
   for (const c of creators) {
     if (c.instagram) map.set(`instagram:${normalizeHandle(c.instagram)}`, c.id);
     if (c.tiktok) map.set(`tiktok:${normalizeHandle(c.tiktok)}`, c.id);
     if (c.facebook) map.set(`facebook:${normalizeHandle(c.facebook)}`, c.id);
   }
-  return (v: viralApp.ViralAppTrackedVideo): string | null => {
-    if (v.platform === "facebook") {
-      // viral.app reports a numeric page id as the username; the sheet may hold an id or a page name.
-      for (const k of [v.accountUsername, v.platformAccountId, v.accountDisplayName]) {
+  return (a: viraldeck.ViraldeckAccount): string | null => {
+    if (a.platform === "facebook") {
+      // ViralDeck's Facebook handle is a numeric page id; the sheet may hold the id or the page name.
+      for (const k of [a.handle, a.displayName]) {
         const hit = k ? map.get(`facebook:${normalizeHandle(k)}`) : undefined;
         if (hit) return hit;
       }
       return null;
     }
-    return map.get(`${v.platform}:${normalizeHandle(v.accountUsername)}`) ?? null;
+    return map.get(`${a.platform}:${normalizeHandle(a.handle)}`) ?? null;
   };
 }
 
-export async function syncVideos(): Promise<{ matched: number; created: number; updated: number; unmatchedVideos: number; truncated: boolean }> {
+function parseJsonSafe(s: string | null): Record<string, number> {
+  try { return s ? (JSON.parse(s) as Record<string, number>) : {}; } catch { return {}; }
+}
+
+// Stay well inside the 300s function limit; anything not reached is refreshed next run.
+const TIME_BUDGET_MS = 230_000;
+// ViralDeck rate-limits bursts per key, so keep this low.
+const FETCH_CONCURRENCY = 2;
+
+export async function syncVideos(): Promise<{ matched: number; created: number; updated: number; unmatchedAccounts: number; skippedAccounts: number }> {
   const creators = await prisma.artieCreator.findMany({ where: { active: true } });
-  if (creators.length === 0) return { matched: 0, created: 0, updated: 0, unmatchedVideos: 0, truncated: false }; // nothing to match against yet
+  const none = { matched: 0, created: 0, updated: 0, unmatchedAccounts: 0, skippedAccounts: 0 };
+  if (creators.length === 0) return none; // nothing to match against yet
+
+  const key = viraldeck.artieApiKey();
+  const projectId = await viraldeck.artieProjectId(key);
   const now = new Date();
   const current = cycleFor(now);
   const previous = shiftCycle(current, -1);
-  const { videos, truncated } = await viralApp.fetchVideosBetween(previous.start, current.end);
 
-  const creatorFor = buildLookup(creators);
+  const accounts = (await viraldeck.listAccounts(projectId, key)).filter((a) => ["instagram", "tiktok", "facebook"].includes(a.platform));
+  const creatorFor = buildAccountLookup(creators);
+  const mine = accounts.map((a) => ({ a, creatorId: creatorFor(a) }));
+  const tracked = mine.filter((m) => m.creatorId && m.a.videoCount > 0);
+  const unmatchedAccounts = mine.filter((m) => !m.creatorId && m.a.videoCount > 0);
+
+  // Stalest first: if the time budget cuts a run short, the accounts it skipped lead the next one.
+  const settings = await getSettings();
+  const refreshed: Record<string, number> = parseJsonSafe(settings.accountRefreshedAt);
+  tracked.sort((x, y) => (refreshed[x.a.id] ?? 0) - (refreshed[y.a.id] ?? 0));
+
+  const deadline = Date.now() + TIME_BUDGET_MS;
+  const fetched = await viraldeck.mapPool(tracked, FETCH_CONCURRENCY, async (m) => {
+    if (Date.now() > deadline) return null;
+    const videos = await viraldeck.fetchAccountVideos(projectId, m.a.id, previous.start, current.end, key);
+    refreshed[m.a.id] = Date.now();
+    return { ...m, videos };
+  });
+  const skippedAccounts = fetched.filter((f) => f === null).length;
+
   const existing = await prisma.artiePost.findMany({ where: { publishedAt: { gte: previous.start, lt: current.end } } });
   const byKey = new Map(existing.map((p) => [`${p.platform}:${p.platformVideoId}`, p]));
-
   const toCreate: Prisma.ArtiePostCreateManyInput[] = [];
   const updates: ReturnType<typeof prisma.artiePost.update>[] = [];
-  const unmatched = new Map<string, { platform: string; username: string; videos: number }>();
-  let matched = 0, unmatchedVideos = 0;
+  let matched = 0;
 
-  for (const v of videos) {
-    const creatorId = creatorFor(v);
-    if (!creatorId) {
-      unmatchedVideos++;
-      const k = `${v.platform}:${v.accountUsername ?? v.platformAccountId ?? "?"}`;
-      const u = unmatched.get(k) ?? { platform: v.platform, username: v.accountUsername ?? v.platformAccountId ?? "?", videos: 0 };
-      u.videos++; unmatched.set(k, u);
-      continue;
-    }
-    matched++;
-    const row = {
-      creatorId, platform: v.platform, platformVideoId: v.platformVideoId, username: v.accountUsername,
-      url: viralApp.videoUrl(v.platform, v.platformVideoId, v.accountUsername), caption: v.caption,
-      publishedAt: new Date(v.publishedAt as string), views: v.viewCount, durationSeconds: v.durationSeconds,
-    };
-    const cur = byKey.get(`${v.platform}:${v.platformVideoId}`);
-    if (!cur) toCreate.push(row);
-    else if (cur.creatorId !== creatorId || cur.views !== row.views || cur.caption !== row.caption || cur.durationSeconds !== row.durationSeconds) {
-      updates.push(prisma.artiePost.update({ where: { id: cur.id }, data: { ...row, lastSeenAt: now } }));
+  for (const f of fetched) {
+    if (!f) continue;
+    for (const v of f.videos) {
+      matched++;
+      const row = {
+        creatorId: f.creatorId as string, platform: f.a.platform, platformVideoId: v.id, username: f.a.handle, url: v.url,
+        caption: v.title, publishedAt: new Date(v.publishedAt as string), views: v.views,
+      };
+      const cur = byKey.get(`${row.platform}:${row.platformVideoId}`);
+      if (!cur) toCreate.push(row);
+      else if (cur.creatorId !== row.creatorId || cur.views !== row.views || cur.caption !== row.caption) {
+        updates.push(prisma.artiePost.update({ where: { id: cur.id }, data: { ...row, lastSeenAt: now } }));
+      }
     }
   }
 
   if (toCreate.length) await prisma.artiePost.createMany({ data: toCreate, skipDuplicates: true });
   for (let i = 0; i < updates.length; i += 100) await prisma.$transaction(updates.slice(i, i + 100));
 
-  const top = Array.from(unmatched.values()).sort((a, b) => b.videos - a.videos).slice(0, 50);
+  const staleOver24h = tracked.filter((m) => now.getTime() - (refreshed[m.a.id] ?? 0) > 24 * 3600 * 1000).length;
+  const top = unmatchedAccounts.sort((x, y) => y.a.videoCount - x.a.videoCount).slice(0, 50)
+    .map((m) => ({ platform: m.a.platform, username: m.a.handle, videos: m.a.videoCount }));
   await prisma.artieSettings.update({
     where: { id: "singleton" },
     data: {
-      lastVideoSyncAt: now, unmatchedAccounts: JSON.stringify(top),
+      lastVideoSyncAt: now, unmatchedAccounts: JSON.stringify(top), accountRefreshedAt: JSON.stringify(refreshed),
       // Only ever *set* an error here — clearing is the roster sync's job, so a roster
-      // problem isn't hidden by a successful video pull.
-      ...(truncated ? { lastSyncError: "viral.app returned more videos than the page cap — counts may be incomplete." } : {}),
+      // problem isn't hidden by a successful video pull. A full pass takes ~4-5 minutes, so a
+      // run that stops early is normal (the next one starts with the stalest accounts); only
+      // alarm if some account has gone a whole day without refreshing.
+      ...(staleOver24h ? { lastSyncError: `${staleOver24h} account(s) haven't refreshed in over 24 hours — view counts for those creators may be out of date.` } : {}),
     },
   });
-  return { matched, created: toCreate.length, updated: updates.length, unmatchedVideos, truncated };
+  return { matched, created: toCreate.length, updated: updates.length, unmatchedAccounts: unmatchedAccounts.length, skippedAccounts };
 }
 
 // ── Cross-post matching + bonus candidates ───────────────────────────────────

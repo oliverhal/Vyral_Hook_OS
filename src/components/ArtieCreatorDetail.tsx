@@ -246,7 +246,7 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
                   </td>
                 </tr>
               ))}
-              {d.posts.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">No posts found in this cycle. If this creator has posted, their accounts may not be tracked in viral.app yet.</td></tr>}
+              {d.posts.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">No posts found in this cycle. If this creator has posted, their accounts may not be tracked in ViralDeck yet.</td></tr>}
             </tbody>
           </table>
         </div>

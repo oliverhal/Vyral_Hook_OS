@@ -123,7 +123,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
           <button onClick={saveSettings} disabled={saving} className="btn-primary disabled:opacity-50">{saving ? "Saving…" : "Save settings"}</button>
 
           <div className="text-xs text-slate-500 pt-2 border-t border-slate-100">
-            Roster synced {ago(settings.lastRosterSyncAt)} · videos synced {ago(settings.lastVideoSyncAt)} (auto-syncs every 6 hours)
+            Roster synced {ago(settings.lastRosterSyncAt)} · videos synced {ago(settings.lastVideoSyncAt)} (auto-syncs every 3 hours)
           </div>
           {settings.unmappedRows.length > 0 && (
             <div>
@@ -135,7 +135,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
           )}
           {settings.unmatchedAccounts.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-600 mb-1">Tracked in viral.app but matching no creator on the sheet (top {settings.unmatchedAccounts.length}):</p>
+              <p className="text-xs font-semibold text-slate-600 mb-1">Tracked in ViralDeck but matching no creator on the sheet (top {settings.unmatchedAccounts.length}):</p>
               <p className="text-xs text-slate-500 max-h-24 overflow-y-auto">{settings.unmatchedAccounts.map((a) => `${a.platform}:${a.username} (${a.videos})`).join(" · ")}</p>
             </div>
           )}
@@ -172,7 +172,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
                   <div className="flex flex-wrap gap-1">
                     {c.discrepancy && <span className="badge bg-amber-100 text-amber-800">counts differ</span>}
                     {c.needsReview > 0 && <span className="badge bg-orange-100 text-orange-800">{c.needsReview} to review</span>}
-                    {c.trackingGaps.length > 0 && <span className="badge bg-slate-200 text-slate-600" title="A handle on the sheet has no videos in viral.app">not tracked: {c.trackingGaps.join(", ")}</span>}
+                    {c.trackingGaps.length > 0 && <span className="badge bg-slate-200 text-slate-600" title="A handle on the sheet has no videos in ViralDeck">not tracked: {c.trackingGaps.join(", ")}</span>}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">

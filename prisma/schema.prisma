@@ -403,6 +403,7 @@ model ArtieSettings {
   lastSyncError    String?
   unmappedRows     String? // JSON: sheet rows that couldn't be turned into creators
   unmatchedAccounts String? // JSON: tracked accounts with videos that match no roster handle
+  accountRefreshedAt String? // JSON: { [viraldeckAccountId]: epochMs } so a partial sync resumes with the stalest accounts
   updatedAt        DateTime  @updatedAt
 }
 

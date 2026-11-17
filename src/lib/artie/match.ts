@@ -1,7 +1,15 @@
 // Suggests which TikTok/Facebook posts are cross-posts of an Instagram post.
 // There is no shared id across platforms, so we compare what survives a
-// cross-post: runtime, publish time, and caption text. Matches are only ever
-// *suggestions* (stored as matchSource "auto") that a reviewer can override.
+// cross-post: publish time and caption text (and runtime when the tracker
+// provides it — ViralDeck doesn't). Matches are only ever *suggestions*
+// (stored as matchSource "auto") that a reviewer can override.
+//
+// Tuned on ~5,300 real Artie posts: genuine cross-posts land within minutes
+// (median ~2 min), but creators reuse template captions ("Oh the app? It's
+// called Artie! #pianotiles…"), so a wide time window lets one post match many
+// unrelated ones. A false match is the costly error — it hides a post from the
+// reviewer — so we favour a tight window over recall; anything unmatched simply
+// shows up in "posts to review".
 
 export interface MatchPost {
   id: string;
@@ -17,9 +25,11 @@ export interface MatchResult {
   score: number; // 0..1
 }
 
-const MAX_GAP_MS = 48 * 60 * 60 * 1000;
+const MAX_GAP_MS = 2 * 60 * 60 * 1000;
+const CLOSE_GAP_MS = 30 * 60 * 1000; // inside this, a modest caption overlap is enough
 const MAX_DURATION_DIFF = 1.5;
 const MIN_CAPTION_SIM = 0.5;
+const MIN_CAPTION_SIM_CLOSE = 0.25;
 
 function tokens(s: string | null): Set<string> {
   return new Set(
@@ -48,8 +58,8 @@ function score(ig: MatchPost, other: MatchPost): number | null {
     // Same runtime + close in time is a strong match even with different captions.
     return 0.5 * (1 - diff / MAX_DURATION_DIFF) + 0.3 * timeScore + 0.2 * sim;
   }
-  // No runtime to lean on → require the captions to agree.
-  if (sim < MIN_CAPTION_SIM) return null;
+  // No runtime to lean on → the captions have to agree (less strictly if they were posted within minutes).
+  if (sim < (gap <= CLOSE_GAP_MS ? MIN_CAPTION_SIM_CLOSE : MIN_CAPTION_SIM)) return null;
   return 0.6 * sim + 0.4 * timeScore;
 }
 

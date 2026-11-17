@@ -37,7 +37,7 @@ ok(iso(zonedMidnight(2026, 6, 29)) === "2026-07-28T23:00:00.000Z", "London midni
 const H = 3600e3, t0 = Date.parse("2026-11-05T10:00:00Z");
 const ig = { id: "ig1", platform: "instagram", publishedAt: t0, durationSeconds: 21, caption: "Learning piano with Artie #piano" };
 const tt = { id: "tt1", platform: "tiktok", publishedAt: t0 + 2 * H, durationSeconds: 21.4, caption: "Learning piano with Artie #piano #fyp" };
-const fb = { id: "fb1", platform: "facebook", publishedAt: t0 + 5 * H, durationSeconds: 20.9, caption: null };
+const fb = { id: "fb1", platform: "facebook", publishedAt: t0 + 1 * H, durationSeconds: 20.9, caption: null };
 const other = { id: "tt2", platform: "tiktok", publishedAt: t0 + 3 * H, durationSeconds: 45, caption: "totally different" };
 const m = matchCrossPosts([ig, tt, fb, other]);
 ok(m.some((x) => x.postId === "tt1" && x.igId === "ig1"), "TikTok with same runtime + close time matches the IG post");
@@ -46,6 +46,10 @@ ok(!m.some((x) => x.postId === "tt2"), "different runtime does not match");
 ok(matchCrossPosts([ig, { ...tt, publishedAt: t0 + 3 * 24 * H }]).length === 0, "posted 3 days apart is not a cross-post");
 ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, caption: "unrelated words here" }]).length === 0, "no runtime + dissimilar captions: no match");
 ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null }]).length === 1, "no runtime but matching captions: match");
+// Template captions: identical caption on a different video 5h later must NOT be treated as a cross-post.
+ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 5 * H, caption: ig.caption }]).length === 0, "same template caption but 5h apart: not a cross-post (2h cap)");
+ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 10 * 60000, caption: "Learning piano with Artie" }]).length === 1, "posted 10 min apart with overlapping caption: match");
+ok(matchCrossPosts([{ ...ig, durationSeconds: null }, { ...tt, durationSeconds: null, publishedAt: t0 + 90 * 60000, caption: "Learning piano" }]).length === 0, "90 min apart needs a strong caption match; a partial one is not enough");
 const twoTT = matchCrossPosts([ig, tt, { ...tt, id: "tt3", publishedAt: t0 + 20 * H }]);
 ok(twoTT.filter((x) => x.igId === "ig1").length === 1, "one IG post takes at most one TikTok match");
 

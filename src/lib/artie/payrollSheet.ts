@@ -6,6 +6,8 @@ export interface RosterRow {
   sheetKey: string; // stable key: email if the sheet has one, else the lower-cased name
   name: string;
   ratePerVideo: number | null;
+  /** "sheet" = read from the per-video column; "derived" = monthly rate ÷ expected videos (the sheet's own formula). */
+  rateSource: "sheet" | "derived" | null;
   instagram: string | null;
   tiktok: string | null;
   facebook: string | null;
@@ -75,6 +77,8 @@ const FIELD_PATTERNS: Record<string, RegExp[]> = {
   status: [/^status\b/i],
   // Only per-video rates: a monthly retainer in this column would be misread as a per-video rate.
   rate: [/per[\s-]*video/i, /video\s*rate/i],
+  monthly: [/monthly\s*rate/i],
+  expected: [/expected\s*videos/i],
   instagram: [/instagram/i, /^ig\b/i, /^insta\b/i],
   tiktok: [/tik\s*tok/i, /^tt\b/i],
   facebook: [/facebook/i, /^fb\b/i],
@@ -96,6 +100,9 @@ const INACTIVE_STATUS = /^(fired|inactive|ended|terminated|left|quit|paused|form
 
 const EMPTY = /^(n\/?a|none|-|—|no|\/|\.|not provided|don'?t have.*)$/i;
 
+/** Marker for a Facebook share link (facebook.com/share/…): it only reveals the page once followed. */
+export const FB_SHARE_PREFIX = "share:";
+
 /** @handle, handle, or a profile URL → bare handle / page id (lower-cased). */
 export function extractHandle(raw: string | null | undefined, platform: "instagram" | "tiktok" | "facebook"): string | null {
   const s = (raw ?? "").trim();
@@ -103,16 +110,42 @@ export function extractHandle(raw: string | null | undefined, platform: "instagr
   if (/^https?:\/\//i.test(s) || /^(www\.)?(instagram|tiktok|facebook)\.com\//i.test(s)) {
     try {
       const u = new URL(/^https?:/i.test(s) ? s : `https://${s}`);
+      const segs = u.pathname.split("/").filter(Boolean);
       if (platform === "facebook") {
         const id = u.searchParams.get("id");
         if (id) return id;
+        // facebook.com/share/<code> only reveals the page when followed — resolved later.
+        if (segs[0]?.toLowerCase() === "share") return `${FB_SHARE_PREFIX}${u.toString()}`;
+        // facebook.com/people/<Page-Name>/<numeric id>  and  /pages/<Page-Name>/<numeric id>
+        if (["people", "pages"].includes(segs[0]?.toLowerCase() ?? "") && segs.length >= 2) {
+          const numeric = segs.slice(2).find((x) => /^\d{6,}$/.test(x));
+          return (numeric ?? segs[1]).toLowerCase();
+        }
       }
-      const seg = u.pathname.split("/").filter(Boolean)[0];
+      const seg = segs[0];
       return seg ? seg.replace(/^@/, "").toLowerCase() : null;
     } catch { return null; }
   }
   const h = s.replace(/^@/, "").split(/[?\s/]/)[0].toLowerCase();
   return h || null;
+}
+
+/**
+ * Follow Facebook share links to the page they point at and re-read the handle. A link we can't
+ * resolve becomes null (the creator simply has no Facebook match) rather than a wrong handle.
+ */
+export async function resolveFacebookShares(creators: RosterRow[], fetchImpl: typeof fetch = fetch): Promise<void> {
+  for (const c of creators) {
+    if (!c.facebook?.startsWith(FB_SHARE_PREFIX)) continue;
+    const url = c.facebook.slice(FB_SHARE_PREFIX.length);
+    try {
+      const res = await fetchImpl(url, { redirect: "follow", headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) });
+      const resolved = extractHandle(res.url, "facebook");
+      c.facebook = resolved && !resolved.startsWith(FB_SHARE_PREFIX) ? resolved : null;
+    } catch {
+      c.facebook = null;
+    }
+  }
 }
 
 export function parseRate(raw: string | null | undefined): number | null {
@@ -174,7 +207,18 @@ export function parseRoster(rows: string[][], opts: RosterOptions = {}): RosterP
     const sheetKey = at("id") ? `id:${at("id")}` : /@/.test(email) ? email : name.toLowerCase().replace(/\s+/g, " ");
     if (seen.has(sheetKey)) { unmapped.push({ line: r + 1, reason: "Duplicate of an earlier row", label }); continue; }
     seen.add(sheetKey);
-    creators.push({ sheetKey, name, ratePerVideo: parseRate(at("rate")), instagram, tiktok, facebook });
+    // Per-video rate straight from the sheet; if that cell is blank, use the sheet's own formula
+    // (monthly rate ÷ expected videos per cycle — it reproduces the per-video column exactly where all three exist).
+    let ratePerVideo = parseRate(at("rate"));
+    let rateSource: RosterRow["rateSource"] = ratePerVideo != null ? "sheet" : null;
+    if (ratePerVideo == null) {
+      const monthly = parseRate(at("monthly")), expected = parseRate(at("expected"));
+      if (monthly != null && expected != null && expected > 0) {
+        ratePerVideo = Math.round((monthly / expected) * 100) / 100;
+        rateSource = "derived";
+      }
+    }
+    creators.push({ sheetKey, name, ratePerVideo, rateSource, instagram, tiktok, facebook });
   }
   return { creators, unmapped, columns, skipped };
 }
@@ -187,5 +231,7 @@ export async function fetchRoster(sheetUrl: string, opts: RosterOptions = {}): P
   if (!res.ok) return fail(`Couldn't read the sheet (HTTP ${res.status}). It must be shared as "anyone with the link can view".`);
   const text = await res.text();
   if (/^\s*<(!doctype|html)/i.test(text)) return fail('Google returned a sign-in page, not CSV. Share the sheet as "anyone with the link can view".');
-  return parseRoster(parseCsv(text), opts);
+  const roster = parseRoster(parseCsv(text), opts);
+  await resolveFacebookShares(roster.creators);
+  return roster;
 }

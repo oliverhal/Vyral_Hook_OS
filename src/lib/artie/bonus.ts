@@ -124,3 +124,10 @@ export function detectCandidates(posts: CountPost[], ctx: CreatorBonusContext): 
   }
   return out;
 }
+
+/**
+ * A bonus needs a real look when the same video is on both Instagram and Facebook for the
+ * creator — that usually means the accounts are linked, so the views may be counted twice.
+ * Everything else is a plain "it hit the threshold" approval.
+ */
+export const needsLinkCheck = (flags: string[]): boolean => flags.includes("possible_fb_ig_overlap");

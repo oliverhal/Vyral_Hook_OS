@@ -56,6 +56,10 @@ const db = {
   const urlsA = JSON.stringify(a), urlsB = JSON.stringify(b);
   ok(!/\/b\d/.test(urlsA) && !urlsA.includes("Bravo"), "creator A's payload contains none of B's posts or name");
   ok(!/\/a\d/.test(urlsB) && !urlsB.includes("Alpha"), "creator B's payload contains none of A's posts or name");
+  // Potential earnings: a creator sees their OWN rate and total, never anyone else's.
+  ok(a.potential?.rate === 99 && a.potential.videos === 2 && a.potential.base === 198 && a.potential.bonus === 50 && a.potential.total === 248, "A's potential earnings = 2 videos × 99 + 50 bonus = 248");
+  ok(b.potential?.rate === 77 && b.potential.base === 231 && b.potential.bonus === 75 && b.potential.total === 306, "B's potential earnings = 3 × 77 + 75 (rejected bonus excluded) = 306");
+  ok(!urlsA.includes('"rate":77') && !urlsA.includes("231") && !urlsB.includes('"rate":99') && !urlsB.includes("198"), "neither creator's page contains the other's rate or earnings");
   ok(a.bonusItems.length === 1 && a.bonusItems[0].url.endsWith("/a1"), "A sees only their own qualifying video");
 
   ok((await getCreatorProgress("X".repeat(43), db, now)) === null, "unknown token returns nothing");
@@ -63,7 +67,7 @@ const db = {
   ok((await getCreatorProgress("C".repeat(43), db, now)) === null, "an inactive creator's link stops working");
   ok((await getCreatorProgress(TOK_OLD, db, now)) === null, "a regenerated (old) token no longer resolves");
 
-  const leaks = ["flags", "possible_fb_ig_overlap", "internal note", "ratePerVideo", "discrepancy", "99", "77", "sheetKey", "accessToken"];
+  const leaks = ["flags", "possible_fb_ig_overlap", "internal note", "ratePerVideo", "discrepancy", "sheetKey", "accessToken"];
   ok(leaks.every((l) => !urlsA.includes(l) && !urlsB.includes(l)), "no internal fields (flags, notes, rate, token, discrepancy) reach the creator payload");
 
   // Money/state rules for what the creator sees.

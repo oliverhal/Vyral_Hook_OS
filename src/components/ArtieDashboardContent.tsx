@@ -2,14 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, RefreshCw, Settings, AlertTriangle, Loader2, Search, Copy, Users, Film, Gift, ShieldAlert } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Settings, AlertTriangle, Loader2, Search, Copy, Users, Film, Gift, Wallet, BadgeCheck, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ArtieCreatorRow from "./ArtieCreatorRow";
+import ArtieHowItWorks from "./ArtieHowItWorks";
 import type { ArtieRow } from "./artieTypes";
 
 type Row = ArtieRow;
 interface Overview {
   cycle: { key: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
+  bonusSummary: { givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number; pendingLinkChecks: number; pendingPlainAmount: number; rejectedCount: number };
   creators: Row[];
   settings: {
     payrollSheetUrl: string | null; payrollClient: string; countMode: string; bonusThreshold: number; bonusAmount: number; currency: string;
@@ -31,13 +33,14 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncLabel, setSyncLabel] = useState("");
+  const [approvingAll, setApprovingAll] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", threshold: "100000", amount: "50", currency: "USD" });
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "pending" | "differ" | "untracked">("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "linked" | "differ" | "untracked">("all");
   const [sort, setSort] = useState<"name" | "counted" | "pending" | "attention">("name");
   const [links, setLinks] = useState<Record<string, string> | null>(null);
 
@@ -100,6 +103,19 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     notify(`${rows.length} link${rows.length === 1 ? "" : "s"} copied (name + link)`);
   }
 
+  async function approveAllPlain() {
+    if (!data) return;
+    const n = data.bonusSummary.pendingCount - data.bonusSummary.pendingLinkChecks;
+    if (!confirm(`Approve ${n} bonus${n === 1 ? "" : "es"} that simply hit the view threshold? Any with a possible linked Instagram + Facebook account are left for you to check.`)) return;
+    setApprovingAll(true);
+    const res = await fetch("/api/artie/candidates/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cycle: data.cycle.key }) });
+    const json = await res.json().catch(() => null);
+    setApprovingAll(false);
+    if (!res.ok) return notify(json?.error ?? "Couldn't approve", false);
+    notify(`${json.approved} bonus${json.approved === 1 ? "" : "es"} approved`);
+    load(cycleKey);
+  }
+
   async function saveSettings() {
     setSaving(true);
     const res = await fetch("/api/artie/settings", {
@@ -117,6 +133,8 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   if (!data) return <div className="p-8 animate-pulse space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-16 bg-slate-200 rounded-2xl" />)}</div>;
 
   const { cycle, creators, settings } = data;
+  const bonus = data.bonusSummary;
+  const plainPending = bonus.pendingCount - bonus.pendingLinkChecks;
   const q = query.trim().toLowerCase().replace(/^@/, "");
   const shown = !q ? creators : creators.filter((c) =>
     [c.name, c.handles.instagram, c.handles.tiktok, c.handles.facebook].some((v) => v && v.toLowerCase().includes(q))
@@ -125,7 +143,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
 
   const attention = (c: Row) => (c.discrepancy ? 1 : 0) + (c.trackingGaps.length > 0 ? 1 : 0);
   const predicates: Record<typeof filter, (c: Row) => boolean> = {
-    all: () => true, pending: (c) => c.bonus.pending > 0,
+    all: () => true, linked: (c) => c.bonus.pendingChecks > 0, pending: (c) => c.bonus.pending > 0,
     differ: (c) => c.discrepancy, untracked: (c) => c.trackingGaps.length > 0,
   };
   const chipCount = (k: typeof filter) => shown.filter(predicates[k]).length;
@@ -134,7 +152,11 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     pending: (a, b) => b.bonus.pending - a.bonus.pending || a.name.localeCompare(b.name), attention: (a, b) => attention(b) - attention(a) || a.name.localeCompare(b.name),
   };
   const visible = shown.filter(predicates[filter]).sort(sorters[sort]);
+  const costRows = creators.filter((c) => c.estTotal != null);
   const totals = {
+    cost: costRows.reduce((n, c) => n + (c.estTotal as number), 0),
+    noRate: creators.filter((c) => c.ratePerVideo == null).length,
+    leaving: creators.filter((c) => c.leavingAfter).length,
     counted: creators.reduce((n, c) => n + c.counted, 0),
     pending: creators.reduce((n, c) => n + c.bonus.pending, 0),
     indicative: creators.reduce((n, c) => n + c.bonus.indicativeAmount, 0),
@@ -213,19 +235,34 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
         </div>
       )}
 
+      <ArtieHowItWorks threshold={settings.bonusThreshold} currency={settings.currency} bonusAmount={settings.bonusAmount} />
+
       {creators.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
           {[
-            { icon: Users, label: "Active creators", value: String(creators.length), sub: "on the payroll sheet", cls: "bg-blue-50 text-blue-600" },
+            { icon: Users, label: "Active creators", value: String(creators.length), sub: totals.leaving ? `${totals.leaving} leaving after this cycle` : "on the payroll sheet", cls: "bg-blue-50 text-blue-600" },
             { icon: Film, label: "Unique videos", value: String(totals.counted), sub: "counted this cycle", cls: "bg-violet-50 text-violet-600" },
-            { icon: Gift, label: "Bonuses to review", value: String(totals.pending), sub: `${money(totals.indicative)} indicative`, cls: "bg-amber-50 text-amber-600" },
-            { icon: ShieldAlert, label: "Need attention", value: String(totals.attention), sub: "counts differ / not tracked", cls: "bg-orange-50 text-orange-600" },
+            { icon: Wallet, label: "Expected creator cost", value: money(totals.cost), sub: totals.noRate ? `videos × rate + bonuses · ${totals.noRate} without a rate` : "videos × rate + bonuses", cls: "bg-emerald-50 text-emerald-600" },
+            { icon: BadgeCheck, label: "Bonuses given", value: money(bonus.givenAmount), sub: `${bonus.givenCount} approved this cycle`, cls: "bg-teal-50 text-teal-600" },
+            { icon: Gift, label: "Bonuses to review", value: String(bonus.pendingCount), sub: bonus.pendingCount ? `${money(bonus.pendingAmount)}${bonus.pendingLinkChecks ? ` · ${bonus.pendingLinkChecks} need a link check` : ""}` : "all clear", cls: "bg-amber-50 text-amber-600" },
           ].map(({ icon: Icon, label, value, sub, cls }) => (
             <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", cls)}><Icon className="w-5 h-5" /></div>
-              <div className="min-w-0"><p className="text-2xl font-black text-slate-900 leading-none">{value}</p><p className="text-xs font-semibold text-slate-600 mt-1">{label}</p><p className="text-[11px] text-slate-400 truncate">{sub}</p></div>
+              <div className="min-w-0"><p className="text-xl font-black text-slate-900 leading-none truncate">{value}</p><p className="text-xs font-semibold text-slate-600 mt-1">{label}</p><p className="text-[11px] text-slate-400 truncate" title={sub}>{sub}</p></div>
             </div>
           ))}
+        </div>
+      )}
+
+      {plainPending > 0 && (
+        <div className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3">
+          <p className="text-sm text-emerald-900">
+            <strong>{plainPending} bonus{plainPending === 1 ? "" : "es"} hit {Math.round(settings.bonusThreshold / 1000)}K views</strong> and qualify — nothing else to check.
+            {bonus.pendingLinkChecks > 0 && <> {bonus.pendingLinkChecks} more {bonus.pendingLinkChecks === 1 ? "has" : "have"} the same video on Instagram and Facebook and need a look first.</>}
+          </p>
+          <button onClick={approveAllPlain} disabled={approvingAll} className="btn-primary flex-shrink-0 flex items-center gap-2 disabled:opacity-50">
+            {approvingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve {plainPending} · {money(bonus.pendingPlainAmount)}
+          </button>
         </div>
       )}
 
@@ -245,7 +282,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
       {creators.length > 0 && (
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex gap-1.5 flex-wrap">
-            {([["all", "All"], ["pending", "Bonuses pending"], ["differ", "Counts differ"], ["untracked", "Not tracked"]] as const).map(([k, label]) => (
+            {([["all", "All"], ["pending", "Bonuses pending"], ["linked", "Linked IG+FB check"], ["differ", "Counts differ"], ["untracked", "Not tracked"]] as const).map(([k, label]) => (
               <button key={k} onClick={() => setFilter(k)} className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors", filter === k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400")}>
                 {label} <span className={cn("ml-1", filter === k ? "text-white/60" : "text-slate-400")}>{chipCount(k)}</span>
               </button>

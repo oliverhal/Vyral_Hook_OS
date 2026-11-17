@@ -156,7 +156,11 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
                     {c.related.length > 0 && (
                       <p className="text-xs text-slate-500 mt-1">Also posted as: {c.related.map((r, i) => <span key={r.id}>{i > 0 && ", "}<a className="text-blue-600 hover:underline" href={r.url} target="_blank" rel="noopener noreferrer">{PL[r.platform] ?? r.platform} ({fmtViews(r.views)})</a></span>)}</p>
                     )}
-                    {c.flags.length > 0 && <ul className="mt-2 space-y-0.5">{c.flags.map((fl) => <li key={fl} className="text-xs text-amber-700">⚠ {FLAG[fl] ?? fl}</li>)}</ul>}
+                    {c.flags.includes("possible_fb_ig_overlap") ? (
+                      <ul className="mt-2 space-y-0.5"><li className="text-xs text-amber-700">⚠ {FLAG.possible_fb_ig_overlap}</li></ul>
+                    ) : (
+                      <p className="mt-1.5 text-sm text-slate-600">Hit {fmtViews(c.maxViews)} views — qualifies for a bonus.{c.flags.includes("no_ig_counterpart") && <span className="text-slate-400"> (No matching Instagram post.)</span>}</p>
+                    )}
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-lg font-bold">{money(c.status === "pending" ? c.initialAmount : c.approvedAmount ?? c.initialAmount)}</p>

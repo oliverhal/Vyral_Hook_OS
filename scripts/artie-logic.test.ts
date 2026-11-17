@@ -1,6 +1,6 @@
-import { cycleFor, shiftCycle, cycleByKey, inCycle, zonedMidnight } from "../src/lib/artie/cycle";
+import { cycleFor, shiftCycle, cycleByKey, inCycle, zonedMidnight, removalGraceEnd } from "../src/lib/artie/cycle";
 import { matchCrossPosts } from "../src/lib/artie/match";
-import { parseCsv, parseRoster, sheetExportUrl, extractHandle, parseRate } from "../src/lib/artie/payrollSheet";
+import { parseCsv, parseRoster, sheetExportUrl, extractHandle, parseRate, resolveFacebookShares, FB_SHARE_PREFIX } from "../src/lib/artie/payrollSheet";
 import { countVideos, detectCandidates, type CountPost } from "../src/lib/artie/bonus";
 
 let failed = 0;
@@ -123,6 +123,33 @@ ok(parseRoster(parseCsv(real), {}).creators.length === 4, "blank client filter i
 ok(parseRoster(parseCsv("Creator Name,Instagram\nA,@a"), { client: "Artie" }).error?.includes("Client Name") === true, "a client filter on a sheet with no client column errors instead of importing everyone");
 const monthlyOnly = parseRoster(parseCsv("Creator Name,Instagram,Monthly Rate\nA,@a,€500"));
 ok(monthlyOnly.creators[0].ratePerVideo === null && monthlyOnly.columns.rate === null, "a monthly-only sheet leaves the per-video rate empty rather than mislabelling it");
+
+// ── Facebook links ──────────────────────────────────────────────────────────
+ok(extractHandle("https://www.facebook.com/people/Heidi-Plays/61596075565168/", "facebook") === "61596075565168", "FB /people/Name/<id> → the numeric page id");
+ok(extractHandle("https://www.facebook.com/people/Dustin-Keys/pfbid0Yr51EFHwahAv8Q4heiob1o6GjcMGuptt4eFJs9vcmQ8BNLU7FtNKCaqtXjmVxasMl/", "facebook") === "dustin-keys", "FB /people/Name/<pfbid> → the page name (no numeric id available)");
+ok(extractHandle("https://www.facebook.com/pages/Some-Page/1234567890/", "facebook") === "1234567890", "FB /pages/Name/<id> → id");
+ok(extractHandle("https://www.facebook.com/share/1Ap2H8DK95/?mibextid=x", "facebook")?.startsWith(FB_SHARE_PREFIX) === true, "FB share link is flagged for resolution, not read as the page 'share'");
+ok(extractHandle("https://www.facebook.com/profile.php?id=9001", "facebook") === "9001" && extractHandle("https://www.facebook.com/andrealearnspiano", "facebook") === "andrealearnspiano", "FB profile.php?id= and plain page URLs still work");
+const shareRows = [{ sheetKey: "a", name: "A", ratePerVideo: null, rateSource: null, instagram: null, tiktok: null, facebook: `${FB_SHARE_PREFIX}https://www.facebook.com/share/abc/` }, { sheetKey: "b", name: "B", ratePerVideo: null, rateSource: null, instagram: null, tiktok: null, facebook: `${FB_SHARE_PREFIX}https://www.facebook.com/share/zzz/` }, { sheetKey: "c", name: "C", ratePerVideo: null, rateSource: null, instagram: null, tiktok: null, facebook: "kept" }] as any;
+(async () => {
+  await resolveFacebookShares(shareRows, (async (u: string) => { if (String(u).includes("zzz")) throw new Error("blocked"); return { url: "https://www.facebook.com/people/Geraldpiano/61576486175052/?mibextid=x" } as any; }) as any);
+  ok(shareRows[0].facebook === "61576486175052", "share link followed → the page id from where it lands");
+  ok(shareRows[1].facebook === null, "a share link that can't be followed becomes null, not a wrong handle");
+  ok(shareRows[2].facebook === "kept", "non-share values are untouched");
+})();
+
+// ── per-video rates (sheet vs derived) ──────────────────────────────────────
+const derived = parseRoster(parseCsv("Creator Full Name,Instagram,Monthly Rate ($),Expected Videos / Cyclen on tiktok,Per-Video Rate ($) (Tiktok only)\nA,@a,€500,60,\nB,@b,€500,60,8.33\nC,@c,€500,,\nD,@d,,,"));
+const rateOf = (n: string) => derived.creators.find((c) => c.name === n)!;
+ok(rateOf("A").ratePerVideo === 8.33 && rateOf("A").rateSource === "derived", "blank per-video rate falls back to monthly ÷ expected videos (€500 ÷ 60 = 8.33)");
+ok(rateOf("B").ratePerVideo === 8.33 && rateOf("B").rateSource === "sheet", "a per-video rate on the sheet is used as-is");
+ok(rateOf("C").ratePerVideo === null && rateOf("D").ratePerVideo === null, "no expected videos, or no rate at all → no rate (never guessed)");
+
+// ── removed creators stay until the cycle closes ────────────────────────────
+ok(removalGraceEnd(new Date("2026-11-10T12:00:00Z")).toISOString() === "2026-12-01T00:00:00.000Z", "removed mid-cycle (10 Nov): stays until the cycle closes (28 Nov) + 2 days = 1 Dec");
+ok(removalGraceEnd(new Date("2026-11-30T09:00:00Z")).toISOString() === "2026-12-01T00:00:00.000Z", "removed 1 day after the cycle closed: still belongs to that cycle → gone 1 Dec");
+ok(removalGraceEnd(new Date("2026-12-05T09:00:00Z")).toISOString() === "2026-12-31T00:00:00.000Z", "removed early in a new cycle: stays through that cycle + 2 days");
+ok(removalGraceEnd(new Date("2026-11-28T23:30:00Z")).toISOString() === "2026-12-01T00:00:00.000Z", "removed on the last day of a cycle: that cycle's grace");
 
 // ── counting + bonuses ─────────────────────────────────────────────────────
 const P = (id: string, platform: string, views: number, igMatchId: string | null = null, countDecision: string | null = null): CountPost =>

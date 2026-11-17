@@ -414,6 +414,8 @@ model ArtieCreator {
   sheetKey       String                @unique
   name           String
   ratePerVideo   Float?
+  rateSource     String? // sheet | derived (monthly ÷ expected videos)
+  removedAt      DateTime? // first sync that no longer found them on the sheet (fired/deleted); they stay until the pay cycle closes
   instagram      String?
   tiktok         String?
   facebook       String?

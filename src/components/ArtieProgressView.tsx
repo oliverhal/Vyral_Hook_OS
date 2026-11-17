@@ -46,6 +46,17 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
           </div>
         </section>
 
+        {p.potential && (
+          <section className="bg-white rounded-2xl border border-slate-200 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Potential earnings this cycle</p>
+            <p className="text-4xl font-black text-slate-900 mt-2">{money(p.potential.total)}</p>
+            <p className="text-xs text-slate-500 mt-2">
+              {p.potential.videos} unique video{p.potential.videos === 1 ? "" : "s"} × {money(p.potential.rate)} = {money(p.potential.base)}
+              {p.potential.bonus > 0 && <> + {money(p.potential.bonus)} in bonuses</>}
+            </p>
+          </section>
+        )}
+
         <section className="bg-white rounded-2xl border border-slate-200 p-5">
           <h2 className="text-sm font-bold text-slate-900">Videos that reached {threshold} views</h2>
           {p.bonusItems.length === 0 ? (
@@ -78,7 +89,7 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
         </section>
 
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-xs leading-relaxed text-amber-900 space-y-2">
-          <p><strong>These figures are indicative, not a payment promise.</strong> Final numbers are checked and approved by the team at the end of the cycle.</p>
+          <p><strong>These figures are indicative, not a payment promise.</strong> They show what you could earn this cycle so far from your videos and your per-video rate. Final numbers are checked and approved by the team at the end of the cycle.</p>
           <p>Bonuses apply to eligible <strong>unique</strong> videos. If the same video is posted on both Instagram and Facebook, the views can overlap, so the final total may change after review.</p>
         </section>
 

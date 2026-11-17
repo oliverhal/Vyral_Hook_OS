@@ -94,3 +94,16 @@ export function cycleByKey(key: string, tz = ARTIE_TZ): Cycle | null {
 export function inCycle(date: Date, c: Cycle): boolean {
   return date.getTime() >= c.start.getTime() && date.getTime() < c.end.getTime();
 }
+
+export const REMOVAL_GRACE_DAYS = 2;
+
+/**
+ * When someone removed from the payroll sheet should drop off the dashboard: the end of the
+ * pay cycle they were removed in, plus a couple of days so the closing cycle can still be
+ * reviewed and paid. A removal in the first days after a cycle closes belongs to that closed
+ * cycle, so we look back by the grace period before picking the cycle.
+ */
+export function removalGraceEnd(removedAt: Date, tz = ARTIE_TZ): Date {
+  const grace = REMOVAL_GRACE_DAYS * 24 * 3600 * 1000;
+  return new Date(cycleFor(new Date(removedAt.getTime() - grace), tz).end.getTime() + grace);
+}

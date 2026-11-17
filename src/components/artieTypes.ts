@@ -2,10 +2,11 @@
 // dashboard list and its expandable creator cards.
 
 export interface ArtieRow {
-  id: string; name: string; avatarUrl: string | null; ratePerVideo: number | null;
+  id: string; name: string; avatarUrl: string | null; ratePerVideo: number | null; rateSource: string | null;
+  estBase: number | null; estTotal: number | null; leavingAfter: string | null;
   handles: { instagram: string | null; tiktok: string | null; facebook: string | null };
   counted: number; perPlatform: Record<string, number>; discrepancy: boolean; needsReview: number;
-  bonus: { pending: number; approved: number; rejected: number; indicativeAmount: number };
+  bonus: { pending: number; pendingChecks: number; approved: number; rejected: number; indicativeAmount: number };
   trackingGaps: string[];
 }
 
@@ -18,6 +19,7 @@ export interface ArtieCandidateRow {
   id: string; status: string; maxViews: number; initialAmount: number; approvedAmount: number | null;
   flags: string[]; qualifiesOn: string[];
   primary: { url: string; platform: string; views: number } | null;
+  related: { id: string; url: string; platform: string; views: number }[];
 }
 
 export interface ArtieDetail {

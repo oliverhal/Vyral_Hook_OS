@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import * as viraldeck from "@/lib/viraldeck";
 import { normalizeHandle } from "@/lib/connectedAccounts";
-import { cycleFor, shiftCycle, inCycle, type Cycle } from "./cycle";
+import { cycleFor, shiftCycle, inCycle, removalGraceEnd, type Cycle } from "./cycle";
 import { fetchRoster } from "./payrollSheet";
 import { matchCrossPosts } from "./match";
 import { detectCandidates, type CountPost } from "./bonus";
@@ -37,10 +37,10 @@ export async function syncRoster(): Promise<{ created: number; updated: number; 
 
   for (const r of roster.creators) {
     const cur = byKey.get(r.sheetKey);
-    const data = { name: r.name, ratePerVideo: r.ratePerVideo, instagram: r.instagram, tiktok: r.tiktok, facebook: r.facebook, active: true };
+    const data = { name: r.name, ratePerVideo: r.ratePerVideo, rateSource: r.rateSource, instagram: r.instagram, tiktok: r.tiktok, facebook: r.facebook, active: true, removedAt: null };
     if (cur) {
-      const changed = cur.name !== r.name || cur.ratePerVideo !== r.ratePerVideo || cur.instagram !== r.instagram ||
-        cur.tiktok !== r.tiktok || cur.facebook !== r.facebook || !cur.active;
+      const changed = cur.name !== r.name || cur.ratePerVideo !== r.ratePerVideo || cur.rateSource !== r.rateSource || cur.instagram !== r.instagram ||
+        cur.tiktok !== r.tiktok || cur.facebook !== r.facebook || !cur.active || cur.removedAt !== null;
       if (changed) { await prisma.artieCreator.update({ where: { id: cur.id }, data }); updated++; }
     } else {
       await prisma.artieCreator.create({ data: { sheetKey: r.sheetKey, ...data, accessToken: newAccessToken() } });
@@ -48,33 +48,47 @@ export async function syncRoster(): Promise<{ created: number; updated: number; 
     }
   }
 
+  // Fired or deleted on the sheet: don't drop them mid-cycle. Mark when we first noticed, keep them
+  // (and their private link) until the pay cycle closes plus a couple of days, then deactivate.
   const keep = new Set(roster.creators.map((r) => r.sheetKey));
-  const gone = existing.filter((c) => c.active && !keep.has(c.sheetKey)).map((c) => c.id);
-  if (gone.length) await prisma.artieCreator.updateMany({ where: { id: { in: gone } }, data: { active: false } });
+  const now = new Date();
+  let deactivated = 0;
+  for (const c of existing) {
+    if (!c.active || keep.has(c.sheetKey)) continue;
+    if (!c.removedAt) {
+      await prisma.artieCreator.update({ where: { id: c.id }, data: { removedAt: now } });
+    } else if (now.getTime() >= removalGraceEnd(c.removedAt).getTime()) {
+      await prisma.artieCreator.update({ where: { id: c.id }, data: { active: false } });
+      deactivated++;
+    }
+  }
 
   await prisma.artieSettings.update({
     where: { id: "singleton" },
     data: { lastRosterSyncAt: new Date(), lastSyncError: null, unmappedRows: JSON.stringify(roster.unmapped) },
   });
-  return { created, updated, deactivated: gone.length, unmapped: roster.unmapped.length };
+  return { created, updated, deactivated, unmapped: roster.unmapped.length };
 }
 
 // ── Videos ───────────────────────────────────────────────────────────────────
 
 type Creator = Awaited<ReturnType<typeof prisma.artieCreator.findMany>>[number];
 
+/** Facebook page names differ in spacing/hyphens between the sheet and ViralDeck ("Dustin-Keys" vs "Dustin Keys"). */
+const looseKey = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
 function buildAccountLookup(creators: Creator[]) {
   const map = new Map<string, string>(); // `${platform}:${handle}` -> creatorId
   for (const c of creators) {
     if (c.instagram) map.set(`instagram:${normalizeHandle(c.instagram)}`, c.id);
     if (c.tiktok) map.set(`tiktok:${normalizeHandle(c.tiktok)}`, c.id);
-    if (c.facebook) map.set(`facebook:${normalizeHandle(c.facebook)}`, c.id);
+    if (c.facebook) map.set(`facebook:${looseKey(c.facebook)}`, c.id);
   }
   return (a: viraldeck.ViraldeckAccount): string | null => {
     if (a.platform === "facebook") {
       // ViralDeck's Facebook handle is a numeric page id; the sheet may hold the id or the page name.
       for (const k of [a.handle, a.displayName]) {
-        const hit = k ? map.get(`facebook:${normalizeHandle(k)}`) : undefined;
+        const hit = k ? map.get(`facebook:${looseKey(k)}`) : undefined;
         if (hit) return hit;
       }
       return null;

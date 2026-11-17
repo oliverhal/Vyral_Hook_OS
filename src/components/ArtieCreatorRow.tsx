@@ -99,20 +99,20 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
 
         <div className="flex-1 flex flex-wrap gap-1.5 min-w-0">
           {row.discrepancy && <span className="badge bg-amber-100 text-amber-800">counts differ</span>}
+          {row.leavingAfter && <span className="badge bg-amber-50 text-amber-700" title="Removed from the payroll sheet — kept until the pay cycle closes + 2 days so it can still be reviewed and paid">leaving {new Date(row.leavingAfter).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
+          {row.bonus.pendingChecks > 0 && <span className="badge bg-amber-100 text-amber-800" title="The same video is on Instagram and Facebook — the accounts may be linked">IG+FB check</span>}
           {row.trackingGaps.length > 0 && <span className="badge bg-slate-200 text-slate-600" title="A handle on the sheet has no videos in ViralDeck">not tracked: {row.trackingGaps.map((g) => PLATFORM_SHORT[g] ?? g).join(", ")}</span>}
           {attention === 0 && <span className="badge bg-emerald-50 text-emerald-700"><Check className="inline w-3 h-3 mr-0.5" />all good</span>}
         </div>
 
-        <div className="text-right w-32 flex-shrink-0">
-          {row.bonus.pending + row.bonus.approved + row.bonus.rejected === 0 ? <span className="text-slate-300 text-sm">no bonuses</span> : (
+        <div className="text-right w-44 flex-shrink-0">
+          {row.estTotal != null ? (
             <>
-              <p className="font-bold text-slate-900 text-sm">{money(row.bonus.indicativeAmount)}</p>
-              <p className="text-[11px] text-slate-400">
-                {row.bonus.pending > 0 && <span className="text-amber-600 font-semibold">{row.bonus.pending} pending </span>}
-                {row.bonus.approved > 0 && <span className="text-emerald-600 font-semibold">{row.bonus.approved} approved</span>}
-              </p>
+              <p className="font-bold text-slate-900 text-sm">{money(row.estTotal)}</p>
+              <p className="text-[11px] text-slate-400">potential{row.bonus.approved + row.bonus.pending > 0 && <> · incl. {money(row.bonus.indicativeAmount)} bonus</>}</p>
             </>
-          )}
+          ) : <p className="text-[11px] text-slate-300">no rate on the sheet</p>}
+          {row.bonus.pending > 0 && <p className="text-[11px] font-semibold text-amber-600">{row.bonus.pending} bonus{row.bonus.pending === 1 ? "" : "es"} to review</p>}
         </div>
 
         <button onClick={(e) => { e.stopPropagation(); copyLink(row); }} title={`Copy ${row.name}'s private link`}
@@ -131,24 +131,35 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Bonus candidates</h3>
                 {detail.candidates.length === 0 ? <p className="text-sm text-slate-400">Nothing has reached the threshold this cycle.</p> : (
                   <ul className="space-y-2">
-                    {detail.candidates.map((c) => (
-                      <li key={c.id} className="bg-white rounded-xl border border-slate-200 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0 flex items-center gap-2 flex-wrap">
-                            <span className={cn("badge", STATUS_CLS[c.status])}>{c.status}</span>
-                            {c.primary && <a href={c.primary.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-sm font-semibold text-blue-600 hover:underline inline-flex items-center gap-1">{PLATFORM_LABEL[c.primary.platform] ?? c.primary.platform} · {fmtViews(c.maxViews)} <ExternalLink className="w-3 h-3" /></a>}
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-sm font-bold">{money(c.status === "pending" ? c.initialAmount : c.approvedAmount ?? c.initialAmount)}</span>
+                    {detail.candidates.map((c) => {
+                      const linked = c.flags.includes("possible_fb_ig_overlap");
+                      const members = [c.primary, ...c.related].filter(Boolean) as { url: string; platform: string; views: number }[];
+                      return (
+                        <li key={c.id} className={cn("rounded-xl border p-3", linked && c.status === "pending" ? "bg-amber-50/60 border-amber-300" : "bg-white border-slate-200")}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                              <span className={cn("badge", STATUS_CLS[c.status])}>{c.status}</span>
+                              <span className="text-sm font-bold">{money(c.status === "pending" ? c.initialAmount : c.approvedAmount ?? c.initialAmount)}</span>
+                            </div>
                             {c.status === "pending" && (
                               <button disabled={busy === c.id} onClick={() => act(c.id, `/api/artie/candidates/${c.id}`, "POST", { action: "approve" }, "Bonus approved")}
                                 className="btn-primary text-xs py-1 px-2.5 flex items-center gap-1 disabled:opacity-50">{busy === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Approve</button>
                             )}
                           </div>
-                        </div>
-                        {c.flags.length > 0 && <p className="text-[11px] text-amber-700 mt-1.5 flex items-start gap-1"><AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />{c.flags.map((f) => FLAG_SHORT[f] ?? f).join(" · ")}</p>}
-                      </li>
-                    ))}
+                          {linked ? (
+                            <div className="mt-2 text-xs text-amber-900">
+                              <p className="font-semibold flex items-start gap-1"><AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /> Same video on Instagram and Facebook — the accounts may be linked, so these could be the same views counted twice.</p>
+                              <p className="mt-1">{members.map((m, i) => <span key={m.url}>{i > 0 && " · "}<a href={m.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-700 hover:underline font-semibold">{PLATFORM_LABEL[m.platform] ?? m.platform} {fmtViews(m.views)}</a></span>)}</p>
+                              <p className="mt-1 text-amber-800/80">Check both, then approve — or open the full review to reject or correct it.</p>
+                            </div>
+                          ) : (
+                            <p className="mt-1.5 text-sm text-slate-600">
+                              Hit <strong>{fmtViews(c.maxViews)}</strong> views{c.primary && <> on <a href={c.primary.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline inline-flex items-center gap-1">{PLATFORM_LABEL[c.primary.platform] ?? c.primary.platform} <ExternalLink className="w-3 h-3" /></a></>} — qualifies for a bonus.
+                            </p>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </section>
@@ -176,7 +187,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
 
               <div className="lg:col-span-2 flex items-center justify-between pt-1 border-t border-slate-200/70">
                 <p className="text-xs text-slate-400">
-                  {row.ratePerVideo != null && <>Rate {money(row.ratePerVideo)}/video · </>}
+                  {row.ratePerVideo != null && <>Rate {money(row.ratePerVideo)}/video{row.rateSource === "derived" ? " (monthly ÷ expected videos)" : ""} · </>}
                   {row.handles.facebook && <>FB {row.handles.facebook} · </>}Reject or correct a bonus on the full page.
                 </p>
                 <Link href={`/artie/${row.id}?cycle=${cycleKey}`} className="text-sm font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1">Open full review <ArrowRight className="w-4 h-4" /></Link>

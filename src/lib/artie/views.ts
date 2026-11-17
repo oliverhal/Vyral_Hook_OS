@@ -51,6 +51,8 @@ export interface CreatorProgress {
   bonusThreshold: number;
   bonusCount: number; // excludes ones rejected on review
   indicativeBonus: number;
+  /** videos × their per-video rate + indicative bonuses; null if there's no rate on the payroll sheet. */
+  potential: { videos: number; rate: number; base: number; bonus: number; total: number } | null;
   bonusItems: ProgressBonusItem[];
   previousCycles: { key: string; startLabel: string; endLabel: string; countedVideos: number; bonusCount: number; bonusAmount: number; awaitingReview: number }[];
 }
@@ -105,11 +107,16 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
     });
   }
 
+  const indicativeBonus = live.reduce((s, b) => s + b.amount, 0);
+  const potential = creator.ratePerVideo != null
+    ? (() => { const base = Math.round(counts.counted * creator.ratePerVideo! * 100) / 100; return { videos: counts.counted, rate: creator.ratePerVideo!, base, bonus: indicativeBonus, total: base + indicativeBonus }; })()
+    : null;
+
   return {
     name: creator.name, avatarUrl: creator.avatarUrl ?? null, currency: settings?.currency ?? "USD",
     cycle: { key: current.key, startLabel: current.startLabel, endLabel: current.endLabel },
     countedVideos: counts.counted, bonusThreshold: threshold,
-    bonusCount: live.length, indicativeBonus: live.reduce((s, b) => s + b.amount, 0),
-    bonusItems, previousCycles,
+    bonusCount: live.length, indicativeBonus,
+    potential, bonusItems, previousCycles,
   };
 }

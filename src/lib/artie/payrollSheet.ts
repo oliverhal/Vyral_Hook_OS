@@ -2,12 +2,16 @@
 // same approach the creator-applications sync uses). Pure parsing functions are
 // exported separately from the network fetch so they can be tested.
 
+import { zonedMidnight } from "./cycle";
+
 export interface RosterRow {
   sheetKey: string; // stable key: email if the sheet has one, else the lower-cased name
   name: string;
   ratePerVideo: number | null;
   /** "sheet" = read from the per-video column; "derived" = monthly rate ÷ expected videos (the sheet's own formula). */
   rateSource: "sheet" | "derived" | null;
+  /** When they joined, from the sheet's start-date column (London midnight); null if blank/unreadable. */
+  startDate: Date | null;
   instagram: string | null;
   tiktok: string | null;
   facebook: string | null;
@@ -30,6 +34,8 @@ export interface RosterParse {
 }
 
 export interface RosterOptions {
+  /** "Today" for inferring the year of start dates written without one (tests pass a fixed date). */
+  now?: Date;
   /** Only import rows whose "Client Name" column equals this (case-insensitive). Blank = everyone. */
   client?: string | null;
 }
@@ -77,6 +83,7 @@ const FIELD_PATTERNS: Record<string, RegExp[]> = {
   status: [/^status\b/i],
   // Only per-video rates: a monthly retainer in this column would be misread as a per-video rate.
   rate: [/per[\s-]*video/i, /video\s*rate/i],
+  start: [/start\s*date/i, /^start\b/i, /joined/i],
   monthly: [/monthly\s*rate/i],
   expected: [/expected\s*videos/i],
   instagram: [/instagram/i, /^ig\b/i, /^insta\b/i],
@@ -146,6 +153,30 @@ export async function resolveFacebookShares(creators: RosterRow[], fetchImpl: ty
       c.facebook = null;
     }
   }
+}
+
+const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+
+/**
+ * Start dates on the sheet look like "Nov 11", "Aug16" or "9 Oct" — no year. Take the most recent such
+ * date that isn't in the future (a week of slack for people added a little early). An explicit year
+ * ("Nov 11, 2025", "2025-11-11") is used as written. Anything else → null rather than a guess.
+ */
+export function parseStartDate(raw: string | null | undefined, now: Date = new Date()): Date | null {
+  const s = (raw ?? "").trim();
+  if (!s) return null;
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return zonedMidnight(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  const m = s.match(/^(?:(\d{1,2})\s*([A-Za-z]{3,9})|([A-Za-z]{3,9})\s*(\d{1,2}))(?:[,\s]+(\d{4}))?$/);
+  if (!m) return null;
+  const day = Number(m[1] ?? m[4]);
+  const month = MONTHS[(m[2] ?? m[3]).slice(0, 3).toLowerCase()];
+  if (month === undefined || day < 1 || day > 31) return null;
+  if (m[5]) return zonedMidnight(Number(m[5]), month, day);
+  const year = now.getUTCFullYear();
+  let d = zonedMidnight(year, month, day);
+  if (d.getTime() > now.getTime() + 7 * 24 * 3600 * 1000) d = zonedMidnight(year - 1, month, day);
+  return d;
 }
 
 export function parseRate(raw: string | null | undefined): number | null {
@@ -218,7 +249,7 @@ export function parseRoster(rows: string[][], opts: RosterOptions = {}): RosterP
         rateSource = "derived";
       }
     }
-    creators.push({ sheetKey, name, ratePerVideo, rateSource, instagram, tiktok, facebook });
+    creators.push({ sheetKey, name, ratePerVideo, rateSource, startDate: parseStartDate(at("start"), opts.now), instagram, tiktok, facebook });
   }
   return { creators, unmapped, columns, skipped };
 }

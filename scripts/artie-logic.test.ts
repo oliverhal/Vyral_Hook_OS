@@ -1,6 +1,7 @@
 import { cycleFor, shiftCycle, cycleByKey, inCycle, zonedMidnight, removalGraceEnd } from "../src/lib/artie/cycle";
 import { matchCrossPosts } from "../src/lib/artie/match";
-import { parseCsv, parseRoster, sheetExportUrl, extractHandle, parseRate, resolveFacebookShares, FB_SHARE_PREFIX } from "../src/lib/artie/payrollSheet";
+import { parseCsv, parseRoster, sheetExportUrl, extractHandle, parseRate, resolveFacebookShares, FB_SHARE_PREFIX, parseStartDate } from "../src/lib/artie/payrollSheet";
+import { paceFor } from "../src/lib/artie/pace";
 import { countVideos, detectCandidates, type CountPost } from "../src/lib/artie/bonus";
 
 let failed = 0;
@@ -150,6 +151,32 @@ ok(removalGraceEnd(new Date("2026-11-10T12:00:00Z")).toISOString() === "2026-12-
 ok(removalGraceEnd(new Date("2026-11-30T09:00:00Z")).toISOString() === "2026-12-01T00:00:00.000Z", "removed 1 day after the cycle closed: still belongs to that cycle → gone 1 Dec");
 ok(removalGraceEnd(new Date("2026-12-05T09:00:00Z")).toISOString() === "2026-12-31T00:00:00.000Z", "removed early in a new cycle: stays through that cycle + 2 days");
 ok(removalGraceEnd(new Date("2026-11-28T23:30:00Z")).toISOString() === "2026-12-01T00:00:00.000Z", "removed on the last day of a cycle: that cycle's grace");
+
+// ── start dates ─────────────────────────────────────────────────────────────
+const NOW = new Date("2026-11-17T15:30:00Z");
+const sd = (v: string) => parseStartDate(v, NOW)?.toISOString() ?? null;
+ok(sd("Nov 11") === "2026-11-11T00:00:00.000Z", "start date 'Nov 11' → 11 Nov this year (London midnight)");
+ok(sd("Aug16") === "2026-08-15T23:00:00.000Z", "'Aug16' (no space) → 16 Aug, London summer time");
+ok(sd("9 Oct") === "2026-10-08T23:00:00.000Z", "'9 Oct' (day first) → 9 Oct");
+ok(sd("Dec 5") === "2025-12-05T00:00:00.000Z", "'Dec 5' is in the future, so it means last year");
+ok(sd("Nov 20") === "2026-11-20T00:00:00.000Z", "a start a few days ahead (within a week) keeps this year");
+ok(sd("Nov 11, 2025") === "2025-11-11T00:00:00.000Z" && sd("2025-03-04") === "2025-03-04T00:00:00.000Z", "explicit years are used as written");
+ok(sd("soon") === null && sd("") === null && sd("31/12/2025") === null, "unreadable or ambiguous values → null, never a guess");
+const sheetWithStart = parseRoster(parseCsv("Creator Full Name,Instagram,Start Date (when they joined slack)\nA,@a,Nov 11\nB,@b,"), { now: NOW });
+ok(sheetWithStart.creators[0].startDate?.toISOString() === "2026-11-11T00:00:00.000Z" && sheetWithStart.creators[1].startDate === null, "roster reads the start-date column; blank stays null");
+
+// ── pace (2 a day, from their own start date) ───────────────────────────────
+const cyc2 = cycleFor(NOW); // 29 Oct → 28 Nov
+const pc = (counted: number, startDate: string | null, now = new Date("2026-11-17T12:00:00Z"), cycle = cyc2) => paceFor({ counted, cycle, startDate: startDate ? new Date(startDate) : null, now, perDay: 2 });
+ok(pc(40, null).expected === 39 && pc(40, null).status === "ahead" && pc(40, null).delta === 1, "full-cycle creator, 19.5 days in: 39 expected; 40 posted → ahead");
+ok(pc(36, null).status === "on_track" && pc(30, null).status === "behind" && pc(30, null).delta === -9, "36/39 is on track (within 10%); 30/39 is 9 behind");
+const newbie = pc(12, "2026-11-11T00:00:00Z");
+ok(newbie.expected === 13 && newbie.startedThisCycle && newbie.status === "on_track", "joined 11 Nov: only 6.5 days counted → 13 expected, not 39");
+ok(pc(12, "2026-09-20T00:00:00Z").expected === 39 && !pc(12, "2026-09-20T00:00:00Z").startedThisCycle, "started before the cycle: measured from the cycle start");
+ok(pc(0, "2026-11-20T00:00:00Z").status === "not_started" && pc(0, "2026-11-20T00:00:00Z").expected === 0, "start date in the future: no expectation yet");
+ok(pc(1, "2026-11-17T08:00:00Z").status === "just_started", "under a day in: just started, not judged");
+const closed = pc(60, null, new Date("2026-11-17T12:00:00Z"), shiftCycle(cyc2, -1));
+ok(closed.expected === 60 && closed.status === "ahead", "a closed cycle expects the full 30 days × 2 = 60");
 
 // ── counting + bonuses ─────────────────────────────────────────────────────
 const P = (id: string, platform: string, views: number, igMatchId: string | null = null, countDecision: string | null = null): CountPost =>

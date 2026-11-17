@@ -46,6 +46,31 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
           </div>
         </section>
 
+        {p.pace.expected > 0 && (
+          <section className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-bold text-slate-900">Posting pace</h2>
+              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                p.pace.status === "behind" ? "bg-rose-100 text-rose-700" : p.pace.status === "on_track" ? "bg-sky-100 text-sky-700" : "bg-emerald-100 text-emerald-700"}`}>
+                {p.pace.status === "behind" ? `${Math.abs(p.pace.delta)} behind` : p.pace.status === "on_track" ? "On track" : p.pace.status === "ahead" ? "Ahead of pace" : "Just started"}
+              </span>
+            </div>
+            <div className="mt-3 h-2.5 rounded-full bg-slate-100 overflow-hidden">
+              <div className={`h-full rounded-full ${p.pace.status === "behind" ? "bg-rose-400" : p.pace.status === "on_track" ? "bg-sky-400" : "bg-emerald-500"}`}
+                style={{ width: `${Math.min(100, Math.round((p.pace.actual / Math.max(1, p.pace.expected)) * 100))}%` }} />
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              <strong className="text-slate-700">{p.pace.actual}</strong> of <strong className="text-slate-700">{p.pace.expected}</strong> videos expected so far at {p.pace.perDay} a day
+              {p.pace.startedThisCycle && p.pace.startLabel && <> — counted from when you joined on {p.pace.startLabel}</>}.
+            </p>
+            <p className="text-sm text-slate-700 mt-2">
+              {p.pace.status === "behind" ? `Posting ${p.pace.perDay} a day from here keeps you moving back towards the target.`
+                : p.pace.status === "ahead" ? "You're ahead of the daily target — nice work! 🎉"
+                : p.pace.status === "on_track" ? "You're right on track — keep it up!" : "Welcome aboard! Your target starts from your first day."}
+            </p>
+          </section>
+        )}
+
         {p.potential && (
           <section className="bg-white rounded-2xl border border-slate-200 p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Potential earnings this cycle</p>

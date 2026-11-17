@@ -19,10 +19,11 @@ interface Cand {
   related: { id: string; url: string; platform: string; views: number }[]; events: Ev[];
 }
 interface Detail {
-  creator: { id: string; name: string; avatarUrl: string | null; ratePerVideo: number | null; instagram: string | null; tiktok: string | null; facebook: string | null; facebookLinked: boolean | null; accessToken: string };
+  creator: { id: string; name: string; avatarUrl: string | null; startDate: string | null; ratePerVideo: number | null; instagram: string | null; tiktok: string | null; facebook: string | null; facebookLinked: boolean | null; accessToken: string };
   cycle: { key: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
   counts: { counted: number; perPlatform: Record<string, number>; discrepancy: boolean };
   currency: string; posts: PostRow[]; candidates: Cand[];
+  perDay: number; pace: { expected: number; actual: number; delta: number; days: number; status: string; startedThisCycle: boolean };
 }
 
 const PL: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook" };
@@ -110,6 +111,13 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
         <div className="card p-5 col-span-2">
           <p className="label">Posts found in this cycle</p>
           <p className="text-sm mt-2 text-slate-700">Instagram <strong>{d.counts.perPlatform.instagram ?? 0}</strong> · TikTok <strong>{d.counts.perPlatform.tiktok ?? 0}</strong> · Facebook <strong>{d.counts.perPlatform.facebook ?? 0}</strong></p>
+          {d.pace.expected > 0 && (
+            <p className="text-sm mt-2 text-slate-700">Pace: <strong>{d.pace.actual}</strong> of <strong>{d.pace.expected}</strong> expected at {d.perDay} a day
+              <span className={cn("ml-2 badge", d.pace.status === "behind" ? "bg-rose-100 text-rose-700" : d.pace.status === "on_track" ? "bg-sky-50 text-sky-700" : "bg-emerald-100 text-emerald-700")}>
+                {d.pace.status === "behind" ? `${Math.abs(d.pace.delta)} behind` : d.pace.status === "on_track" ? "on track" : d.pace.delta > 0 ? `${d.pace.delta} ahead` : "on pace"}</span>
+              {d.pace.startedThisCycle && d.creator.startDate && <span className="text-xs text-slate-400"> · joined {new Date(d.creator.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}</span>}
+            </p>
+          )}
           {d.creator.ratePerVideo != null && (
             <p className="text-sm mt-2 text-slate-700">Spend this cycle: <strong>{d.counts.counted}</strong> unique videos × <strong>{money(d.creator.ratePerVideo)}</strong> = <strong>{money(Math.round(d.counts.counted * d.creator.ratePerVideo * 100) / 100)}</strong></p>
           )}

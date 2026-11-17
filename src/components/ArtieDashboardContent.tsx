@@ -14,7 +14,7 @@ interface Overview {
   bonusSummary: { givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number; pendingLinkChecks: number; pendingPlainAmount: number; rejectedCount: number };
   creators: Row[];
   settings: {
-    payrollSheetUrl: string | null; payrollClient: string; countMode: string; bonusThreshold: number; bonusAmount: number; currency: string;
+    payrollSheetUrl: string | null; payrollClient: string; countMode: string; videosPerDay: number; bonusThreshold: number; bonusAmount: number; currency: string;
     lastRosterSyncAt: string | null; lastVideoSyncAt: string | null; lastSyncError: string | null;
     unmappedRows: { line: number; reason: string; label: string }[];
     unmatchedAccounts: { platform: string; username: string }[];
@@ -36,12 +36,12 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   const [approvingAll, setApprovingAll] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", threshold: "100000", amount: "50", currency: "USD" });
+  const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", perDay: "2", threshold: "100000", amount: "50", currency: "USD" });
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "pending" | "linked" | "differ" | "untracked">("all");
-  const [sort, setSort] = useState<"name" | "counted" | "pending" | "attention">("name");
+  const [filter, setFilter] = useState<"all" | "pending" | "linked" | "behind" | "differ" | "untracked">("all");
+  const [sort, setSort] = useState<"name" | "counted" | "pending" | "pace" | "attention">("name");
   const [links, setLinks] = useState<Record<string, string> | null>(null);
 
   const notify = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 4000); };
@@ -51,7 +51,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     const json = await res.json().catch(() => null);
     if (!res.ok) { setError(json?.error ?? `Failed to load (HTTP ${res.status})`); return; }
     setError(""); setData(json);
-    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", countMode: json.settings.countMode ?? "unique", threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency });
+    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", countMode: json.settings.countMode ?? "unique", perDay: String(json.settings.videosPerDay ?? 2), threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency });
     if (!json.settings.payrollSheetUrl) setShowSettings(true);
   }, []);
 
@@ -120,7 +120,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     setSaving(true);
     const res = await fetch("/api/artie/settings", {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, countMode: form.countMode, bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), currency: form.currency.toUpperCase() }),
+      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, countMode: form.countMode, videosPerDay: Number(form.perDay), bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), currency: form.currency.toUpperCase() }),
     });
     const json = await res.json().catch(() => null);
     setSaving(false);
@@ -143,13 +143,14 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
 
   const attention = (c: Row) => (c.discrepancy ? 1 : 0) + (c.trackingGaps.length > 0 ? 1 : 0);
   const predicates: Record<typeof filter, (c: Row) => boolean> = {
-    all: () => true, linked: (c) => c.bonus.pendingChecks > 0, pending: (c) => c.bonus.pending > 0,
+    all: () => true, behind: (c) => c.pace.status === "behind", linked: (c) => c.bonus.pendingChecks > 0, pending: (c) => c.bonus.pending > 0,
     differ: (c) => c.discrepancy, untracked: (c) => c.trackingGaps.length > 0,
   };
   const chipCount = (k: typeof filter) => shown.filter(predicates[k]).length;
   const sorters: Record<typeof sort, (a: Row, b: Row) => number> = {
     name: (a, b) => a.name.localeCompare(b.name), counted: (a, b) => b.counted - a.counted || a.name.localeCompare(b.name),
-    pending: (a, b) => b.bonus.pending - a.bonus.pending || a.name.localeCompare(b.name), attention: (a, b) => attention(b) - attention(a) || a.name.localeCompare(b.name),
+    pending: (a, b) => b.bonus.pending - a.bonus.pending || a.name.localeCompare(b.name),
+    pace: (a, b) => (a.pace.status === "not_started" ? 1 : a.pace.delta) - (b.pace.status === "not_started" ? 1 : b.pace.delta) || a.name.localeCompare(b.name), attention: (a, b) => attention(b) - attention(a) || a.name.localeCompare(b.name),
   };
   const visible = shown.filter(predicates[filter]).sort(sorters[sort]);
   const costRows = creators.filter((c) => c.estTotal != null);
@@ -207,6 +208,11 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
               <option value="unique">Unique videos across all platforms (a video on Instagram + TikTok counts once)</option>
               <option value="instagram">Instagram only (TikTok / Facebook-only videos don’t count)</option>
             </select>
+          </div>
+          <div className="max-w-xs">
+            <label className="label">Videos each creator should post per day</label>
+            <input className="input" value={form.perDay} onChange={(e) => setForm({ ...form, perDay: e.target.value })} />
+            <p className="text-xs text-slate-400 mt-1">Used for “ahead / behind pace”, counted from the later of the cycle start and their start date on the sheet.</p>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div><label className="label">Bonus threshold (views)</label><input className="input" value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} /></div>
@@ -283,7 +289,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
       {creators.length > 0 && (
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex gap-1.5 flex-wrap">
-            {([["all", "All"], ["pending", "Bonuses pending"], ["linked", "Linked IG+FB check"], ["differ", "Counts differ"], ["untracked", "Not tracked"]] as const).map(([k, label]) => (
+            {([["all", "All"], ["pending", "Bonuses pending"], ["linked", "Linked IG+FB check"], ["behind", "Behind pace"], ["differ", "Counts differ"], ["untracked", "Not tracked"]] as const).map(([k, label]) => (
               <button key={k} onClick={() => setFilter(k)} className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors", filter === k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400")}>
                 {label} <span className={cn("ml-1", filter === k ? "text-white/60" : "text-slate-400")}>{chipCount(k)}</span>
               </button>
@@ -291,7 +297,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
           </div>
           <label className="text-xs text-slate-500 flex items-center gap-2">Sort
             <select className="input py-1 w-auto text-xs" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-              <option value="name">Name</option><option value="counted">Most videos</option><option value="pending">Pending bonuses</option><option value="attention">Needs attention</option>
+              <option value="name">Name</option><option value="counted">Most videos</option><option value="pending">Pending bonuses</option><option value="pace">Most behind pace</option><option value="attention">Needs attention</option>
             </select>
           </label>
         </div>

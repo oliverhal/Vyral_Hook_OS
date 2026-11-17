@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireArtieReviewer } from "@/lib/artieServer";
 import { cycleByKey, cycleFor, shiftCycle } from "@/lib/artie/cycle";
 import { loadCreatorCycle, parseJson } from "@/lib/artie/views";
+import { paceFor } from "@/lib/artie/pace";
 import { newAccessToken } from "@/lib/artie/sync";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   return NextResponse.json({
     creator: {
-      id: creator.id, name: creator.name, avatarUrl: creator.avatarUrl, ratePerVideo: creator.ratePerVideo, active: creator.active,
+      id: creator.id, name: creator.name, avatarUrl: creator.avatarUrl, startDate: creator.startDate ? creator.startDate.toISOString() : null, ratePerVideo: creator.ratePerVideo, active: creator.active,
       instagram: creator.instagram, tiktok: creator.tiktok, facebook: creator.facebook,
       facebookLinked: creator.facebookLinked, accessToken: creator.accessToken,
     },
@@ -37,6 +38,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       prevKey: shiftCycle(cycle, -1).key, nextKey: shiftCycle(cycle, 1).key, isCurrent: cycle.key === cycleFor(now).key },
     counts: { counted: counts.counted, perPlatform: counts.perPlatform, discrepancy: counts.discrepancy },
     currency: settings?.currency ?? "USD",
+    pace: paceFor({ counted: counts.counted, cycle, startDate: creator.startDate, now, perDay: settingsRow?.videosPerDay ?? 2 }),
+    perDay: settingsRow?.videosPerDay ?? 2,
     posts: posts.map((p) => ({
       id: p.id, platform: p.platform, url: p.url, username: p.username, caption: p.caption, publishedAt: p.publishedAt,
       views: p.views, igMatchId: p.igMatchId, matchSource: p.matchSource,

@@ -37,9 +37,9 @@ export async function syncRoster(): Promise<{ created: number; updated: number; 
 
   for (const r of roster.creators) {
     const cur = byKey.get(r.sheetKey);
-    const data = { name: r.name, ratePerVideo: r.ratePerVideo, rateSource: r.rateSource, instagram: r.instagram, tiktok: r.tiktok, facebook: r.facebook, active: true, removedAt: null };
+    const data = { name: r.name, ratePerVideo: r.ratePerVideo, rateSource: r.rateSource, startDate: r.startDate, instagram: r.instagram, tiktok: r.tiktok, facebook: r.facebook, active: true, removedAt: null };
     if (cur) {
-      const changed = cur.name !== r.name || cur.ratePerVideo !== r.ratePerVideo || cur.rateSource !== r.rateSource || cur.instagram !== r.instagram ||
+      const changed = cur.name !== r.name || cur.ratePerVideo !== r.ratePerVideo || cur.rateSource !== r.rateSource || (cur.startDate?.getTime() ?? null) !== (r.startDate?.getTime() ?? null) || cur.instagram !== r.instagram ||
         cur.tiktok !== r.tiktok || cur.facebook !== r.facebook || !cur.active || cur.removedAt !== null;
       if (changed) { await prisma.artieCreator.update({ where: { id: cur.id }, data }); updated++; }
     } else {

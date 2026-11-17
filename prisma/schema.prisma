@@ -397,6 +397,7 @@ model ArtieSettings {
   payrollSheetUrl  String?
   payrollClient    String    @default("Artie") // only import rows whose Client Name matches (blank = everyone)
   countMode        String    @default("unique") // unique = unique videos across all platforms; instagram = IG only
+  videosPerDay     Int       @default(2) // expected posting pace
   bonusThreshold   Int       @default(100000)
   bonusAmount      Float     @default(50)
   currency         String    @default("USD")
@@ -415,6 +416,7 @@ model ArtieCreator {
   name           String
   ratePerVideo   Float?
   rateSource     String? // sheet | derived (monthly ÷ expected videos)
+  startDate      DateTime? // when they joined, from the payroll sheet; pace is measured from here
   removedAt      DateTime? // first sync that no longer found them on the sheet (fired/deleted); they stay until the pay cycle closes
   instagram      String?
   tiktok         String?

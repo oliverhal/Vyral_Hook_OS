@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { cycleFor, shiftCycle, type Cycle } from "./cycle";
 import { countVideos, type CountPost, type CountMode } from "./bonus";
+import { paceFor, type PaceStatus } from "./pace";
 
 // Minimal slice of the Prisma client these loaders use — lets tests inject an
 // in-memory fake to prove one creator's token can never surface another's data.
@@ -53,6 +54,8 @@ export interface CreatorProgress {
   indicativeBonus: number;
   /** videos × their per-video rate + indicative bonuses; null if there's no rate on the payroll sheet. */
   potential: { videos: number; rate: number; base: number; bonus: number; total: number } | null;
+  /** Where they are against the daily posting target (counted from their own start date). */
+  pace: { expected: number; actual: number; delta: number; status: PaceStatus; perDay: number; startedThisCycle: boolean; startLabel: string | null };
   bonusItems: ProgressBonusItem[];
   previousCycles: { key: string; startLabel: string; endLabel: string; countedVideos: number; bonusCount: number; bonusAmount: number; awaitingReview: number }[];
 }
@@ -117,6 +120,12 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
     cycle: { key: current.key, startLabel: current.startLabel, endLabel: current.endLabel },
     countedVideos: counts.counted, bonusThreshold: threshold,
     bonusCount: live.length, indicativeBonus,
+    pace: (() => {
+      const perDay = settings?.videosPerDay ?? 2;
+      const p = paceFor({ counted: counts.counted, cycle: current, startDate: creator.startDate ?? null, now, perDay });
+      return { expected: p.expected, actual: p.actual, delta: p.delta, status: p.status, perDay, startedThisCycle: p.startedThisCycle,
+        startLabel: p.startedThisCycle && creator.startDate ? creator.startDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" }) : null };
+    })(),
     potential, bonusItems, previousCycles,
   };
 }

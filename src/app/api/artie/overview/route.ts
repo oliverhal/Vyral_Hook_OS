@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireArtieReviewer } from "@/lib/artieServer";
 import { cycleByKey, cycleFor, shiftCycle, removalGraceEnd } from "@/lib/artie/cycle";
 import { countVideos, needsLinkCheck } from "@/lib/artie/bonus";
+import { paceFor } from "@/lib/artie/pace";
 import { getSettings } from "@/lib/artie/sync";
 import { parseJson } from "@/lib/artie/views";
 
@@ -38,6 +39,8 @@ export async function GET(req: NextRequest) {
       id: c.id, name: c.name, avatarUrl: c.avatarUrl, ratePerVideo: c.ratePerVideo, rateSource: c.rateSource,
       estBase, estTotal: estBase != null ? estBase + indicative : indicative > 0 ? indicative : null,
       // Removed from the sheet (fired/deleted) but kept until the pay cycle closes + a couple of days.
+      startDate: c.startDate ? c.startDate.toISOString() : null,
+      pace: paceFor({ counted: counts.counted, cycle, startDate: c.startDate, now, perDay: settings.videosPerDay }),
       leavingAfter: c.removedAt ? removalGraceEnd(c.removedAt).toISOString() : null,
       handles: { instagram: c.instagram, tiktok: c.tiktok, facebook: c.facebook },
       counted: counts.counted, perPlatform: counts.perPlatform, discrepancy: counts.discrepancy,
@@ -73,7 +76,7 @@ export async function GET(req: NextRequest) {
       prevKey: shiftCycle(cycle, -1).key, nextKey: shiftCycle(cycle, 1).key, isCurrent: cycle.key === cycleFor(now).key },
     creators: rows,
     settings: {
-      payrollSheetUrl: settings.payrollSheetUrl, payrollClient: settings.payrollClient, countMode: settings.countMode, bonusThreshold: settings.bonusThreshold, bonusAmount: settings.bonusAmount,
+      payrollSheetUrl: settings.payrollSheetUrl, payrollClient: settings.payrollClient, countMode: settings.countMode, videosPerDay: settings.videosPerDay, bonusThreshold: settings.bonusThreshold, bonusAmount: settings.bonusAmount,
       currency: settings.currency, lastRosterSyncAt: settings.lastRosterSyncAt, lastVideoSyncAt: settings.lastVideoSyncAt,
       lastSyncError: settings.lastSyncError,
       unmappedRows: parseJson(settings.unmappedRows, []), unmatchedAccounts: parseJson(settings.unmatchedAccounts, []),

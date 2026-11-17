@@ -7,7 +7,7 @@ import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen, Calen
 import { cn } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
 import UserAvatar from "./UserAvatar";
-import { isArtieReviewer } from "@/lib/artieAccess";
+import { isArtieReviewer, isArtieOnly } from "@/lib/artieAccess";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -28,7 +28,8 @@ export default function Sidebar() {
   const { data: session } = useSession();
   const currentUser = session?.user as { name?: string; color?: string; avatarUrl?: string; role?: string } | undefined;
   // Artie pay data is reviewer-only; the pages and APIs enforce it server-side too.
-  const visibleNav = nav.filter((n) => n.href !== "/artie" || isArtieReviewer(currentUser));
+  const artieOnly = isArtieOnly(currentUser);
+  const visibleNav = nav.filter((n) => (n.href !== "/artie" || isArtieReviewer(currentUser)) && (!artieOnly || n.href === "/artie"));
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-[#0a0a0a] flex flex-col z-40">
@@ -76,16 +77,18 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
-        <NotificationBell />
-        <Link
-          href="/campaigns/new"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/50 hover:text-white hover:bg-white/10 transition-colors duration-150"
-        >
-          <PlusCircle className="w-4 h-4 flex-shrink-0" />
-          New Campaign
-        </Link>
+        {!artieOnly && <NotificationBell />}
+        {!artieOnly && (
+          <Link
+            href="/campaigns/new"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/50 hover:text-white hover:bg-white/10 transition-colors duration-150"
+          >
+            <PlusCircle className="w-4 h-4 flex-shrink-0" />
+            New Campaign
+          </Link>
+        )}
         {currentUser?.name && (
-          <Link href="/admin/team" className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors mt-2">
+          <Link href={artieOnly ? "/artie" : "/admin/team"} className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors mt-2">
             <UserAvatar
               name={currentUser.name}
               color={currentUser.color ?? "blue"}

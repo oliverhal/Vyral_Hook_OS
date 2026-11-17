@@ -4,9 +4,11 @@ import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import Sidebar from "./Sidebar";
+import { isArtieOnly } from "@/lib/artieAccess";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const { status } = useSession();
+  const { status, data: session } = useSession();
+  const artieOnly = isArtieOnly(session?.user as { name?: string; role?: string } | undefined);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -15,6 +17,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       router.push(`/login?callbackUrl=${encodeURIComponent(pathname)}`);
     }
   }, [status, pathname, router]);
+
+  // Artie-only users (e.g. Hanna) are kept inside the Artie pages.
+  useEffect(() => {
+    if (status === "authenticated" && artieOnly && !pathname.startsWith("/artie")) router.replace("/artie");
+  }, [status, artieOnly, pathname, router]);
 
   if (status === "loading") {
     return (
@@ -34,6 +41,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (status === "unauthenticated") return null;
+  if (artieOnly && !pathname.startsWith("/artie")) return null;
 
   return (
     <div className="flex min-h-screen">

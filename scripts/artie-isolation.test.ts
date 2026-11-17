@@ -89,7 +89,7 @@ const db = {
   ok(adj.state === "adjusted" && adj.amount === 25 && adj.previouslyShown === 50, "corrected bonus shows the adjusted amount and the earlier one");
   ok(b.bonusCount === 2 && b.indicativeBonus === 75, "rejected is excluded from count/total (25 adjusted + 50 approved)");
 
-  ok(a.previousCycles.length === 1 && a.previousCycles[0].countedVideos === 1, "previous cycle shows only their own history");
+  ok(!("previousCycles" in a), "creator payload carries no previous-cycle history");
   ok(a.cycle.endLabel === "28 Nov" && a.cycle.startLabel === "29 Oct", "creator sees the active cycle's date range");
 
   console.log(failed ? `\n${failed} FAILED` : "\nall passed");

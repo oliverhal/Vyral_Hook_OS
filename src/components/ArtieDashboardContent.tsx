@@ -6,12 +6,14 @@ import { ChevronLeft, ChevronRight, RefreshCw, Settings, AlertTriangle, Loader2,
 import { cn } from "@/lib/utils";
 import ArtieCreatorRow from "./ArtieCreatorRow";
 import ArtieHowItWorks from "./ArtieHowItWorks";
+import ArtieGoalTracker from "./ArtieGoalTracker";
+import { goalFor } from "@/lib/artie/goal";
 import { nudgeMessage } from "@/lib/artie/nudge";
 import type { ArtieRow } from "./artieTypes";
 
 type Row = ArtieRow;
 interface Overview {
-  cycle: { key: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
+  cycle: { key: string; start: string; end: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
   bonusSummary: { givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number; pendingLinkChecks: number; pendingPlainAmount: number; rejectedCount: number };
   creators: Row[];
   settings: {
@@ -278,6 +280,14 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
       )}
 
       <ArtieHowItWorks threshold={settings.bonusThreshold} currency={settings.currency} bonusAmount={settings.bonusAmount} />
+
+      {creators.length > 0 && (() => {
+        const rated = creators.filter((c) => c.ratePerVideo != null);
+        const avgRate = rated.length ? rated.reduce((n, c) => n + (c.ratePerVideo as number), 0) / rated.length : null;
+        const goal = goalFor({ cycle: { key: data.cycle.key, start: new Date(data.cycle.start), end: new Date(data.cycle.end), startLabel: data.cycle.startLabel, endLabel: data.cycle.endLabel }, now: new Date(),
+          actual: totals.counted, actualSpend: totals.spent, avgRate, perDay: settings.videosPerDay });
+        return <ArtieGoalTracker goal={goal} currency={settings.currency} isCurrent={data.cycle.isCurrent} />;
+      })()}
 
       {creators.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">

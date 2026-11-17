@@ -72,7 +72,6 @@ export interface CreatorProgress {
   /** When behind: what they're missing (videos + money) and what to do about it. */
   nudge: CreatorNudge | null;
   bonusItems: ProgressBonusItem[];
-  previousCycles: { key: string; startLabel: string; endLabel: string; countedVideos: number; bonusCount: number; bonusAmount: number; awaitingReview: number }[];
 }
 
 function bonusState(status: string): ProgressBonusItem["state"] {
@@ -129,21 +128,6 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
   }
   const live = bonusItems.filter((b) => b.state !== "not_approved");
 
-  const previousCycles: CreatorProgress["previousCycles"] = [];
-  let prev = current;
-  for (let i = 0; i < 3; i++) {
-    prev = shiftCycle(prev, -1);
-    const d = await loadCreatorCycle(db, creator.id, prev, mode);
-    if (d.posts.length === 0 && d.candidates.length === 0) continue;
-    const reviewed = d.candidates.filter((c) => c.status === "approved" || c.status === "corrected");
-    previousCycles.push({
-      key: prev.key, startLabel: prev.startLabel, endLabel: prev.endLabel, countedVideos: d.counts.counted,
-      bonusCount: reviewed.length,
-      bonusAmount: reviewed.reduce((s, c) => s + (c.approvedAmount ?? c.initialAmount), 0),
-      awaitingReview: d.candidates.filter((c) => c.status === "pending").length,
-    });
-  }
-
   const indicativeBonus = live.reduce((s, b) => s + b.amount, 0);
   const potential = creator.ratePerVideo != null
     ? (() => { const base = Math.round(counts.counted * creator.ratePerVideo! * 100) / 100; return { videos: counts.counted, rate: creator.ratePerVideo!, base, bonus: indicativeBonus, total: base + indicativeBonus }; })()
@@ -169,6 +153,6 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
       return creatorNudge({ pace: pc, rate: creator.ratePerVideo ?? null, currency: settings?.currency ?? "USD", bonusAmount: settings?.bonusAmount ?? 50, threshold,
         cycleEndLabel: current.endLabel, best: top && top.views >= 1000 ? { views: top.views, platform: top.platform, url: top.url } : null });
     })(),
-    potential, bonusItems, previousCycles,
+    potential, bonusItems,
   };
 }

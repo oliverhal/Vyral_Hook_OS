@@ -147,26 +147,6 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
           <p>Bonuses apply to eligible <strong>unique</strong> videos. If the same video is posted on both Instagram and Facebook, the views can overlap, so the final total may change after review.</p>
         </section>
 
-        {p.previousCycles.length > 0 && (
-          <section className="bg-white rounded-2xl border border-slate-200 p-5">
-            <h2 className="text-sm font-bold text-slate-900">Previous cycles</h2>
-            <ul className="mt-3 divide-y divide-slate-100">
-              {p.previousCycles.map((c) => (
-                <li key={c.key} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-0.5 text-sm">
-                  <div>
-                    <p className="font-semibold text-slate-700">{c.startLabel} → {c.endLabel}</p>
-                    <p className="text-xs text-slate-400">{c.countedVideos} videos counted</p>
-                  </div>
-                  <div className="sm:text-right">
-                    <p className="font-semibold text-slate-700">{c.bonusCount} bonus{c.bonusCount === 1 ? "" : "es"} · {money(c.bonusAmount)}</p>
-                    {c.awaitingReview > 0 && <p className="text-xs text-amber-600">{c.awaitingReview} still awaiting review</p>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
         <p className="text-center text-xs text-slate-400 pt-2">This is your private link — please don&apos;t share it.</p>
       </div>
     </main>

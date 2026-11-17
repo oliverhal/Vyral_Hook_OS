@@ -387,3 +387,99 @@ model ConnectedAccount {
 
   @@unique([platform, externalId])
 }
+
+// ── Artie creator progress dashboard ─────────────────────────────────────────
+// Roster + per-video rates come from the payroll sheet; posts and views from
+// viral.app. Bonuses are *candidates* until a reviewer approves them.
+
+model ArtieSettings {
+  id               String    @id @default("singleton")
+  payrollSheetUrl  String?
+  bonusThreshold   Int       @default(100000)
+  bonusAmount      Float     @default(50)
+  currency         String    @default("USD")
+  lastRosterSyncAt DateTime?
+  lastVideoSyncAt  DateTime?
+  lastSyncError    String?
+  unmappedRows     String? // JSON: sheet rows that couldn't be turned into creators
+  unmatchedAccounts String? // JSON: tracked accounts with videos that match no roster handle
+  updatedAt        DateTime  @updatedAt
+}
+
+model ArtieCreator {
+  id             String                @id @default(cuid())
+  sheetKey       String                @unique
+  name           String
+  ratePerVideo   Float?
+  instagram      String?
+  tiktok         String?
+  facebook       String?
+  facebookLinked Boolean? // null = unknown whether their FB and IG accounts are linked
+  active         Boolean               @default(true)
+  accessToken    String                @unique // the creator's private link
+  posts          ArtiePost[]
+  candidates     ArtieBonusCandidate[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model ArtiePost {
+  id              String       @id @default(cuid())
+  creatorId       String
+  creator         ArtieCreator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  platform        String
+  platformVideoId String
+  username        String?
+  url             String
+  caption         String?
+  publishedAt     DateTime
+  views           Int          @default(0)
+  durationSeconds Float?
+  igMatchId       String? // id of the IG ArtiePost this looks like a cross-post of
+  matchSource     String? // auto | manual
+  countDecision   String? // count | ignore — reviewer's call on non-IG posts with no IG match
+  decisionReason  String?
+  decidedBy       String?
+  decidedAt       DateTime?
+  lastSeenAt      DateTime     @default(now())
+
+  @@unique([platform, platformVideoId])
+  @@index([creatorId, publishedAt])
+}
+
+model ArtieBonusCandidate {
+  id             String            @id @default(cuid())
+  creatorId      String
+  creator        ArtieCreator      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  cycleKey       String // "YYYY-MM" of the month the cycle ends in
+  primaryPostId  String
+  relatedPostIds String            @default("[]") // JSON
+  qualifiesOn    String            @default("[]") // JSON: platforms at/above the threshold
+  flags          String            @default("[]") // JSON
+  maxViews       Int               @default(0)
+  initialAmount  Float // what the creator was first shown — never overwritten
+  status         String            @default("pending") // pending | approved | rejected | corrected
+  approvedAmount Float?
+  reason         String?
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  events         ArtieBonusEvent[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([primaryPostId, cycleKey])
+  @@index([creatorId, cycleKey])
+}
+
+model ArtieBonusEvent {
+  id          String              @id @default(cuid())
+  candidateId String
+  candidate   ArtieBonusCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  action      String // detected | approved | rejected | corrected | reopened
+  before      String? // JSON snapshot
+  after       String? // JSON snapshot
+  actor       String
+  createdAt   DateTime            @default(now())
+
+  @@index([candidateId])
+}

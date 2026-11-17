@@ -135,3 +135,58 @@ export function platformVideoIdFromUrl(platform: string, url: string): string | 
   }
   return null;
 }
+
+export interface ViralAppTrackedVideo extends ViralAppVideo {
+  platformAccountId: string | null;
+  accountDisplayName: string | null;
+  durationSeconds: number | null;
+}
+
+/**
+ * Every tracked video published in [from, to). viral.app only filters by whole
+ * days, so we ask for a day of padding each side and trim on the exact instant.
+ * `truncated` is true if we hit the page cap, so callers can warn instead of
+ * silently under-counting.
+ */
+export async function fetchVideosBetween(
+  from: Date,
+  to: Date
+): Promise<{ videos: ViralAppTrackedVideo[]; truncated: boolean }> {
+  const day = 24 * 60 * 60 * 1000;
+  const ymd = (d: Date) => d.toISOString().slice(0, 10);
+  const out: ViralAppTrackedVideo[] = [];
+  const maxPages = 100;
+  let truncated = false;
+
+  for (let page = 1; page <= maxPages; page++) {
+    const res = await get<{ data: any[]; pageCount: number }>("/videos", {
+      page,
+      perPage: PER_PAGE,
+      sortCol: "viewCount",
+      sortDir: "desc",
+      "dateRange[from]": ymd(new Date(from.getTime() - day)),
+      "dateRange[to]": ymd(new Date(to.getTime() + day)),
+    });
+    for (const v of res.data ?? []) {
+      const published = v.publishedAt ? new Date(v.publishedAt).getTime() : NaN;
+      if (!(published >= from.getTime() && published < to.getTime())) continue;
+      if (v.isCompetitor) continue;
+      out.push({
+        platform: v.platform,
+        platformVideoId: v.platformVideoId,
+        accountUsername: v.accountUsername ?? null,
+        caption: v.caption ?? null,
+        thumbnailUrl: v.thumbnailUrl ?? null,
+        publishedAt: v.publishedAt ?? null,
+        viewCount: Number(v.viewCount ?? 0),
+        commentCount: Number(v.commentCount ?? 0),
+        platformAccountId: v.platformAccountId != null ? String(v.platformAccountId) : null,
+        accountDisplayName: v.accountDisplayName || null,
+        durationSeconds: v.durationSeconds != null ? Number(v.durationSeconds) : null,
+      });
+    }
+    if (page >= (res.pageCount ?? 1)) break;
+    if (page === maxPages) truncated = true;
+  }
+  return { videos: out, truncated };
+}

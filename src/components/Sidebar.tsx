@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen, CalendarDays, BarChart3, Receipt, UserSearch, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Megaphone, PlusCircle, Users, Archive, BookOpen, CalendarDays, BarChart3, Receipt, UserSearch, MessageCircle, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NotificationBell from "./NotificationBell";
 import UserAvatar from "./UserAvatar";
+import { isArtieReviewer } from "@/lib/artieAccess";
 
 const nav = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -19,12 +20,15 @@ const nav = [
   { href: "/app-studio", label: "App Studio", icon: BarChart3 },
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/creators", label: "Creator Applications", icon: UserSearch },
+  { href: "/artie", label: "Artie Creators", icon: TrendingUp },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const currentUser = session?.user as { name?: string; color?: string; avatarUrl?: string } | undefined;
+  const currentUser = session?.user as { name?: string; color?: string; avatarUrl?: string; role?: string } | undefined;
+  // Artie pay data is reviewer-only; the pages and APIs enforce it server-side too.
+  const visibleNav = nav.filter((n) => n.href !== "/artie" || isArtieReviewer(currentUser));
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-[#0a0a0a] flex flex-col z-40">
@@ -50,7 +54,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {nav.map(({ href, label, icon: Icon }) => {
+        {visibleNav.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link

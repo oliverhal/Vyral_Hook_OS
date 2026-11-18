@@ -7,12 +7,12 @@ import type { Goal, Measure } from "@/lib/artie/goal";
 const num = (n: number) => n.toLocaleString("en-US");
 const tone = (s: Measure["status"]) => (s === "ahead" ? "emerald" : s === "on_track" ? "amber" : "rose");
 
-export default function ArtieGoalTracker({ goal, currency, isCurrent }: { goal: Goal; currency: string; isCurrent: boolean }) {
+export default function ArtieGoalTracker({ goal, currency, isCurrent, costPerCreator, bonusEnabled = true }: { goal: Goal; currency: string; isCurrent: boolean; costPerCreator?: number | null; bonusEnabled?: boolean }) {
   const g = goal;
   const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
   const rows: { label: string; m: Measure; f: (n: number) => string }[] = [
     { label: "Videos", m: g.videos, f: num },
-    { label: "Spend (incl. bonuses)", m: g.spend, f: money },
+    ...(g.spend ? [{ label: bonusEnabled ? "Spend (incl. bonuses)" : "Creator spend", m: g.spend, f: money }] : []),
   ];
   const v = g.videos;
   const t = tone(v.status);
@@ -25,7 +25,7 @@ export default function ArtieGoalTracker({ goal, currency, isCurrent }: { goal: 
           <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><Target className="w-5 h-5" /></div>
           <div>
             <p className="font-bold text-slate-900 leading-tight">Programme goal</p>
-            <p className="text-xs text-slate-500">{g.creators} creators on the sheet × {g.perDay} a day = {num(g.perDayTotal)} videos a day · {isCurrent ? `day ${g.daysElapsed} of ${g.daysTotal}` : "closed cycle"} · per the Art Master calculator</p>
+            <p className="text-xs text-slate-500">{g.creators} creators × {g.perDay} a day, each counted from their first post · {num(g.perDayTotal)} videos a day from those posting now · {isCurrent ? `day ${g.daysElapsed} of ${g.daysTotal}` : "closed cycle"}</p>
           </div>
         </div>
         <span className={cn("badge", t === "emerald" ? "bg-emerald-50 text-emerald-700" : t === "amber" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700")}>
@@ -37,7 +37,7 @@ export default function ArtieGoalTracker({ goal, currency, isCurrent }: { goal: 
         <div className={cn("h-full rounded-full", t === "emerald" ? "bg-emerald-500" : t === "amber" ? "bg-amber-500" : "bg-rose-500")} style={{ width: `${pct}%` }} />
         <div className="absolute top-0 bottom-0 w-0.5 bg-slate-700" style={{ left: `${marker}%` }} title="Where the team should be today" />
       </div>
-      <p className="mt-2 text-sm text-slate-700">{isCurrent ? "At this pace the cycle finishes on" : "The cycle finished on"} <strong className={v.projected >= v.fullTarget ? "text-emerald-700" : "text-rose-700"}>{num(v.projected)} videos</strong> of {num(v.fullTarget)}{g.spend.fullTarget > 0 ? <> and <strong className={g.spend.projected >= g.spend.fullTarget ? "text-emerald-700" : "text-rose-700"}>{money(g.spend.projected)}</strong> spend of {money(g.spend.fullTarget)}</> : null}.</p>
+      <p className="mt-2 text-sm text-slate-700">{isCurrent ? "At this pace the cycle finishes on" : "The cycle finished on"} <strong className={v.projected >= v.fullTarget ? "text-emerald-700" : "text-rose-700"}>{num(v.projected)} videos</strong> of {num(v.fullTarget)}{g.spend && g.spend.fullTarget > 0 ? <> and <strong className={g.spend.projected >= g.spend.fullTarget ? "text-emerald-700" : "text-rose-700"}>{money(g.spend.projected)}</strong> spend of {money(g.spend.fullTarget)}</> : null}.</p>
       <p className="mt-1 text-xs text-slate-500">The line marks today’s goal and moves up {num(g.perDayTotal)} videos a day.{isCurrent && v.remaining > 0 ? ` To hit the cycle target the team now needs ${g.neededPerDay} a day.` : ""}</p>
 
       <div className="mt-3 overflow-x-auto -mx-1">
@@ -56,7 +56,7 @@ export default function ArtieGoalTracker({ goal, currency, isCurrent }: { goal: 
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-[11px] text-slate-400">Targets per creator per month: 60 videos and {money(600)} creator cost including bonuses. Pro rata = today’s daily rate carried to the end of the cycle. Spend is shown in the dashboard currency without conversion.</p>
+      <p className="mt-2 text-[11px] text-slate-400">Per creator per month: {g.perDay * 30} videos{costPerCreator ? <> and {money(costPerCreator)} creator budget{bonusEnabled ? " including bonuses" : ""}</> : null}. A creator who starts mid-cycle is only expected for the days since their first post. Pro rata = today’s output per active creator-day carried over the whole cycle.{costPerCreator ? " Spend is shown in the dashboard currency without conversion." : ""}</p>
     </section>
   );
 }

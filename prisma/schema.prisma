@@ -393,15 +393,17 @@ model ConnectedAccount {
 // viral.app. Bonuses are *candidates* until a reviewer approves them.
 
 model ArtieSettings {
-  id               String    @id @default("singleton")
+  id               String    @id @default("singleton") // the programme slug ("singleton" is legacy for "artie" — never renamed, to avoid a migration)
   payrollSheetUrl  String?
   payrollClient    String    @default("Artie") // only import rows whose Client Name matches (blank = everyone)
   countMode        String    @default("unique") // unique = unique videos across all platforms; instagram = IG only
   videosPerDay     Int       @default(2) // expected posting pace
   showRankToCreators Boolean @default(true) // show a 'top X% of creators' badge on creator links
   showPaceToCreators Boolean @default(true) // tell creators on their link when they're behind / ahead
+  bonusEnabled     Boolean   @default(true) // some programmes (Ecosia) don't pay bonuses at all
   bonusThreshold   Int       @default(100000)
   bonusAmount      Float     @default(50)
+  monthlyCostPerCreator Float? // programme goal: fixed €/month creator budget per creator (from the client's pricing sheet); null = derive from average rate
   currency         String    @default("USD")
   lastRosterSyncAt DateTime?
   lastVideoSyncAt  DateTime?
@@ -414,11 +416,12 @@ model ArtieSettings {
 
 model ArtieCreator {
   id             String                @id @default(cuid())
-  sheetKey       String                @unique
+  programme      String                @default("artie") // "artie" | "ecosia" — which client this creator belongs to
+  sheetKey       String
   name           String
   ratePerVideo   Float?
   rateSource     String? // sheet | derived (monthly ÷ expected videos)
-  startDate      DateTime? // when they joined, from the payroll sheet; pace is measured from here
+  startDate      DateTime? // when they joined, from the payroll sheet; pace is measured from their first post, not this
   removedAt      DateTime? // first sync that no longer found them on the sheet (fired/deleted); they stay until the pay cycle closes
   instagram      String?
   tiktok         String?
@@ -431,6 +434,8 @@ model ArtieCreator {
   candidates     ArtieBonusCandidate[]
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
+
+  @@unique([programme, sheetKey])
 }
 
 model ArtiePost {
@@ -461,6 +466,7 @@ model ArtieBonusCandidate {
   id             String            @id @default(cuid())
   creatorId      String
   creator        ArtieCreator      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  programme      String            @default("artie") // denormalized from the creator so a cycle-key query never crosses programmes
   cycleKey       String // "YYYY-MM" of the month the cycle ends in
   primaryPostId  String
   relatedPostIds String            @default("[]") // JSON

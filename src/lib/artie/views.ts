@@ -5,6 +5,7 @@ import { countVideos, type CountPost, type CountMode } from "./bonus";
 import { paceFor, type PaceStatus } from "./pace";
 import { rankTier, type RankTier, type RankInput } from "./rank";
 import { creatorNudge, type CreatorNudge } from "./nudge";
+import { PROGRAMMES, programmeOf, type Programme } from "./programme";
 
 // Minimal slice of the Prisma client these loaders use — lets tests inject an
 // in-memory fake to prove one creator's token can never surface another's data.
@@ -54,6 +55,9 @@ export interface ProgressBonusItem {
 }
 
 export interface CreatorProgress {
+  /** Which client this is for, and whether it pays bonuses at all (Ecosia doesn't). */
+  programme: { id: Programme; label: string };
+  bonusEnabled: boolean;
   name: string;
   avatarUrl: string | null;
   currency: string;
@@ -85,9 +89,9 @@ function bonusState(status: string): ProgressBonusItem["state"] {
  * discrepancy, rate, review reasons) are deliberately not included.
  */
 /** Aggregate (id, views, days) for every active creator → this creator's tier. Only the tier leaves this function. */
-async function tierFor(db: Db, creatorId: string, cycle: Cycle, now: Date): Promise<RankTier | null> {
+async function tierFor(db: Db, programme: Programme, creatorId: string, cycle: Cycle, now: Date): Promise<RankTier | null> {
   const [creators, sums, firsts] = await Promise.all([
-    db.artieCreator.findMany({ where: { active: true }, select: { id: true } }),
+    db.artieCreator.findMany({ where: { programme, active: true }, select: { id: true } }),
     db.artiePost.groupBy({ by: ["creatorId"], where: { publishedAt: { gte: cycle.start, lt: cycle.end } }, _sum: { views: true } }),
     firstPostDates(db),
   ]);
@@ -106,7 +110,9 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
   if (!token || token.length < 20) return null;
   const creator = await db.artieCreator.findUnique({ where: { accessToken: token } });
   if (!creator || !creator.active) return null;
-  const settings = await db.artieSettings.findUnique({ where: { id: "singleton" } });
+  const programme = programmeOf(creator.programme);
+  const settings = await db.artieSettings.findUnique({ where: { id: PROGRAMMES[programme].settingsId } });
+  const bonusEnabled = settings?.bonusEnabled !== false;
   const threshold = settings?.bonusThreshold ?? 100000;
   const mode: CountMode = settings?.countMode === "instagram" ? "instagram" : "unique";
 
@@ -126,6 +132,7 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
       state, amount, previouslyShown: amount !== c.initialAmount ? c.initialAmount : null,
     });
   }
+  if (!bonusEnabled) bonusItems.length = 0; // no bonuses for this programme — never surface any
   const live = bonusItems.filter((b) => b.state !== "not_approved");
 
   const indicativeBonus = live.reduce((s, b) => s + b.amount, 0);
@@ -134,6 +141,7 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
     : null;
 
   return {
+    programme: { id: programme, label: PROGRAMMES[programme].label }, bonusEnabled,
     name: creator.name, avatarUrl: creator.avatarUrl ?? null, currency: settings?.currency ?? "USD",
     cycle: { key: current.key, startLabel: current.startLabel, endLabel: current.endLabel },
     countedVideos: counts.counted, bonusThreshold: threshold,
@@ -145,12 +153,12 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
         fullTarget: p.fullTarget, remaining: p.remaining, daysLeft: p.daysLeft, neededPerDay: p.neededPerDay,
         startLabel: p.startedThisCycle && firstPostAt ? firstPostAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" }) : null };
     })(),
-    rank: settings?.showRankToCreators === false ? null : await tierFor(db, creator.id, current, now).then((tier) => (tier ? { tier } : null)),
+    rank: settings?.showRankToCreators === false ? null : await tierFor(db, programme, creator.id, current, now).then((tier) => (tier ? { tier } : null)),
     nudge: settings?.showPaceToCreators === false ? null : (() => {
       const perDay = settings?.videosPerDay ?? 2;
       const pc = paceFor({ counted: counts.counted, cycle: current, firstPostAt, now, perDay });
       const top = posts.reduce<typeof posts[number] | null>((m, x) => (!m || x.views > m.views ? x : m), null);
-      return creatorNudge({ pace: pc, rate: creator.ratePerVideo ?? null, currency: settings?.currency ?? "USD", bonusAmount: settings?.bonusAmount ?? 50, threshold,
+      return creatorNudge({ pace: pc, rate: creator.ratePerVideo ?? null, currency: settings?.currency ?? "USD", bonusAmount: settings?.bonusAmount ?? 50, threshold, bonusEnabled,
         cycleEndLabel: current.endLabel, best: top && top.views >= 1000 ? { views: top.views, platform: top.platform, url: top.url } : null });
     })(),
     potential, bonusItems,

@@ -23,7 +23,7 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
         <header className="flex items-center gap-3 sm:gap-4">
           <ArtieAvatar name={p.name} url={p.avatarUrl} size={64} className="ring-2 ring-white shadow-sm" />
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Artie creator progress</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{p.programme.label} creator progress</p>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 break-words">Hi {first} 👋</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               Current cycle: <strong className="text-slate-700">{p.cycle.startLabel} → {p.cycle.endLabel}</strong>
@@ -61,19 +61,19 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
           <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><strong>You’re ahead of schedule</strong> — {p.pace.actual} videos against {p.pace.expected} expected so far. Great work! 🎉</section>
         )}
 
-        <section className="grid grid-cols-2 gap-2.5 sm:gap-3">
+        <section className={p.bonusEnabled ? "grid grid-cols-2 gap-2.5 sm:gap-3" : "grid grid-cols-1 gap-2.5 sm:gap-3"}>
           <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Unique videos</p>
             <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-2">{p.countedVideos}</p>
             <p className="text-xs text-slate-400 mt-1">counted this cycle · a video on several platforms counts once</p>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
+          {p.bonusEnabled && <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{threshold}+ view bonuses</p>
             <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-2">{p.bonusCount}</p>
             <p className="text-xs text-slate-400 mt-1">
               {p.bonusCount ? <>Indicative: <strong className="text-slate-600">{money(p.indicativeBonus)}</strong></> : "none yet"}
             </p>
-          </div>
+          </div>}
         </section>
 
         {p.pace && p.pace.expected > 0 && (
@@ -106,12 +106,12 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
             <p className="text-3xl sm:text-4xl font-black text-slate-900 mt-2 break-words">{money(p.potential.total)}</p>
             <p className="text-xs text-slate-500 mt-2">
               {p.potential.videos} unique video{p.potential.videos === 1 ? "" : "s"} × {money(p.potential.rate)} = {money(p.potential.base)}
-              {p.potential.bonus > 0 && <> + {money(p.potential.bonus)} in bonuses</>}
+              {p.bonusEnabled && p.potential.bonus > 0 && <> + {money(p.potential.bonus)} in bonuses</>}
             </p>
           </section>
         )}
 
-        <section className="bg-white rounded-2xl border border-slate-200 p-5">
+        {p.bonusEnabled && <section className="bg-white rounded-2xl border border-slate-200 p-5">
           <h2 className="text-sm font-bold text-slate-900">Videos that reached {threshold} views</h2>
           {p.bonusItems.length === 0 ? (
             <p className="text-sm text-slate-400 mt-3">No videos have reached {threshold} views in this cycle yet.</p>
@@ -140,11 +140,11 @@ export default function ArtieProgressView({ progress: p }: { progress: CreatorPr
               ))}
             </ul>
           )}
-        </section>
+        </section>}
 
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-xs leading-relaxed text-amber-900 space-y-2">
           <p><strong>These figures are indicative, not a payment promise.</strong> They show what you could earn this cycle so far from your videos and your per-video rate. Final numbers are checked and approved by the team at the end of the cycle.</p>
-          <p>Bonuses apply to eligible <strong>unique</strong> videos. If the same video is posted on both Instagram and Facebook, the views can overlap, so the final total may change after review.</p>
+          {p.bonusEnabled && <p>Bonuses apply to eligible <strong>unique</strong> videos. If the same video is posted on both Instagram and Facebook, the views can overlap, so the final total may change after review.</p>}
         </section>
 
         <p className="text-center text-xs text-slate-400 pt-2">This is your private link — please don&apos;t share it.</p>

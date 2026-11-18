@@ -23,6 +23,7 @@ export interface NudgeInput {
   bonusAmount: number;
   threshold: number;
   cycleEndLabel: string; // e.g. "28 Nov"
+  bonusEnabled?: boolean; // false → no bonus line (default true)
   best?: { views: number; platform: string; url: string } | null; // their own best video this cycle
 }
 
@@ -92,7 +93,7 @@ export function creatorNudge(i: NudgeInput): CreatorNudge | null {
         : `${f.urgent ? "Final stretch: only " : ""}${daysWord(p.daysLeft)} left in this cycle (ends ${i.cycleEndLabel}). Post about ${p.neededPerDay} a day to finish on target${f.available != null ? ` — up to ${m(f.available)} is still on the table` : ""}.`
     );
   }
-  points.push(`Every video that reaches ${viewsLabel(i.threshold)} views earns an extra ${m(i.bonusAmount)} bonus on top.`);
+  if (i.bonusEnabled !== false) points.push(`Every video that reaches ${viewsLabel(i.threshold)} views earns an extra ${m(i.bonusAmount)} bonus on top.`);
   const best = i.best ? { label: `Your best video this cycle hit ${viewsLabel(i.best.views)} views — make more like it.`, url: i.best.url } : null;
   return { headline, points, missed: f.missed, available: f.available, best, capped };
 }

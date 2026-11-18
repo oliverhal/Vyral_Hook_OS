@@ -7,21 +7,29 @@ import { cycleFor, shiftCycle, inCycle, removalGraceEnd, type Cycle } from "./cy
 import { fetchRoster } from "./payrollSheet";
 import { matchCrossPosts } from "./match";
 import { detectCandidates, type CountPost } from "./bonus";
+import { PROGRAMMES, type Programme } from "./programme";
 
 export function newAccessToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export async function getSettings() {
-  return prisma.artieSettings.upsert({ where: { id: "singleton" }, create: { id: "singleton" }, update: {} });
+/** This programme's settings row, created with its defaults on first use. */
+export async function getSettings(programme: Programme = "artie") {
+  const cfg = PROGRAMMES[programme];
+  return prisma.artieSettings.upsert({
+    where: { id: cfg.settingsId },
+    create: { id: cfg.settingsId, payrollClient: cfg.payrollClientDefault, ...cfg.defaults },
+    update: {},
+  });
 }
 
 // ── Roster ───────────────────────────────────────────────────────────────────
 
-export async function syncRoster(): Promise<{ created: number; updated: number; deactivated: number; unmapped: number; error?: string }> {
-  const settings = await getSettings();
+export async function syncRoster(programme: Programme = "artie"): Promise<{ created: number; updated: number; deactivated: number; unmapped: number; error?: string }> {
+  const settings = await getSettings(programme);
+  const settingsId = PROGRAMMES[programme].settingsId;
   const fail = async (error: string) => {
-    await prisma.artieSettings.update({ where: { id: "singleton" }, data: { lastSyncError: error } });
+    await prisma.artieSettings.update({ where: { id: settingsId }, data: { lastSyncError: error } });
     return { created: 0, updated: 0, deactivated: 0, unmapped: 0, error };
   };
   if (!settings.payrollSheetUrl) return fail("No payroll sheet link set yet.");
@@ -31,7 +39,7 @@ export async function syncRoster(): Promise<{ created: number; updated: number; 
   // Safety: an empty result almost certainly means a bad/blank sheet — never deactivate everyone over that.
   if (roster.creators.length === 0) return fail("The payroll sheet had no creators in it, so nothing was changed.");
 
-  const existing = await prisma.artieCreator.findMany();
+  const existing = await prisma.artieCreator.findMany({ where: { programme } });
   const byKey = new Map(existing.map((c) => [c.sheetKey, c]));
   let created = 0, updated = 0;
 
@@ -43,7 +51,7 @@ export async function syncRoster(): Promise<{ created: number; updated: number; 
         cur.tiktok !== r.tiktok || cur.facebook !== r.facebook || !cur.active || cur.removedAt !== null;
       if (changed) { await prisma.artieCreator.update({ where: { id: cur.id }, data }); updated++; }
     } else {
-      await prisma.artieCreator.create({ data: { sheetKey: r.sheetKey, ...data, accessToken: newAccessToken() } });
+      await prisma.artieCreator.create({ data: { programme, sheetKey: r.sheetKey, ...data, accessToken: newAccessToken() } });
       created++;
     }
   }
@@ -64,7 +72,7 @@ export async function syncRoster(): Promise<{ created: number; updated: number; 
   }
 
   await prisma.artieSettings.update({
-    where: { id: "singleton" },
+    where: { id: settingsId },
     data: { lastRosterSyncAt: new Date(), lastSyncError: null, unmappedRows: JSON.stringify(roster.unmapped) },
   });
   return { created, updated, deactivated, unmapped: roster.unmapped.length };
@@ -108,13 +116,13 @@ const TIME_BUDGET_MS = 150_000;
 // ViralDeck rate-limits bursts per key, so keep this low.
 const FETCH_CONCURRENCY = 2;
 
-export async function syncVideos(): Promise<{ matched: number; created: number; updated: number; unmatchedAccounts: number; skippedAccounts: number }> {
-  const creators = await prisma.artieCreator.findMany({ where: { active: true } });
+export async function syncVideos(programme: Programme = "artie"): Promise<{ matched: number; created: number; updated: number; unmatchedAccounts: number; skippedAccounts: number }> {
+  const creators = await prisma.artieCreator.findMany({ where: { programme, active: true } });
   const none = { matched: 0, created: 0, updated: 0, unmatchedAccounts: 0, skippedAccounts: 0 };
   if (creators.length === 0) return none; // nothing to match against yet
 
-  const key = viraldeck.artieApiKey();
-  const projectId = await viraldeck.artieProjectId(key);
+  const key = viraldeck.programmeApiKey(programme);
+  const projectId = await viraldeck.programmeProjectId(programme, key);
   const now = new Date();
   const current = cycleFor(now);
   const previous = shiftCycle(current, -1);
@@ -142,7 +150,7 @@ export async function syncVideos(): Promise<{ matched: number; created: number; 
   for (let i = 0; i < avatarUpdates.length; i += 50) await prisma.$transaction(avatarUpdates.slice(i, i + 50));
 
   // Stalest first: if the time budget cuts a run short, the accounts it skipped lead the next one.
-  const settings = await getSettings();
+  const settings = await getSettings(programme);
   const refreshed: Record<string, number> = parseJsonSafe(settings.accountRefreshedAt);
   tracked.sort((x, y) => (refreshed[x.a.id] ?? 0) - (refreshed[y.a.id] ?? 0));
 
@@ -155,7 +163,7 @@ export async function syncVideos(): Promise<{ matched: number; created: number; 
   });
   const skippedAccounts = fetched.filter((f) => f === null).length;
 
-  const existing = await prisma.artiePost.findMany({ where: { publishedAt: { gte: previous.start, lt: current.end } } });
+  const existing = await prisma.artiePost.findMany({ where: { creatorId: { in: creators.map((c) => c.id) }, publishedAt: { gte: previous.start, lt: current.end } } });
   const byKey = new Map(existing.map((p) => [`${p.platform}:${p.platformVideoId}`, p]));
   const toCreate: Prisma.ArtiePostCreateManyInput[] = [];
   const updates: ReturnType<typeof prisma.artiePost.update>[] = [];
@@ -184,7 +192,7 @@ export async function syncVideos(): Promise<{ matched: number; created: number; 
   const top = unmatchedAccounts.sort((x, y) => x.a.handle.localeCompare(y.a.handle)).slice(0, 80)
     .map((m) => ({ platform: m.a.platform, username: m.a.handle }));
   await prisma.artieSettings.update({
-    where: { id: "singleton" },
+    where: { id: PROGRAMMES[programme].settingsId },
     data: {
       lastVideoSyncAt: now, unmatchedAccounts: JSON.stringify(top), accountRefreshedAt: JSON.stringify(refreshed),
       // Only ever *set* an error here — clearing is the roster sync's job, so a roster
@@ -199,8 +207,9 @@ export async function syncVideos(): Promise<{ matched: number; created: number; 
 
 // ── Cross-post matching + bonus candidates ───────────────────────────────────
 
-export async function recomputeMatches(from: Date, to: Date): Promise<number> {
-  const posts = await prisma.artiePost.findMany({ where: { publishedAt: { gte: from, lt: to } } });
+export async function recomputeMatches(programme: Programme, from: Date, to: Date): Promise<number> {
+  const ids = (await prisma.artieCreator.findMany({ where: { programme }, select: { id: true } })).map((c) => c.id);
+  const posts = await prisma.artiePost.findMany({ where: { creatorId: { in: ids }, publishedAt: { gte: from, lt: to } } });
   const byCreator = new Map<string, typeof posts>();
   for (const p of posts) (byCreator.get(p.creatorId) ?? byCreator.set(p.creatorId, []).get(p.creatorId)!).push(p);
 
@@ -228,11 +237,16 @@ const toCountPost = (p: { id: string; platform: string; views: number; igMatchId
   id: p.id, platform: p.platform, views: p.views, igMatchId: p.igMatchId, countDecision: p.countDecision,
 });
 
-export async function recomputeCandidates(cycle: Cycle): Promise<{ created: number; refreshed: number; removed: number }> {
-  const settings = await getSettings();
-  const creators = await prisma.artieCreator.findMany({ where: { active: true } });
-  const posts = await prisma.artiePost.findMany({ where: { publishedAt: { gte: cycle.start, lt: cycle.end } } });
-  const existing = await prisma.artieBonusCandidate.findMany({ where: { cycleKey: cycle.key } });
+export async function recomputeCandidates(programme: Programme, cycle: Cycle): Promise<{ created: number; refreshed: number; removed: number }> {
+  const settings = await getSettings(programme);
+  // Programmes without bonuses (Ecosia) never get candidates — and any stray pending ones are cleared.
+  if (!settings.bonusEnabled) {
+    const gone = await prisma.artieBonusCandidate.deleteMany({ where: { programme, cycleKey: cycle.key, status: "pending" } });
+    return { created: 0, refreshed: 0, removed: gone.count };
+  }
+  const creators = await prisma.artieCreator.findMany({ where: { programme, active: true } });
+  const posts = await prisma.artiePost.findMany({ where: { creatorId: { in: creators.map((c) => c.id) }, publishedAt: { gte: cycle.start, lt: cycle.end } } });
+  const existing = await prisma.artieBonusCandidate.findMany({ where: { programme, cycleKey: cycle.key } });
   const existingByPrimary = new Map(existing.map((c) => [c.primaryPostId, c]));
   let created = 0, refreshed = 0;
   const detectedPrimaries = new Set<string>();
@@ -254,7 +268,7 @@ export async function recomputeCandidates(cycle: Cycle): Promise<{ created: numb
       };
       if (!cur) {
         const row = await prisma.artieBonusCandidate.create({
-          data: { creatorId: creator.id, cycleKey: cycle.key, primaryPostId: c.primaryPostId, initialAmount: settings.bonusAmount, ...fields },
+          data: { creatorId: creator.id, programme, cycleKey: cycle.key, primaryPostId: c.primaryPostId, initialAmount: settings.bonusAmount, ...fields },
         });
         await prisma.artieBonusEvent.create({ data: { candidateId: row.id, action: "detected", after: JSON.stringify({ ...fields, amount: settings.bonusAmount }), actor: "system" } });
         created++;
@@ -273,22 +287,22 @@ export async function recomputeCandidates(cycle: Cycle): Promise<{ created: numb
 }
 
 /** Full refresh: roster → videos → cross-post matches → candidates for both open cycles. */
-export async function runArtieSync() {
-  const roster = await syncRoster();
+export async function runArtieSync(programme: Programme = "artie") {
+  const roster = await syncRoster(programme);
   // A roster error shouldn't stop videos refreshing for creators we already know.
-  const videos = await syncVideos();
-  const derived = await deriveAll();
+  const videos = await syncVideos(programme);
+  const derived = await deriveAll(programme);
   return { roster, videos, ...derived };
 }
 
 /** Cross-post matching + bonus candidates for the two open cycles. Cheap, so it can run on its own. */
-export async function deriveAll() {
+export async function deriveAll(programme: Programme = "artie") {
   const current = cycleFor(new Date());
   const previous = shiftCycle(current, -1);
-  const matches = await recomputeMatches(previous.start, current.end);
+  const matches = await recomputeMatches(programme, previous.start, current.end);
   const candidates = {
-    [previous.key]: await recomputeCandidates(previous),
-    [current.key]: await recomputeCandidates(current),
+    [previous.key]: await recomputeCandidates(programme, previous),
+    [current.key]: await recomputeCandidates(programme, current),
   };
   return { matches, candidates };
 }

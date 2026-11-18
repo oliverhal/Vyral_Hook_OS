@@ -13,6 +13,10 @@ import type { ArtieRow } from "./artieTypes";
 
 type Row = ArtieRow;
 interface Overview {
+  programme?: { id: string; label: string };
+  bonusEnabled?: boolean;
+  goalMembers?: { start: string | null }[];
+  monthlyCostPerCreator?: number | null;
   cycle: { key: string; start: string; end: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
   bonusSummary: { givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number; pendingLinkChecks: number; pendingPlainAmount: number; rejectedCount: number };
   creators: Row[];
@@ -30,7 +34,8 @@ const ago = (iso: string | null) => {
   return m < 1 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
 };
 
-export default function ArtieDashboardContent({ initialCycle = "" }: { initialCycle?: string }) {
+export default function ArtieDashboardContent({ initialCycle = "", programme = "artie" }: { initialCycle?: string; programme?: "artie" | "ecosia" }) {
+  const api = `/api/${programme}`;
   const [cycleKey, setCycleKey] = useState<string>(initialCycle);
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState("");
@@ -39,7 +44,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   const [approvingAll, setApprovingAll] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", perDay: "2", showPace: true, showRank: true, threshold: "100000", amount: "50", currency: "USD" });
+  const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", perDay: "2", showPace: true, showRank: true, threshold: "100000", amount: "50", currency: "USD", bonusEnabled: true, cost: "" });
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -50,13 +55,13 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   const notify = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 4000); };
 
   const load = useCallback(async (key: string) => {
-    const res = await fetch(`/api/artie/overview${key ? `?cycle=${key}` : ""}`, { cache: "no-store" });
+    const res = await fetch(`${api}/overview${key ? `?cycle=${key}` : ""}`, { cache: "no-store" });
     const json = await res.json().catch(() => null);
     if (!res.ok) { setError(json?.error ?? `Failed to load (HTTP ${res.status})`); return; }
     setError(""); setData(json);
-    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", countMode: json.settings.countMode ?? "unique", perDay: String(json.settings.videosPerDay ?? 2), showPace: json.settings.showPaceToCreators !== false, showRank: json.settings.showRankToCreators !== false, threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency });
+    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", countMode: json.settings.countMode ?? "unique", perDay: String(json.settings.videosPerDay ?? 2), showPace: json.settings.showPaceToCreators !== false, showRank: json.settings.showRankToCreators !== false, threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency, bonusEnabled: json.bonusEnabled !== false, cost: json.monthlyCostPerCreator != null ? String(json.monthlyCostPerCreator) : "" });
     if (!json.settings.payrollSheetUrl) setShowSettings(true);
-  }, []);
+  }, [api]);
 
   useEffect(() => { load(cycleKey); }, [cycleKey, load]);
 
@@ -67,7 +72,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     let json: any = null;
     for (let pass = 1; pass <= 3; pass++) {
       setSyncLabel(pass === 1 ? "Syncing…" : `Syncing… (pass ${pass} of up to 3)`);
-      const res = await fetch("/api/artie/cron", { method: "POST" });
+      const res = await fetch(`${api}/cron`, { method: "POST" });
       json = await res.json().catch(() => null);
       if (!res.ok) { setSyncing(false); setSyncLabel(""); return notify(json?.error ?? `Sync failed (HTTP ${res.status})`, false); }
       if (!(json.videos?.skippedAccounts > 0)) break;
@@ -82,7 +87,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   // Tokens are fetched on first use (not with every page load) and cached for the session.
   async function getLinks(): Promise<Record<string, string> | null> {
     if (links) return links;
-    const res = await fetch("/api/artie/links", { cache: "no-store" });
+    const res = await fetch(`${api}/links`, { cache: "no-store" });
     const json = await res.json().catch(() => null);
     if (!res.ok) { notify(json?.error ?? "Couldn't load links", false); return null; }
     const map: Record<string, string> = {};
@@ -103,7 +108,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     if (!data || !map[row.id]) return null;
     return nudgeMessage({
       firstName: row.name.split(" ")[0], link: map[row.id], pace: row.pace, rate: row.ratePerVideo, currency: data.settings.currency,
-      bonusAmount: data.settings.bonusAmount, threshold: data.settings.bonusThreshold, cycleEndLabel: data.cycle.endLabel, best: null,
+      bonusAmount: data.settings.bonusAmount, threshold: data.settings.bonusThreshold, bonusEnabled: data.bonusEnabled !== false, cycleEndLabel: data.cycle.endLabel, best: null,
     });
   }
 
@@ -137,7 +142,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
     const n = data.bonusSummary.pendingCount - data.bonusSummary.pendingLinkChecks;
     if (!confirm(`Approve ${n} bonus${n === 1 ? "" : "es"} that simply hit the view threshold? Any with a possible linked Instagram + Facebook account are left for you to check.`)) return;
     setApprovingAll(true);
-    const res = await fetch("/api/artie/candidates/bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cycle: data.cycle.key }) });
+    const res = await fetch(`${api}/candidates/bulk`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cycle: data.cycle.key }) });
     const json = await res.json().catch(() => null);
     setApprovingAll(false);
     if (!res.ok) return notify(json?.error ?? "Couldn't approve", false);
@@ -147,9 +152,9 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
 
   async function saveSettings() {
     setSaving(true);
-    const res = await fetch("/api/artie/settings", {
+    const res = await fetch(`${api}/settings`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, countMode: form.countMode, videosPerDay: Number(form.perDay), showPaceToCreators: form.showPace, showRankToCreators: form.showRank, bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), currency: form.currency.toUpperCase() }),
+      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, countMode: form.countMode, videosPerDay: Number(form.perDay), showPaceToCreators: form.showPace, showRankToCreators: form.showRank, bonusEnabled: form.bonusEnabled, bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), monthlyCostPerCreator: form.cost.trim() === "" ? null : Number(form.cost), currency: form.currency.toUpperCase() }),
     });
     const json = await res.json().catch(() => null);
     setSaving(false);
@@ -162,6 +167,8 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
   if (!data) return <div className="p-8 animate-pulse space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-16 bg-slate-200 rounded-2xl" />)}</div>;
 
   const { cycle, creators, settings } = data;
+  const bonusOn = data.bonusEnabled !== false;
+  const label = data.programme?.label ?? "Artie";
   const bonus = data.bonusSummary;
   const plainPending = bonus.pendingCount - bonus.pendingLinkChecks;
   const q = query.trim().toLowerCase().replace(/^@/, "");
@@ -202,8 +209,8 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
 
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Artie creators</h1>
-          <p className="text-sm text-slate-500 mt-1">Posting progress and bonus review · bonuses are candidates until you approve them</p>
+          <h1 className="text-2xl font-bold text-slate-900">{label} creators</h1>
+          <p className="text-sm text-slate-500 mt-1">{bonusOn ? "Posting progress and bonus review · bonuses are candidates until you approve them" : "Posting progress and creator spend"}</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowSettings((s) => !s)} className="btn-secondary flex items-center gap-2"><Settings className="w-4 h-4" /> Settings</button>
@@ -228,7 +235,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
           </div>
           <div>
             <label className="label">Programme to import (matches the sheet’s “Client Name” column)</label>
-            <input className="input" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} placeholder="Artie" />
+            <input className="input" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} placeholder={label} />
             <p className="text-xs text-slate-400 mt-1">Only these rows are imported. Anyone marked Fired/Inactive is skipped. Leave blank to import every row.</p>
           </div>
           <div>
@@ -251,12 +258,20 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
               <span>Show a <strong>“top 10% / 25% / half of creators”</strong> badge on creators’ links — only to creators in the top half, ranked by views per day since they started (needs 10+ creators with 7+ days of activity). Nobody sees anyone else’s numbers.</span>
             </label>
           </div>
+          <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+            <input type="checkbox" className="mt-0.5 accent-blue-600" checked={form.bonusEnabled} onChange={(e) => setForm({ ...form, bonusEnabled: e.target.checked })} />
+            <span>This programme pays <strong>view bonuses</strong>. Untick if it doesn’t — bonus detection, review and bonus figures are switched off.</span>
+          </label>
           <div className="grid grid-cols-3 gap-3">
+            <div><label className="label">Monthly creator budget per creator</label><input className="input" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="e.g. 500" /></div>
+            <div><label className="label">Currency</label><input className="input" maxLength={3} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></div>
+            <div />
+          </div>
+          {form.bonusEnabled && <div className="grid grid-cols-3 gap-3">
             <div><label className="label">Bonus threshold (views)</label><input className="input" value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} /></div>
             <div><label className="label">Indicative bonus amount</label><input className="input" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></div>
-            <div><label className="label">Currency</label><input className="input" maxLength={3} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></div>
-          </div>
-          <p className="text-xs text-slate-400">Changing the amount only affects bonuses detected from now on; amounts creators have already seen are kept. Confirm these against Artie’s payment rules before a live cycle.</p>
+          </div>}
+          {form.bonusEnabled && <p className="text-xs text-slate-400">Changing the amount only affects bonuses detected from now on; amounts creators have already seen are kept. Confirm these against the client’s payment rules before a live cycle.</p>}
           <button onClick={saveSettings} disabled={saving} className="btn-primary disabled:opacity-50">{saving ? "Saving…" : "Save settings"}</button>
 
           <div className="text-xs text-slate-500 pt-2 border-t border-slate-100">
@@ -279,33 +294,33 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
         </div>
       )}
 
-      <ArtieHowItWorks threshold={settings.bonusThreshold} currency={settings.currency} bonusAmount={settings.bonusAmount} />
+      <ArtieHowItWorks threshold={settings.bonusThreshold} currency={settings.currency} bonusAmount={settings.bonusAmount} bonusEnabled={bonusOn} storageKey={`${programme}-guide`} />
 
       {creators.length > 0 && (() => {
         const goal = goalFor({ cycle: { key: data.cycle.key, start: new Date(data.cycle.start), end: new Date(data.cycle.end), startLabel: data.cycle.startLabel, endLabel: data.cycle.endLabel }, now: new Date(),
-          actualVideos: totals.counted, actualSpend: totals.cost, perDay: settings.videosPerDay,
-          creators: Math.max(1, creators.filter((c) => !c.leavingAfter).length) }); // live roster size, not a fixed 50
-        return <ArtieGoalTracker goal={goal} currency={settings.currency} isCurrent={data.cycle.isCurrent} />;
+          actualVideos: totals.counted, actualSpend: totals.cost, perDay: settings.videosPerDay, costPerCreator: data.monthlyCostPerCreator ?? null,
+          members: (data.goalMembers ?? []).map((m) => ({ start: m.start ? new Date(m.start) : null })) });
+        return <ArtieGoalTracker goal={goal} currency={settings.currency} isCurrent={data.cycle.isCurrent} costPerCreator={data.monthlyCostPerCreator ?? null} bonusEnabled={data.bonusEnabled !== false} />;
       })()}
 
       {creators.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+        <div className={cn("grid grid-cols-2 gap-3 mb-4", bonusOn ? "lg:grid-cols-5" : "lg:grid-cols-3")}>
           {[
             { icon: Users, label: "Active creators", value: String(creators.length), sub: totals.leaving ? `${totals.leaving} leaving after this cycle` : "on the payroll sheet", cls: "bg-blue-50 text-blue-600" },
             { icon: Film, label: "Unique videos", value: String(totals.counted), sub: "counted this cycle", cls: "bg-violet-50 text-violet-600" },
             { icon: Wallet, label: "Spent on creators", value: money(totals.spent), sub: `unique videos × rate · ${money(totals.cost)} with bonuses${totals.noRate ? ` · ${totals.noRate} have no rate` : ""}`, cls: "bg-emerald-50 text-emerald-600" },
             { icon: BadgeCheck, label: "Bonuses given", value: money(bonus.givenAmount), sub: `${bonus.givenCount} approved${bonus.rejectedCount ? ` · ${bonus.rejectedCount} rejected` : ""} this cycle`, cls: "bg-teal-50 text-teal-600" },
             { icon: Gift, label: "Bonuses to review", value: String(bonus.pendingCount), sub: bonus.pendingCount ? `${money(bonus.pendingAmount)}${bonus.pendingLinkChecks ? ` · ${bonus.pendingLinkChecks} need a link check` : ""}` : "all clear", cls: "bg-amber-50 text-amber-600" },
-          ].map(({ icon: Icon, label, value, sub, cls }) => (
-            <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
+          ].filter((c) => bonusOn || (c.label !== "Bonuses given" && c.label !== "Bonuses to review")).map(({ icon: Icon, label: cardLabel, value, sub, cls }) => (
+            <div key={cardLabel} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", cls)}><Icon className="w-5 h-5" /></div>
-              <div className="min-w-0"><p className="text-xl font-black text-slate-900 leading-none truncate">{value}</p><p className="text-xs font-semibold text-slate-600 mt-1">{label}</p><p className="text-[11px] text-slate-400 truncate" title={sub}>{sub}</p></div>
+              <div className="min-w-0"><p className="text-xl font-black text-slate-900 leading-none truncate">{value}</p><p className="text-xs font-semibold text-slate-600 mt-1">{cardLabel}</p><p className="text-[11px] text-slate-400 truncate" title={sub}>{sub}</p></div>
             </div>
           ))}
         </div>
       )}
 
-      {plainPending > 0 && (
+      {bonusOn && plainPending > 0 && (
         <div className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3">
           <p className="text-sm text-emerald-900">
             <strong>{plainPending} bonus{plainPending === 1 ? "" : "es"} hit {Math.round(settings.bonusThreshold / 1000)}K views</strong> and qualify — nothing else to check.
@@ -339,7 +354,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
       {creators.length > 0 && (
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex gap-1.5 flex-wrap">
-            {([["all", "All"], ["pending", "Bonuses pending"], ["linked", "Linked IG+FB check"], ["behind", "Behind pace"], ["differ", "Counts differ"], ["untracked", "Not tracked"]] as const).map(([k, label]) => (
+            {([["all", "All"], ["pending", "Bonuses pending"], ["linked", "Linked IG+FB check"], ["behind", "Behind pace"], ["differ", "Counts differ"], ["untracked", "Not tracked"]] as const).filter(([k]) => bonusOn || (k !== "pending" && k !== "linked")).map(([k, label]) => (
               <button key={k} onClick={() => setFilter(k)} className={cn("px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors", filter === k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400")}>
                 {label} <span className={cn("ml-1", filter === k ? "text-white/60" : "text-slate-400")}>{chipCount(k)}</span>
               </button>
@@ -347,7 +362,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
           </div>
           <label className="text-xs text-slate-500 flex items-center gap-2">Sort
             <select className="input py-1 w-auto text-xs" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-              <option value="name">Name</option><option value="counted">Most videos</option><option value="pending">Pending bonuses</option><option value="pace">Most behind pace</option><option value="attention">Needs attention</option>
+              <option value="name">Name</option><option value="counted">Most videos</option>{bonusOn && <option value="pending">Pending bonuses</option>}<option value="pace">Most behind pace</option><option value="attention">Needs attention</option>
             </select>
           </label>
         </div>
@@ -364,7 +379,7 @@ export default function ArtieDashboardContent({ initialCycle = "" }: { initialCy
         {visible.map((c) => (
           <ArtieCreatorRow key={c.id} row={c} cycleKey={cycle.key} currency={settings.currency}
             expanded={expandedId === c.id} onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)}
-            onChanged={() => load(cycleKey)} notify={notify} copyLink={copyLink} copyNudge={copyNudge} />
+            onChanged={() => load(cycleKey)} notify={notify} copyLink={copyLink} copyNudge={copyNudge} programme={programme} bonusEnabled={bonusOn} />
         ))}
       </div>
       <p className="text-xs text-slate-400 mt-3">“Counted” = unique videos: one video posted to several platforms counts once (matched by publish time and caption), and a video that only exists on one platform still counts. “Counts differ” is internal only — creators are never told they missed a cross-post.</p>

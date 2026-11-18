@@ -292,18 +292,33 @@ const withTT = detectCandidates([P("ig1", "instagram", 400000), P("fb1", "facebo
 ok(withTT.length === 2 && withTT.find((c) => c.primaryPostId === "ig1")!.relatedPostIds.join() === "tt1", "a TikTok copy stays attached to the Instagram bonus when IG and FB are awarded separately");
 
 
-// ── programme goal (Art Master calculator, scaled to the creators on the sheet) ───────────────────
-const gl = (v: number, now = "2026-11-17T12:00:00Z", cycle = cyc2, spend = 0) => goalFor({ cycle, now: new Date(now), actualVideos: v, actualSpend: spend });
-ok(gl(0).videos.fullTarget === 3000 && gl(0).spend.fullTarget === 30000, "50 creators: 3,000 videos and 30,000 spend a month (calculator)");
+// ── programme goal: per-creator fair share (50 creators × 2 a day, €600 each; mid-cycle starters) ─────
+const allFrom = (n: number, start: Date | null) => Array.from({ length: n }, () => ({ start }));
+const gl = (v: number, members = allFrom(50, cyc2.start), now = "2026-11-17T12:00:00Z", cycle = cyc2, spend = 0, cost: number | null = 600) =>
+  goalFor({ cycle, now: new Date(now), actualVideos: v, actualSpend: spend, members, costPerCreator: cost });
+ok(gl(0).videos.fullTarget === 3000 && gl(0).spend!.fullTarget === 30000, "50 creators from day one: 3,000 videos and 30,000 spend a month");
 ok(Math.abs(gl(0).videos.expected - 3000 * 19.5 / 31) <= 1, "19.5 of 31 days in → 1,887 videos expected by now");
 ok(gl(2000).videos.status === "ahead" && gl(1500).videos.status === "behind" && gl(1500).videos.gap === 1500 - gl(0).videos.expected, "ahead / behind against the pro rata line");
-ok(gl(1887).videos.projected === 3000 || Math.abs(gl(1887).videos.projected - 3000) <= 2, "exactly on the line projects to the full 3,000");
-ok(gl(1500).videos.remaining === 1500 && gl(1500).neededPerDay === 130.5, "1,500 posted: 1,500 left over 11.5 days = 130.5 a day");
-ok(gl(1000, "2026-12-30T00:00:00Z").videos.expected === 3000 && gl(1000, "2026-12-30T00:00:00Z").daysElapsed === 31, "after the cycle closes expectations cap at the full target");
-const g56 = goalFor({ cycle: cyc2, now: new Date("2026-11-17T12:00:00Z"), actualVideos: 0, actualSpend: 0, creators: 56 });
-ok(g56.videos.fullTarget === 3360 && g56.spend.fullTarget === 33600 && g56.perDayTotal === 112, "goal scales with the roster: 56 creators → 3,360 videos, 33,600 spend, 112 a day");
-ok(gl(0, "2026-10-01T00:00:00Z").videos.expected === 0, "before the cycle starts nothing is expected");
-ok(gl(0, undefined, cyc2, 9000).spend.remaining === 21000 && gl(0, undefined, cyc2, 9000).spend.projected === Math.round(9000 / 19.5 * 31), "spend still needed = 30,000 − spent; pro rata = today's daily spend × cycle days");
+ok(Math.abs(gl(1887).videos.projected - 3000) <= 2, "exactly on the line projects to the full 3,000");
+ok(gl(1000, undefined, "2026-12-30T00:00:00Z").videos.expected === 3000 && gl(1000, undefined, "2026-12-30T00:00:00Z").daysElapsed === 31, "after the cycle closes expectations cap at the full target");
+ok(gl(0, undefined, "2026-10-01T00:00:00Z").videos.expected === 0, "before the cycle starts nothing is expected");
+ok(gl(0, undefined, undefined, cyc2, 9000).spend!.remaining === 21000 && gl(0, undefined, undefined, cyc2, 9000).spend!.projected === Math.round(9000 / 19.5 * 31), "spend still needed = 30,000 − spent; pro rata = today's daily spend × cycle days");
+ok(gl(0, undefined, undefined, cyc2, 0, null).spend === null, "no budget per creator set → no spend goal");
+ok(gl(0, allFrom(56, cyc2.start)).videos.fullTarget === 3360 && gl(0, allFrom(56, cyc2.start)).spend!.fullTarget === 33600, "goal scales with the roster: 56 creators → 3,360 videos, 33,600 spend");
+
+// Mid-cycle starters: a creator who began on 11 Nov is only expected for 18 of the 31 days.
+const midStarters = [...allFrom(40, cyc2.start), ...allFrom(10, new Date("2026-11-11T00:00:00Z"))];
+const gm = gl(0, midStarters);
+ok(Math.abs(gm.videos.fullTarget - (40 * 60 + 10 * 60 * 18 / 31)) <= 1, "10 of 50 started on 11 Nov: cycle target is 40×60 + 10×60×(18/31) = 2,748, not 3,000");
+ok(gm.videos.expected < gl(0).videos.expected && gm.videos.expected > 40 * 60 * 19.5 / 31, "so far-by-now is lower than a full roster, but higher than the 40 alone");
+const lateAll = gl(0, allFrom(50, new Date("2026-11-17T00:00:00Z")));
+ok(lateAll.videos.expected === Math.round(3000 * 0.5 / 31), "everyone starting this morning is expected to have half a day, not 19.5 days");
+ok(gl(0, [{ start: null }, { start: new Date("2027-01-01T00:00:00Z") }]).videos.fullTarget === 0, "no start date, or starting after the cycle ends: not counted");
+ok(gl(0, [{ start: new Date("2026-11-10T00:00:00Z") }, { start: new Date("2026-11-10T00:00:00Z") }]).creators === 2, "members who started are counted");
+// Projection runs on activity, not the calendar: a late-starting team posting at the goal rate projects to its own (smaller) target.
+const onPace = (m: { start: Date | null }[]) => { const g0 = gl(0, m); return gl(g0.videos.expected, m); };
+ok(Math.abs(onPace(midStarters).videos.projected - onPace(midStarters).videos.fullTarget) <= 2, "exactly on pace with mid-cycle starters projects to their fair-share target");
+
 import { isArtieReviewer, isArtieOnly } from "../src/lib/artieAccess";
 ok(isArtieReviewer({ name: "Hanna", role: "member" }) && isArtieOnly({ name: "Hanna", role: "member" }), "Hanna can review Artie and is Artie-only");
 ok(!isArtieReviewer({ name: "Sam", role: "member" }) && !isArtieOnly({ name: "Oliver Hale", role: "admin" }), "other members can't; admins are never restricted to Artie");

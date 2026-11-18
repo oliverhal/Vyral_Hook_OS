@@ -19,6 +19,7 @@ interface Cand {
   related: { id: string; url: string; platform: string; views: number }[]; events: Ev[];
 }
 interface Detail {
+  bonusEnabled?: boolean;
   creator: { id: string; name: string; avatarUrl: string | null; startDate: string | null; ratePerVideo: number | null; instagram: string | null; tiktok: string | null; facebook: string | null; facebookLinked: boolean | null; accessToken: string };
   cycle: { key: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
   counts: { counted: number; perPlatform: Record<string, number>; discrepancy: boolean };
@@ -41,7 +42,7 @@ const STATUS_CLS: Record<string, string> = {
 };
 const fmtViews = (n: number) => n.toLocaleString("en-US");
 
-export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; initialCycle: string }) {
+export default function ArtieCreatorDetail({ id, initialCycle, programme = "artie" }: { id: string; initialCycle: string; programme?: "artie" | "ecosia" }) {
   const [cycleKey, setCycleKey] = useState(initialCycle);
   const [d, setD] = useState<Detail | null>(null);
   const [error, setError] = useState("");
@@ -53,11 +54,11 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
   const notify = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/artie/creators/${id}${cycleKey ? `?cycle=${cycleKey}` : ""}`, { cache: "no-store" });
+    const res = await fetch(`/api/${programme}/creators/${id}${cycleKey ? `?cycle=${cycleKey}` : ""}`, { cache: "no-store" });
     const json = await res.json().catch(() => null);
     if (!res.ok) { setError(json?.error ?? `Failed to load (HTTP ${res.status})`); return; }
     setError(""); setD(json);
-  }, [id, cycleKey]);
+  }, [id, cycleKey, programme]);
   useEffect(() => { load(); }, [load]);
 
   async function call(url: string, method: string, body: unknown, key: string, okMsg: string) {
@@ -87,7 +88,7 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
       {toast && <div className={cn("fixed top-5 right-5 z-50 px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium text-white", toast.ok ? "bg-emerald-600" : "bg-red-600")}>{toast.msg}</div>}
 
       <div>
-        <Link href={`/artie?cycle=${d.cycle.key}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-3"><ArrowLeft className="w-4 h-4" /> All creators</Link>
+        <Link href={`/${programme}?cycle=${d.cycle.key}`} className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-3"><ArrowLeft className="w-4 h-4" /> All creators</Link>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             <ArtieAvatar name={d.creator.name} url={d.creator.avatarUrl} size={56} />
@@ -133,7 +134,7 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
           <input readOnly className="input text-xs font-mono" value={link} onFocus={(e) => e.currentTarget.select()} />
           <button className="btn-secondary flex items-center gap-1.5" onClick={() => { navigator.clipboard.writeText(link); notify("Link copied"); }}><Copy className="w-4 h-4" /> Copy</button>
           <button className="btn-secondary flex items-center gap-1.5" disabled={busy === "regen"}
-            onClick={() => { if (confirm("This permanently disables the current link. The creator will need the new one. Continue?")) call(`/api/artie/creators/${d.creator.id}`, "PATCH", { regenerateToken: true }, "regen", "New link created — old one no longer works"); }}>
+            onClick={() => { if (confirm("This permanently disables the current link. The creator will need the new one. Continue?")) call(`/api/${programme}/creators/${d.creator.id}`, "PATCH", { regenerateToken: true }, "regen", "New link created — old one no longer works"); }}>
             <RotateCcw className="w-4 h-4" /> Regenerate
           </button>
         </div>
@@ -149,7 +150,7 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
         )}
       </div>
 
-      <section>
+      {d.bonusEnabled !== false && <section>
         <h2 className="text-lg font-bold text-slate-900 mb-1">Bonus candidates</h2>
         <p className="text-xs text-slate-500 mb-3">Detected automatically. Nothing is paid until you approve it; the creator sees the amount as indicative.</p>
         {d.candidates.length === 0 && <div className="card p-5 text-sm text-slate-400">No video has reached the threshold in this cycle.</div>}
@@ -216,7 +217,7 @@ export default function ArtieCreatorDetail({ id, initialCycle }: { id: string; i
             );
           })}
         </div>
-      </section>
+      </section>}
 
       {needsReview.length > 0 && (
         <details className="group">

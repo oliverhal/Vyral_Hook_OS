@@ -1,3 +1,5 @@
+import { PROGRAMMES, type Programme } from "@/lib/artie/programme";
+
 const BASE_URL = "https://viraldeck.io/api/v1";
 const LIMIT = 100;
 const MAX_PAGES = 100; // safety cap (10,000 videos per project)
@@ -119,20 +121,28 @@ export interface ViraldeckAccount {
   profileImageUrl: string | null;
 }
 
-export function artieApiKey(): string {
-  const key = process.env.VIRALDECK_ARTIE_API_KEY;
-  if (!key) throw new Error("VIRALDECK_ARTIE_API_KEY is not set in this project's environment variables.");
+export function programmeApiKey(programme: Programme): string {
+  const envName = PROGRAMMES[programme].apiKeyEnv;
+  const key = process.env[envName];
+  if (!key) throw new Error(`${envName} is not set in this project's environment variables.`);
   return key;
 }
 
-/** The Artie project id visible to the Artie key (it should see exactly one project). */
-export async function artieProjectId(key = artieApiKey()): Promise<string> {
+export function artieApiKey(): string {
+  return programmeApiKey("artie");
+}
+
+/** The project id visible to a programme's key (it should see exactly one project, else match on the name). */
+export async function programmeProjectId(programme: Programme, key = programmeApiKey(programme)): Promise<string> {
   const res = await get<{ data: ViraldeckProject[] }>("/projects", {}, key);
   const projects = res.data ?? [];
-  const hit = projects.length === 1 ? projects[0] : projects.find((p) => /artie/i.test(p.name));
-  if (!hit) throw new Error("The Artie ViralDeck key can't see a project called Artie.");
+  const label = PROGRAMMES[programme].label;
+  const hit = projects.length === 1 ? projects[0] : projects.find((p) => p.name.toLowerCase().includes(label.toLowerCase()));
+  if (!hit) throw new Error(`The ${label} ViralDeck key can't see a project called ${label}.`);
   return hit.id;
 }
+
+export const artieProjectId = (key = artieApiKey()) => programmeProjectId("artie", key);
 
 /** Every tracked account in the project. /creators pages by offset cursor, 100 at a time. */
 export async function listAccounts(projectId: string, key = artieApiKey()): Promise<ViraldeckAccount[]> {

@@ -29,9 +29,11 @@ interface Props {
   notify: (msg: string, ok?: boolean) => void;
   copyLink: (row: ArtieRow) => void;
   copyNudge: (row: ArtieRow) => void;
+  programme?: "artie" | "ecosia";
+  bonusEnabled?: boolean; // false: this programme pays no bonuses — hide every bonus element
 }
 
-export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onToggle, onChanged, notify, copyLink, copyNudge }: Props) {
+export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onToggle, onChanged, notify, copyLink, copyNudge, programme = "artie", bonusEnabled = true }: Props) {
   const [detail, setDetail] = useState<ArtieDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -47,11 +49,11 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
 
   const loadDetail = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/artie/creators/${row.id}?cycle=${cycleKey}`, { cache: "no-store" });
+    const res = await fetch(`/api/${programme}/creators/${row.id}?cycle=${cycleKey}`, { cache: "no-store" });
     const json = await res.json().catch(() => null);
     setLoading(false);
     if (res.ok) setDetail(json); else notifyRef.current(json?.error ?? "Couldn't load details", false);
-  }, [row.id, cycleKey]);
+  }, [row.id, cycleKey, programme]);
 
   // Fetch when opened; refetch if the cycle changes while open.
   useEffect(() => { if (expanded) loadDetail(); else setDetail(null); }, [expanded, loadDetail]);
@@ -107,7 +109,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
           {row.pace.status === "ahead" && row.pace.delta > 0 && <span className="badge bg-emerald-100 text-emerald-700" title={`${row.counted} vs ${row.pace.expected} expected so far`}>{row.pace.delta} ahead</span>}
           {row.pace.startedThisCycle && <span className="badge bg-violet-50 text-violet-700" title="Posted for the first time partway through this cycle — the expected count starts from that first post">first post · {row.startDate && new Date(row.startDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" })}</span>}
           {row.leavingAfter && <span className="badge bg-amber-50 text-amber-700" title="Removed from the payroll sheet — kept until the pay cycle closes + 2 days so it can still be reviewed and paid">leaving {new Date(row.leavingAfter).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
-          {row.bonus.pendingChecks > 0 && <span className="badge bg-amber-100 text-amber-800" title="The same video is on Instagram and Facebook — the accounts may be linked">IG+FB check</span>}
+          {bonusEnabled && row.bonus.pendingChecks > 0 && <span className="badge bg-amber-100 text-amber-800" title="The same video is on Instagram and Facebook — the accounts may be linked">IG+FB check</span>}
           {row.trackingGaps.length > 0 && <span className="badge bg-slate-200 text-slate-600" title="A handle on the sheet has no videos in ViralDeck">not tracked: {row.trackingGaps.map((g) => PLATFORM_SHORT[g] ?? g).join(", ")}</span>}
           {attention === 0 && row.pace.status !== "behind" && <span className="badge bg-emerald-50 text-emerald-700"><Check className="inline w-3 h-3 mr-0.5" />all good</span>}
         </div>
@@ -116,10 +118,10 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
           {row.estBase != null ? (
             <>
               <p className="font-bold text-slate-900 text-sm" title={`${row.counted} unique videos × ${money(row.ratePerVideo as number)}`}>{money(row.estBase)}</p>
-              <p className="text-[11px] text-slate-400">{row.counted} × {money(row.ratePerVideo as number)}{row.bonus.approved + row.bonus.pending > 0 && <> · + {money(row.bonus.indicativeAmount)} bonus</>}</p>
+              <p className="text-[11px] text-slate-400">{row.counted} × {money(row.ratePerVideo as number)}{bonusEnabled && row.bonus.approved + row.bonus.pending > 0 && <> · + {money(row.bonus.indicativeAmount)} bonus</>}</p>
             </>
           ) : <p className="text-[11px] text-slate-300">no rate on the sheet</p>}
-          {row.bonus.pending > 0 && <p className="text-[11px] font-semibold text-amber-600">{row.bonus.pending} bonus{row.bonus.pending === 1 ? "" : "es"} to review</p>}
+          {bonusEnabled && row.bonus.pending > 0 && <p className="text-[11px] font-semibold text-amber-600">{row.bonus.pending} bonus{row.bonus.pending === 1 ? "" : "es"} to review</p>}
         </div>
 
         {row.pace.status === "behind" && (
@@ -138,7 +140,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
           {detail && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {/* Bonuses */}
-              <section>
+              {bonusEnabled && <section>
                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Bonus candidates</h3>
                 {detail.candidates.length === 0 ? <p className="text-sm text-slate-400">Nothing has reached the threshold this cycle.</p> : (
                   <ul className="space-y-2">
@@ -202,7 +204,7 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
                     })}
                   </ul>
                 )}
-              </section>
+              </section>}
 
               {/* Needs review + recent posts */}
               <section className="space-y-4">
@@ -228,9 +230,9 @@ export default function ArtieCreatorRow({ row, cycleKey, currency, expanded, onT
               <div className="lg:col-span-2 flex items-center justify-between pt-1 border-t border-slate-200/70">
                 <p className="text-xs text-slate-400">
                   {row.ratePerVideo != null && <>Rate {money(row.ratePerVideo)}/video{row.rateSource === "derived" ? " (monthly ÷ expected videos)" : ""} · </>}
-                  {row.handles.facebook && <>FB {row.handles.facebook} · </>}Correct an amount on the full page.
+                  {row.handles.facebook && <>FB {row.handles.facebook} · </>}{bonusEnabled && <>Correct an amount on the full page.</>}
                 </p>
-                <Link href={`/artie/${row.id}?cycle=${cycleKey}`} className="text-sm font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1">Open full review <ArrowRight className="w-4 h-4" /></Link>
+                <Link href={`/${programme}/${row.id}?cycle=${cycleKey}`} className="text-sm font-semibold text-blue-600 hover:text-blue-700 inline-flex items-center gap-1">Open full review <ArrowRight className="w-4 h-4" /></Link>
               </div>
             </div>
           )}

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireArtieReviewer } from "@/lib/artieServer";
 import { cycleFor } from "@/lib/artie/cycle";
 import { recomputeCandidates } from "@/lib/artie/sync";
+import { programmeOf } from "@/lib/artie/programme";
 
 // A reviewer's call on a single post: count/ignore a TikTok/Facebook post that
 // has no Instagram counterpart, or fix a cross-post match the system got wrong.
@@ -42,6 +43,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   const updated = await prisma.artiePost.update({ where: { id: post.id }, data });
   // Matching and counting changed → bonus candidates for that cycle may too.
-  await recomputeCandidates(cycleFor(post.publishedAt));
+  const owner = await prisma.artieCreator.findUnique({ where: { id: post.creatorId }, select: { programme: true } });
+  await recomputeCandidates(programmeOf(owner?.programme), cycleFor(post.publishedAt));
   return NextResponse.json({ ok: true, post: { id: updated.id, igMatchId: updated.igMatchId, matchSource: updated.matchSource, countDecision: updated.countDecision } });
 }

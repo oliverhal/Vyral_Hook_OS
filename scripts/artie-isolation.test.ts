@@ -14,13 +14,15 @@ const creators = [
   { id: "A", name: "Alpha Creator", accessToken: TOK_A, active: true, ratePerVideo: 99, sheetKey: "a" },
   { id: "B", name: "Bravo Creator", accessToken: TOK_B, active: true, ratePerVideo: 77, sheetKey: "b" },
   { id: "C", name: "Gone Creator", accessToken: "C".repeat(43), active: false, ratePerVideo: 1, sheetKey: "c" },
-];
+  { id: "E", name: "Eco Creator", accessToken: "E".repeat(43), active: true, ratePerVideo: 12, sheetKey: "e", programme: "ecosia" },
+].map((c) => ({ programme: "artie", ...c }));
 const post = (id: string, creatorId: string, when: Date, views = 1000, platform = "instagram") => ({
   id, creatorId, platform, platformVideoId: id, url: `https://example.com/${id}`, publishedAt: when, views,
   igMatchId: null, countDecision: null, caption: null, durationSeconds: null, username: null,
 });
 const posts = [
   post("a1", "A", inCur, 250000), post("a2", "A", inCur, 5000), post("a-prev", "A", prevStart),
+  post("e1", "E", inCur, 400000), post("e2", "E", inCur, 2000),
   post("b1", "B", inCur, 180000), post("b2", "B", inCur), post("b3", "B", inCur), post("b-prev", "B", prevStart),
 ];
 const cand = (id: string, creatorId: string, primaryPostId: string, status: string, initial = 50, approved: number | null = null, cycleKey = cyc.key) =>
@@ -43,9 +45,9 @@ const matches = (row: Record<string, any>, where: Record<string, any>) =>
 const db = {
   artieCreator: {
     findUnique: async ({ where }: any) => creators.find((c) => c.accessToken === where.accessToken) ?? null,
-    findMany: async ({ where }: any) => creators.filter((c) => (where?.active === undefined || c.active === where.active)).map((c) => ({ id: c.id })),
+    findMany: async ({ where }: any) => creators.filter((c) => (where?.active === undefined || c.active === where.active) && (where?.programme === undefined || c.programme === where.programme)).map((c) => ({ id: c.id })),
   },
-  artieSettings: { findUnique: async () => ({ bonusThreshold: 100000, bonusAmount: 50, currency: "USD" }) },
+  artieSettings: { findUnique: async ({ where }: any) => where.id === "ecosia" ? { bonusThreshold: 100000, bonusAmount: 50, currency: "EUR", bonusEnabled: false } : { bonusThreshold: 100000, bonusAmount: 50, currency: "USD", bonusEnabled: true } },
   artiePost: {
     findMany: async ({ where }: any) => posts.filter((p) => matches(p, where)),
     groupBy: async ({ where, _min }: any) => {
@@ -91,6 +93,14 @@ const db = {
 
   ok(!("previousCycles" in a), "creator payload carries no previous-cycle history");
   ok(a.cycle.endLabel === "28 Nov" && a.cycle.startLabel === "29 Oct", "creator sees the active cycle's date range");
+
+  // ── a second programme (Ecosia): own settings, no bonuses, no leakage either way ──
+  const e = (await getCreatorProgress("E".repeat(43), db, now))!;
+  ok(e.programme.id === "ecosia" && e.programme.label === "Ecosia" && e.currency === "EUR", "an Ecosia token resolves to the Ecosia programme and its own settings");
+  ok(e.bonusEnabled === false && e.bonusItems.length === 0 && e.bonusCount === 0 && e.indicativeBonus === 0, "Ecosia pays no bonuses — none surface even for a 400K video");
+  ok(e.countedVideos === 2 && e.potential?.base === 24 && e.potential?.bonus === 0, "Ecosia creator: 2 videos × €12 = €24, no bonus");
+  ok(a.programme.id === "artie" && a.bonusEnabled === true && a.bonusItems.length > 0, "Artie is unaffected: still has bonuses");
+  ok(!JSON.stringify(a).includes("Eco Creator") && !JSON.stringify(e).includes("Alpha") && !JSON.stringify(e).includes("Bravo"), "neither programme's creators appear in the other's payload");
 
   console.log(failed ? `\n${failed} FAILED` : "\nall passed");
   process.exit(failed ? 1 : 0);

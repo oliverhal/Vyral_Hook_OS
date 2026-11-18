@@ -7,7 +7,7 @@ import ArtieProgressView from "@/components/ArtieProgressView";
 // only input and it resolves to exactly one creator. Never cached or indexed.
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Your progress · Artie",
+  title: "Your progress",
   robots: { index: false, follow: false, nocache: true },
   referrer: "no-referrer",
 };

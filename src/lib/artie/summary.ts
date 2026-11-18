@@ -8,7 +8,7 @@ type D = Date | string;
 export interface OverviewLike {
   programme: { id: string; label: string };
   bonusEnabled: boolean;
-  goalMembers: { start: string | null }[];
+  targetCreators: number | null;
   monthlyCostPerCreator: number | null;
   bonusSummary: { givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number };
   cycle: { key: string; start: D; end: D; startLabel: string; endLabel: string };
@@ -26,7 +26,7 @@ export interface ProgrammeSummary {
     unique: number; expectedByNow: number; gap: number; cycleTarget: number; projectedByCycleEnd: number; neededPerDay: number;
     perPlatform: { instagram: number; tiktok: number; facebook: number };
   };
-  goal: { creatorsCounted: number; perDay: number; perDayTotal: number };
+  goal: { targetCreators: number; onRoster: number; perDay: number; perDayTotal: number };
   spend: { currency: string; actual: number; budgetToDate: number; cycleBudget: number; projectedByCycleEnd: number } | null;
   bonuses: { enabled: false } | { enabled: true; givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number };
 }
@@ -58,7 +58,7 @@ export function summariseProgramme(o: OverviewLike, now = new Date()): Programme
   const goal = goalFor({
     cycle: { key: o.cycle.key, start: new Date(o.cycle.start), end: new Date(o.cycle.end), startLabel: o.cycle.startLabel, endLabel: o.cycle.endLabel },
     now, actualVideos: unique, actualSpend: spent, perDay: o.settings.videosPerDay, costPerCreator: o.monthlyCostPerCreator,
-    members: o.goalMembers.map((m) => ({ start: m.start ? new Date(m.start) : null })),
+    targetCreators: o.targetCreators ?? o.creators.length,
   });
 
   const status = (s: string) => o.creators.filter((c) => c.pace.status === s).length;
@@ -79,7 +79,7 @@ export function summariseProgramme(o: OverviewLike, now = new Date()): Programme
       projectedByCycleEnd: goal.videos.projected, neededPerDay: goal.neededPerDay,
       perPlatform: { instagram: sum((c) => c.perPlatform.instagram ?? 0), tiktok: sum((c) => c.perPlatform.tiktok ?? 0), facebook: sum((c) => c.perPlatform.facebook ?? 0) },
     },
-    goal: { creatorsCounted: goal.creators, perDay: goal.perDay, perDayTotal: goal.perDayTotal },
+    goal: { targetCreators: goal.creators, onRoster: o.creators.length, perDay: goal.perDay, perDayTotal: goal.perDayTotal },
     spend: goal.spend ? { currency: o.settings.currency, actual: goal.spend.actual, budgetToDate: goal.spend.expected, cycleBudget: goal.spend.fullTarget, projectedByCycleEnd: goal.spend.projected } : null,
     bonuses: o.bonusEnabled
       ? { enabled: true, givenCount: o.bonusSummary.givenCount, givenAmount: o.bonusSummary.givenAmount, pendingCount: o.bonusSummary.pendingCount, pendingAmount: o.bonusSummary.pendingAmount }

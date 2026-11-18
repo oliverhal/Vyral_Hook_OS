@@ -7,7 +7,7 @@ import type { Goal, Measure } from "@/lib/artie/goal";
 const num = (n: number) => n.toLocaleString("en-US");
 const tone = (s: Measure["status"]) => (s === "ahead" ? "emerald" : s === "on_track" ? "amber" : "rose");
 
-export default function ArtieGoalTracker({ goal, currency, isCurrent, costPerCreator, bonusEnabled = true }: { goal: Goal; currency: string; isCurrent: boolean; costPerCreator?: number | null; bonusEnabled?: boolean }) {
+export default function ArtieGoalTracker({ goal, currency, isCurrent, costPerCreator, bonusEnabled = true, onRoster, postingNow }: { goal: Goal; currency: string; isCurrent: boolean; costPerCreator?: number | null; bonusEnabled?: boolean; onRoster?: number; postingNow?: number }) {
   const g = goal;
   const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
   const rows: { label: string; m: Measure; f: (n: number) => string }[] = [
@@ -25,7 +25,7 @@ export default function ArtieGoalTracker({ goal, currency, isCurrent, costPerCre
           <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><Target className="w-5 h-5" /></div>
           <div>
             <p className="font-bold text-slate-900 leading-tight">Programme goal</p>
-            <p className="text-xs text-slate-500">{g.creators} creators × {g.perDay} a day, each counted from their first post · {num(g.perDayTotal)} videos a day from those posting now · {isCurrent ? `day ${g.daysElapsed} of ${g.daysTotal}` : "closed cycle"}</p>
+            <p className="text-xs text-slate-500">Target {g.creators} creators × {g.perDay} a day = {num(g.perDayTotal)} videos a day{onRoster != null ? ` · ${onRoster} on the roster${postingNow != null ? `, ${postingNow} posting` : ""}` : ""} · {isCurrent ? `day ${g.daysElapsed} of ${g.daysTotal}` : "closed cycle"}</p>
           </div>
         </div>
         <span className={cn("badge", t === "emerald" ? "bg-emerald-50 text-emerald-700" : t === "amber" ? "bg-amber-50 text-amber-700" : "bg-rose-50 text-rose-700")}>
@@ -56,7 +56,7 @@ export default function ArtieGoalTracker({ goal, currency, isCurrent, costPerCre
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-[11px] text-slate-400">Per creator per month: {g.perDay * 30} videos{costPerCreator ? <> and {money(costPerCreator)} creator budget{bonusEnabled ? " including bonuses" : ""}</> : null}. A creator who starts mid-cycle is only expected for the days since their first post. Pro rata = today’s output per active creator-day carried over the whole cycle.{costPerCreator ? " Spend is shown in the dashboard currency without conversion." : ""}</p>
+      <p className="mt-2 text-[11px] text-slate-400">Per creator per month: {g.perDay * 30} videos{costPerCreator ? <> and {money(costPerCreator)} creator budget{bonusEnabled ? " including bonuses" : ""}</> : null}. The roster is bigger than the target on purpose, to cover people who drop out or haven’t started posting. Pro rata = today’s daily rate carried to the end of the cycle.{costPerCreator ? " Spend is shown in the dashboard currency without conversion." : ""}</p>
     </section>
   );
 }

@@ -69,14 +69,13 @@ export async function computeOverview(programme: Programme, cycleKey: string, no
     rejectedCount: candidates.filter((c) => c.status === "rejected").length,
   };
 
-  // Who counts toward the programme goal, and from when: their first post, or — if they haven't posted
-  // yet — their sheet start date (so someone onboarded but silent shows up as a gap rather than vanishing).
-  const goalMembers = creators.map((c) => ({ start: (firsts.get(c.id) ?? c.startDate)?.toISOString() ?? null }));
+  // The goal is built on the headcount the client asked for, not on the roster (which is deliberately bigger).
+  const targetCreators = settings.targetCreators ?? PROGRAMMES[programme].defaults.targetCreators;
 
   return {
     programme: { id: programme, label: PROGRAMMES[programme].label },
     bonusEnabled: settings.bonusEnabled,
-    goalMembers,
+    targetCreators,
     monthlyCostPerCreator: settings.monthlyCostPerCreator ?? PROGRAMMES[programme].defaults.monthlyCostPerCreator,
     bonusSummary,
     cycle: { key: cycle.key, start: cycle.start, end: cycle.end, startLabel: cycle.startLabel, endLabel: cycle.endLabel,

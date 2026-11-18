@@ -42,6 +42,11 @@ export async function handleSettingsPut(programme: Programme, req: NextRequest) 
     if (typeof body.bonusEnabled !== "boolean") return NextResponse.json({ error: "bonusEnabled must be true or false" }, { status: 400 });
     data.bonusEnabled = body.bonusEnabled;
   }
+  if ("targetCreators" in body) {
+    const n = body.targetCreators === null || body.targetCreators === "" ? null : Math.round(Number(body.targetCreators));
+    if (n !== null && (!Number.isFinite(n) || n < 1 || n > 1000)) return NextResponse.json({ error: "Target creators must be between 1 and 1000" }, { status: 400 });
+    data.targetCreators = n;
+  }
   if ("monthlyCostPerCreator" in body) {
     const n = body.monthlyCostPerCreator === null ? null : Number(body.monthlyCostPerCreator);
     if (n !== null && (!Number.isFinite(n) || n < 0 || n > 1_000_000)) return NextResponse.json({ error: "Invalid monthly cost per creator" }, { status: 400 });

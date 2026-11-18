@@ -403,6 +403,7 @@ model ArtieSettings {
   bonusEnabled     Boolean   @default(true) // some programmes (Ecosia) don't pay bonuses at all
   bonusThreshold   Int       @default(100000)
   bonusAmount      Float     @default(50)
+  targetCreators   Int? // the headcount the client asked for; the programme goal is built on this, not on the (deliberately larger) roster
   monthlyCostPerCreator Float? // programme goal: fixed €/month creator budget per creator (from the client's pricing sheet); null = derive from average rate
   currency         String    @default("USD")
   lastRosterSyncAt DateTime?

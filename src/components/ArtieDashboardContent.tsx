@@ -15,7 +15,7 @@ type Row = ArtieRow;
 interface Overview {
   programme?: { id: string; label: string };
   bonusEnabled?: boolean;
-  goalMembers?: { start: string | null }[];
+  targetCreators?: number | null;
   monthlyCostPerCreator?: number | null;
   cycle: { key: string; start: string; end: string; startLabel: string; endLabel: string; prevKey: string; nextKey: string; isCurrent: boolean };
   bonusSummary: { givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number; pendingLinkChecks: number; pendingPlainAmount: number; rejectedCount: number };
@@ -44,7 +44,7 @@ export default function ArtieDashboardContent({ initialCycle = "", programme = "
   const [approvingAll, setApprovingAll] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", perDay: "2", showPace: true, showRank: true, threshold: "100000", amount: "50", currency: "USD", bonusEnabled: true, cost: "" });
+  const [form, setForm] = useState({ url: "", client: "Artie", countMode: "unique", perDay: "2", showPace: true, showRank: true, threshold: "100000", amount: "50", currency: "USD", bonusEnabled: true, cost: "", target: "" });
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export default function ArtieDashboardContent({ initialCycle = "", programme = "
     const json = await res.json().catch(() => null);
     if (!res.ok) { setError(json?.error ?? `Failed to load (HTTP ${res.status})`); return; }
     setError(""); setData(json);
-    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", countMode: json.settings.countMode ?? "unique", perDay: String(json.settings.videosPerDay ?? 2), showPace: json.settings.showPaceToCreators !== false, showRank: json.settings.showRankToCreators !== false, threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency, bonusEnabled: json.bonusEnabled !== false, cost: json.monthlyCostPerCreator != null ? String(json.monthlyCostPerCreator) : "" });
+    setForm({ url: json.settings.payrollSheetUrl ?? "", client: json.settings.payrollClient ?? "", countMode: json.settings.countMode ?? "unique", perDay: String(json.settings.videosPerDay ?? 2), showPace: json.settings.showPaceToCreators !== false, showRank: json.settings.showRankToCreators !== false, threshold: String(json.settings.bonusThreshold), amount: String(json.settings.bonusAmount), currency: json.settings.currency, bonusEnabled: json.bonusEnabled !== false, cost: json.monthlyCostPerCreator != null ? String(json.monthlyCostPerCreator) : "", target: json.targetCreators != null ? String(json.targetCreators) : "" });
     if (!json.settings.payrollSheetUrl) setShowSettings(true);
   }, [api]);
 
@@ -154,7 +154,7 @@ export default function ArtieDashboardContent({ initialCycle = "", programme = "
     setSaving(true);
     const res = await fetch(`${api}/settings`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, countMode: form.countMode, videosPerDay: Number(form.perDay), showPaceToCreators: form.showPace, showRankToCreators: form.showRank, bonusEnabled: form.bonusEnabled, bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), monthlyCostPerCreator: form.cost.trim() === "" ? null : Number(form.cost), currency: form.currency.toUpperCase() }),
+      body: JSON.stringify({ payrollSheetUrl: form.url, payrollClient: form.client, countMode: form.countMode, videosPerDay: Number(form.perDay), showPaceToCreators: form.showPace, showRankToCreators: form.showRank, bonusEnabled: form.bonusEnabled, bonusThreshold: Number(form.threshold), bonusAmount: Number(form.amount), targetCreators: form.target.trim() === "" ? null : Number(form.target), monthlyCostPerCreator: form.cost.trim() === "" ? null : Number(form.cost), currency: form.currency.toUpperCase() }),
     });
     const json = await res.json().catch(() => null);
     setSaving(false);
@@ -263,9 +263,9 @@ export default function ArtieDashboardContent({ initialCycle = "", programme = "
             <span>This programme pays <strong>view bonuses</strong>. Untick if it doesn’t — bonus detection, review and bonus figures are switched off.</span>
           </label>
           <div className="grid grid-cols-3 gap-3">
+            <div><label className="label">Target number of creators (what the client asked for)</label><input className="input" value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} placeholder="e.g. 50" /></div>
             <div><label className="label">Monthly creator budget per creator</label><input className="input" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} placeholder="e.g. 500" /></div>
             <div><label className="label">Currency</label><input className="input" maxLength={3} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} /></div>
-            <div />
           </div>
           {form.bonusEnabled && <div className="grid grid-cols-3 gap-3">
             <div><label className="label">Bonus threshold (views)</label><input className="input" value={form.threshold} onChange={(e) => setForm({ ...form, threshold: e.target.value })} /></div>
@@ -299,8 +299,8 @@ export default function ArtieDashboardContent({ initialCycle = "", programme = "
       {creators.length > 0 && (() => {
         const goal = goalFor({ cycle: { key: data.cycle.key, start: new Date(data.cycle.start), end: new Date(data.cycle.end), startLabel: data.cycle.startLabel, endLabel: data.cycle.endLabel }, now: new Date(),
           actualVideos: totals.counted, actualSpend: totals.cost, perDay: settings.videosPerDay, costPerCreator: data.monthlyCostPerCreator ?? null,
-          members: (data.goalMembers ?? []).map((m) => ({ start: m.start ? new Date(m.start) : null })) });
-        return <ArtieGoalTracker goal={goal} currency={settings.currency} isCurrent={data.cycle.isCurrent} costPerCreator={data.monthlyCostPerCreator ?? null} bonusEnabled={data.bonusEnabled !== false} />;
+          targetCreators: data.targetCreators ?? creators.length });
+        return <ArtieGoalTracker goal={goal} onRoster={creators.length} postingNow={creators.filter((c) => c.counted > 0).length} currency={settings.currency} isCurrent={data.cycle.isCurrent} costPerCreator={data.monthlyCostPerCreator ?? null} bonusEnabled={data.bonusEnabled !== false} />;
       })()}
 
       {creators.length > 0 && (

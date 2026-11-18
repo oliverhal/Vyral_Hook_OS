@@ -319,7 +319,7 @@ ok(gl(0, [{ start: new Date("2026-11-10T00:00:00Z") }, { start: new Date("2026-1
 const onPace = (m: { start: Date | null }[]) => { const g0 = gl(0, m); return gl(g0.videos.expected, m); };
 ok(Math.abs(onPace(midStarters).videos.projected - onPace(midStarters).videos.fullTarget) <= 2, "exactly on pace with mid-cycle starters projects to their fair-share target");
 
-import { summariseProgramme, type OverviewLike } from "../src/lib/artie/summary";
+import { summariseProgramme, publicView, type OverviewLike } from "../src/lib/artie/summary";
 import { secretMatches, bearerFrom } from "../src/lib/artie/trackerAuth";
 import { isArtieReviewer, isArtieOnly } from "../src/lib/artieAccess";
 ok(isArtieReviewer({ name: "Hanna", role: "member" }) && isArtieOnly({ name: "Hanna", role: "member" }), "Hanna can review Artie and is Artie-only");
@@ -354,6 +354,11 @@ ok(summariseProgramme({ ...ov, monthlyCostPerCreator: null } as unknown as Overv
 const out = JSON.stringify(sm);
 ok(!/Alice|Bob|Cara|Dan Dee|_ig|tok-|8\.33|ratePerVideo|accessToken|handles/.test(out), "no creator names, handles, rates or tokens anywhere in the shared JSON");
 ok(["programme", "generatedAt", "lastSyncedAt", "cycle", "creators", "videos", "goal", "spend", "bonuses"].join() === Object.keys(sm).join(), "the shared shape is exactly the documented set of keys");
+
+const pub = JSON.stringify(publicView(sm));
+ok(!/spend|bonuses|behindPace|onTrackOrAhead|notStarted|USD/.test(pub), "the no-login view has no money, bonuses or behind/on-track split");
+ok(JSON.parse(pub).videos.unique === 90 && JSON.parse(pub).creators.postingNow === 3 && JSON.parse(pub).goal.perDay === 2, "…but it still carries the videos, creators posting and goal");
+ok(!/Alice|Bob|Cara|Dan Dee|_ig|tok-/.test(pub), "…and no creator names, handles or tokens");
 
 // ── tracker shared secret ────────────────────────────────────────────────────
 ok(secretMatches("s3cret-value", "s3cret-value") === true, "the right secret is accepted");

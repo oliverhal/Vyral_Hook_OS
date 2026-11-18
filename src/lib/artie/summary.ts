@@ -31,6 +31,22 @@ export interface ProgrammeSummary {
   bonuses: { enabled: false } | { enabled: true; givenCount: number; givenAmount: number; pendingCount: number; pendingAmount: number };
 }
 
+/**
+ * The subset that is safe to serve with no login: team counts and goal progress. Deliberately leaves out
+ * the behind/on-track split, spend and bonuses — those need the shared secret (`view=full`).
+ */
+export type PublicSummary = Pick<ProgrammeSummary, "programme" | "generatedAt" | "lastSyncedAt" | "cycle" | "videos" | "goal"> & {
+  creators: { onRoster: number; postingNow: number };
+};
+
+export function publicView(s: ProgrammeSummary): PublicSummary {
+  return {
+    programme: s.programme, generatedAt: s.generatedAt, lastSyncedAt: s.lastSyncedAt, cycle: s.cycle,
+    creators: { onRoster: s.creators.onRoster, postingNow: s.creators.postingNow },
+    videos: s.videos, goal: s.goal,
+  };
+}
+
 const iso = (d: D | null) => (d ? new Date(d).toISOString() : null);
 
 export function summariseProgramme(o: OverviewLike, now = new Date()): ProgrammeSummary {

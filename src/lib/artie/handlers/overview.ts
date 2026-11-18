@@ -9,12 +9,9 @@ import { parseJson, firstPostDates } from "@/lib/artie/views";
 import { PROGRAMMES, type Programme } from "@/lib/artie/programme";
 
 
-export async function handleOverview(programme: Programme, req: NextRequest) {
-  const auth = await requireArtieReviewer();
-  if (auth.error) return auth.error;
-
-  const now = new Date();
-  const cycle = cycleByKey(req.nextUrl.searchParams.get("cycle") ?? "") ?? cycleFor(now);
+/** Everything the dashboard shows for one programme + cycle, as a plain object (Dates not yet serialised). */
+export async function computeOverview(programme: Programme, cycleKey: string, now = new Date()) {
+  const cycle = cycleByKey(cycleKey) ?? cycleFor(now);
   const settings = await getSettings(programme);
 
   const creators = await prisma.artieCreator.findMany({ where: { programme, active: true }, orderBy: { name: "asc" } });
@@ -76,7 +73,7 @@ export async function handleOverview(programme: Programme, req: NextRequest) {
   // yet — their sheet start date (so someone onboarded but silent shows up as a gap rather than vanishing).
   const goalMembers = creators.map((c) => ({ start: (firsts.get(c.id) ?? c.startDate)?.toISOString() ?? null }));
 
-  return NextResponse.json({
+  return {
     programme: { id: programme, label: PROGRAMMES[programme].label },
     bonusEnabled: settings.bonusEnabled,
     goalMembers,
@@ -91,5 +88,11 @@ export async function handleOverview(programme: Programme, req: NextRequest) {
       lastSyncError: settings.lastSyncError,
       unmappedRows: parseJson(settings.unmappedRows, []), unmatchedAccounts: parseJson(settings.unmatchedAccounts, []),
     },
-  });
+  };
+}
+
+export async function handleOverview(programme: Programme, req: NextRequest) {
+  const auth = await requireArtieReviewer();
+  if (auth.error) return auth.error;
+  return NextResponse.json(await computeOverview(programme, req.nextUrl.searchParams.get("cycle") ?? ""));
 }

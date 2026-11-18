@@ -319,8 +319,47 @@ ok(gl(0, [{ start: new Date("2026-11-10T00:00:00Z") }, { start: new Date("2026-1
 const onPace = (m: { start: Date | null }[]) => { const g0 = gl(0, m); return gl(g0.videos.expected, m); };
 ok(Math.abs(onPace(midStarters).videos.projected - onPace(midStarters).videos.fullTarget) <= 2, "exactly on pace with mid-cycle starters projects to their fair-share target");
 
+import { summariseProgramme, type OverviewLike } from "../src/lib/artie/summary";
+import { secretMatches, bearerFrom } from "../src/lib/artie/trackerAuth";
 import { isArtieReviewer, isArtieOnly } from "../src/lib/artieAccess";
 ok(isArtieReviewer({ name: "Hanna", role: "member" }) && isArtieOnly({ name: "Hanna", role: "member" }), "Hanna can review Artie and is Artie-only");
 ok(!isArtieReviewer({ name: "Sam", role: "member" }) && !isArtieOnly({ name: "Oliver Hale", role: "admin" }), "other members can't; admins are never restricted to Artie");
+
+// ── tracker summary: aggregates only ─────────────────────────────────────────
+const NOWS = new Date("2026-11-17T12:00:00Z");
+const cr = (name: string, counted: number, status: string, est: number | null) => ({
+  id: "id-" + name, name, ratePerVideo: 8.33, handles: { instagram: "@" + name.toLowerCase() + "_ig", tiktok: null, facebook: null }, accessToken: "tok-" + name,
+  counted, estTotal: est, perPlatform: { instagram: counted, tiktok: Math.floor(counted / 2) }, pace: { status },
+});
+const ov = {
+  programme: { id: "artie", label: "Artie" }, bonusEnabled: true, monthlyCostPerCreator: 600,
+  goalMembers: [{ start: cyc2.start.toISOString() }, { start: cyc2.start.toISOString() }, { start: "2026-11-11T00:00:00.000Z" }, { start: null }],
+  bonusSummary: { givenCount: 3, givenAmount: 150, pendingCount: 2, pendingAmount: 100 },
+  cycle: { key: cyc2.key, start: cyc2.start, end: cyc2.end, startLabel: cyc2.startLabel, endLabel: cyc2.endLabel },
+  creators: [cr("Alice Anders", 40, "ahead", 400), cr("Bob Brown", 20, "behind", 150), cr("Cara Chen", 0, "not_started", null), cr("Dan Dee", 30, "on_track", 260)],
+  settings: { currency: "USD", videosPerDay: 2, lastVideoSyncAt: "2026-11-17T06:40:00Z" },
+};
+const sm = summariseProgramme(ov as unknown as OverviewLike, NOWS);
+ok(sm.videos.unique === 90 && sm.creators.onRoster === 4 && sm.creators.postingNow === 3, "totals: 40+20+0+30 = 90 unique videos, 3 of 4 creators posting");
+ok(sm.creators.behindPace === 1 && sm.creators.onTrackOrAhead === 2 && sm.creators.notStarted === 1, "pace buckets: 1 behind, 2 on track/ahead, 1 not started");
+ok(sm.videos.perPlatform.instagram === 90 && sm.videos.perPlatform.tiktok === 45 && sm.videos.perPlatform.facebook === 0, "per-platform counts are summed (not unique)");
+ok(sm.videos.gap === sm.videos.unique - sm.videos.expectedByNow && sm.videos.cycleTarget > sm.videos.expectedByNow, "gap = actual − expected by now; the cycle target is larger than expected-so-far");
+ok(sm.spend !== null && sm.spend.actual === 810 && sm.spend.currency === "USD" && sm.spend.cycleBudget > sm.spend.budgetToDate, "spend: 400+150+260 = 810 against a pro rata budget");
+ok(sm.bonuses.enabled === true && sm.bonuses.givenAmount === 150 && sm.bonuses.pendingCount === 2, "bonuses reported when the programme pays them");
+ok(sm.lastSyncedAt === "2026-11-17T06:40:00.000Z" && sm.generatedAt === NOWS.toISOString(), "timestamps: last sync + generated-at");
+const noBonus = summariseProgramme({ ...ov, bonusEnabled: false, programme: { id: "ecosia", label: "Ecosia" } } as unknown as OverviewLike, NOWS);
+ok(JSON.stringify(noBonus.bonuses) === '{"enabled":false}', "a programme without bonuses exposes no bonus figures at all");
+ok(summariseProgramme({ ...ov, monthlyCostPerCreator: null } as unknown as OverviewLike, NOWS).spend === null, "no creator budget set → no spend block");
+// The privacy guarantee: nothing per-creator can appear in the output.
+const out = JSON.stringify(sm);
+ok(!/Alice|Bob|Cara|Dan Dee|_ig|tok-|8\.33|ratePerVideo|accessToken|handles/.test(out), "no creator names, handles, rates or tokens anywhere in the shared JSON");
+ok(["programme", "generatedAt", "lastSyncedAt", "cycle", "creators", "videos", "goal", "spend", "bonuses"].join() === Object.keys(sm).join(), "the shared shape is exactly the documented set of keys");
+
+// ── tracker shared secret ────────────────────────────────────────────────────
+ok(secretMatches("s3cret-value", "s3cret-value") === true, "the right secret is accepted");
+ok(secretMatches("s3cret-valuf", "s3cret-value") === false && secretMatches("s3cret", "s3cret-value") === false && secretMatches("s3cret-value-and-more", "s3cret-value") === false, "wrong, shorter and longer values are rejected");
+ok(secretMatches("anything", undefined) === false && secretMatches("anything", "") === false && secretMatches("", "") === false && secretMatches(null, "x") === false, "fails closed: an unset/empty secret or missing header never matches");
+ok(bearerFrom("Bearer abc123") === "abc123" && bearerFrom("bearer  abc123 ") === "abc123" && bearerFrom("Basic abc") === null && bearerFrom(null) === null, "bearer parsing");
+
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

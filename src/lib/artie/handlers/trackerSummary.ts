@@ -14,7 +14,7 @@ import { summariseProgramme, publicView } from "@/lib/artie/summary";
 // No CORS headers on purpose — the tracker must call this from its server, not from a browser.
 export async function handleTracker(req: NextRequest) {
   const programme = req.nextUrl.searchParams.get("programme") ?? "artie";
-  if (!isProgramme(programme)) return NextResponse.json({ error: "programme must be artie or ecosia" }, { status: 400 });
+  if (!isProgramme(programme)) return NextResponse.json({ error: "unknown programme" }, { status: 400 });
   const full = req.nextUrl.searchParams.get("view") === "full";
   const secret = process.env.TRACKER_API_SECRET;
   const locked = full && !!secret;

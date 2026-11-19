@@ -5,7 +5,7 @@ import type { Cycle } from "./cycle";
 // the roster is deliberately bigger to cover people we'll drop or who haven't started posting yet.
 //
 // Per creator, per month: perDay × 30 videos (2 a day = 60) and the client's monthly creator budget
-// (Artie €600 incl. bonuses, Ecosia €500). 50 × 60 = 3,000 videos and 50 × €600 = €30,000.
+// (Artie €600 incl. bonuses, shown in dollars). 50 × 60 = 3,000 videos and 50 creators × the budget per creator.
 // "Expected by now" is that target spread evenly over the cycle (pro rata); the projection carries
 // today's run-rate to the end of the cycle.
 

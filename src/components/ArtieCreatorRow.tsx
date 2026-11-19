@@ -29,7 +29,7 @@ interface Props {
   notify: (msg: string, ok?: boolean) => void;
   copyLink: (row: ArtieRow) => void;
   copyNudge: (row: ArtieRow) => void;
-  programme?: "artie" | "ecosia";
+  programme?: "artie";
   bonusEnabled?: boolean; // false: this programme pays no bonuses — hide every bonus element
 }
 

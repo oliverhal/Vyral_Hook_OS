@@ -94,13 +94,10 @@ const db = {
   ok(!("previousCycles" in a), "creator payload carries no previous-cycle history");
   ok(a.cycle.endLabel === "28 Nov" && a.cycle.startLabel === "29 Oct", "creator sees the active cycle's date range");
 
-  // ── a second programme (Ecosia): own settings, no bonuses, no leakage either way ──
-  const e = (await getCreatorProgress("E".repeat(43), db, now))!;
-  ok(e.programme.id === "ecosia" && e.programme.label === "Ecosia" && e.currency === "EUR", "an Ecosia token resolves to the Ecosia programme and its own settings");
-  ok(e.bonusEnabled === false && e.bonusItems.length === 0 && e.bonusCount === 0 && e.indicativeBonus === 0, "Ecosia pays no bonuses — none surface even for a 400K video");
-  ok(e.countedVideos === 2 && e.potential?.base === 24 && e.potential?.bonus === 0, "Ecosia creator: 2 videos × €12 = €24, no bonus");
+  // ── a programme that has ended (Ecosia): its creators' private links must stop working ──
+  ok((await getCreatorProgress("E".repeat(43), db, now)) === null, "a link for a programme that no longer exists returns nothing (404), not another programme's page");
   ok(a.programme.id === "artie" && a.bonusEnabled === true && a.bonusItems.length > 0, "Artie is unaffected: still has bonuses");
-  ok(!JSON.stringify(a).includes("Eco Creator") && !JSON.stringify(e).includes("Alpha") && !JSON.stringify(e).includes("Bravo"), "neither programme's creators appear in the other's payload");
+  ok(!JSON.stringify(a).includes("Eco Creator") && !JSON.stringify(b).includes("Eco Creator"), "the ended programme's creators never appear in Artie payloads");
 
   console.log(failed ? `\n${failed} FAILED` : "\nall passed");
   process.exit(failed ? 1 : 0);

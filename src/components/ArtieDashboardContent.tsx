@@ -34,7 +34,7 @@ const ago = (iso: string | null) => {
   return m < 1 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
 };
 
-export default function ArtieDashboardContent({ initialCycle = "", programme = "artie" }: { initialCycle?: string; programme?: "artie" | "ecosia" }) {
+export default function ArtieDashboardContent({ initialCycle = "", programme = "artie" }: { initialCycle?: string; programme?: "artie" }) {
   const api = `/api/${programme}`;
   const [cycleKey, setCycleKey] = useState<string>(initialCycle);
   const [data, setData] = useState<Overview | null>(null);

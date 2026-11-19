@@ -239,7 +239,7 @@ const toCountPost = (p: { id: string; platform: string; views: number; igMatchId
 
 export async function recomputeCandidates(programme: Programme, cycle: Cycle): Promise<{ created: number; refreshed: number; removed: number }> {
   const settings = await getSettings(programme);
-  // Programmes without bonuses (Ecosia) never get candidates — and any stray pending ones are cleared.
+  // Programmes without bonuses never get candidates — and any stray pending ones are cleared.
   if (!settings.bonusEnabled) {
     const gone = await prisma.artieBonusCandidate.deleteMany({ where: { programme, cycleKey: cycle.key, status: "pending" } });
     return { created: 0, refreshed: 0, removed: gone.count };

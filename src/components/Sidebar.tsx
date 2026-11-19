@@ -21,7 +21,6 @@ const nav = [
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/creators", label: "Creator Applications", icon: UserSearch },
   { href: "/artie", label: "Artie Creators", icon: TrendingUp },
-  { href: "/ecosia", label: "Ecosia Creators", icon: TrendingUp },
 ];
 
 export default function Sidebar() {
@@ -30,7 +29,7 @@ export default function Sidebar() {
   const currentUser = session?.user as { name?: string; color?: string; avatarUrl?: string; role?: string } | undefined;
   // Artie pay data is reviewer-only; the pages and APIs enforce it server-side too.
   const artieOnly = isArtieOnly(currentUser);
-  const visibleNav = nav.filter((n) => ((n.href !== "/artie" && n.href !== "/ecosia") || isArtieReviewer(currentUser)) && (!artieOnly || n.href === "/artie"));
+  const visibleNav = nav.filter((n) => (n.href !== "/artie" || isArtieReviewer(currentUser)) && (!artieOnly || n.href === "/artie"));
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-[#0a0a0a] flex flex-col z-40">

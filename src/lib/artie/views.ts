@@ -5,7 +5,7 @@ import { countVideos, type CountPost, type CountMode } from "./bonus";
 import { paceFor, type PaceStatus } from "./pace";
 import { rankTier, type RankTier, type RankInput } from "./rank";
 import { creatorNudge, type CreatorNudge } from "./nudge";
-import { PROGRAMMES, programmeOf, type Programme } from "./programme";
+import { PROGRAMMES, isProgramme, type Programme } from "./programme";
 
 // Minimal slice of the Prisma client these loaders use — lets tests inject an
 // in-memory fake to prove one creator's token can never surface another's data.
@@ -55,7 +55,7 @@ export interface ProgressBonusItem {
 }
 
 export interface CreatorProgress {
-  /** Which client this is for, and whether it pays bonuses at all (Ecosia doesn't). */
+  /** Which client this is for, and whether it pays bonuses at all. */
   programme: { id: Programme; label: string };
   bonusEnabled: boolean;
   name: string;
@@ -110,7 +110,9 @@ export async function getCreatorProgress(token: string, db: Db = prisma, now = n
   if (!token || token.length < 20) return null;
   const creator = await db.artieCreator.findUnique({ where: { accessToken: token } });
   if (!creator || !creator.active) return null;
-  const programme = programmeOf(creator.programme);
+  // A creator of a programme that no longer exists (e.g. Ecosia, ended): their private link stops working.
+  if (!isProgramme(creator.programme)) return null;
+  const programme: Programme = creator.programme;
   const settings = await db.artieSettings.findUnique({ where: { id: PROGRAMMES[programme].settingsId } });
   const bonusEnabled = settings?.bonusEnabled !== false;
   const threshold = settings?.bonusThreshold ?? 100000;

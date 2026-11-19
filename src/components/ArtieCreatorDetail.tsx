@@ -42,7 +42,7 @@ const STATUS_CLS: Record<string, string> = {
 };
 const fmtViews = (n: number) => n.toLocaleString("en-US");
 
-export default function ArtieCreatorDetail({ id, initialCycle, programme = "artie" }: { id: string; initialCycle: string; programme?: "artie" | "ecosia" }) {
+export default function ArtieCreatorDetail({ id, initialCycle, programme = "artie" }: { id: string; initialCycle: string; programme?: "artie" }) {
   const [cycleKey, setCycleKey] = useState(initialCycle);
   const [d, setD] = useState<Detail | null>(null);
   const [error, setError] = useState("");

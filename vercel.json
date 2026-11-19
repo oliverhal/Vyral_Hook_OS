@@ -29,14 +29,6 @@
     {
       "path": "/api/artie/cron?pass=2",
       "schedule": "45 6,18 * * *"
-    },
-    {
-      "path": "/api/ecosia/cron?pass=1",
-      "schedule": "30 7,19 * * *"
-    },
-    {
-      "path": "/api/ecosia/cron?pass=2",
-      "schedule": "45 7,19 * * *"
     }
   ]
 }

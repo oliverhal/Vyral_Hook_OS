@@ -7,7 +7,7 @@ import { goalFor } from "../src/lib/artie/goal";
 import { nudgeFacts, creatorNudge, nudgeMessage } from "../src/lib/artie/nudge";
 import { summariseProgramme, publicView, type OverviewLike } from "../src/lib/artie/summary";
 import { secretMatches, bearerFrom } from "../src/lib/artie/trackerAuth";
-import { EUR_TO_USD, PROGRAMMES } from "../src/lib/artie/programme";
+import { EUR_TO_USD, PROGRAMMES, isProgramme } from "../src/lib/artie/programme";
 import { isArtieReviewer, isArtieOnly } from "../src/lib/artieAccess";
 import { needsLinkCheck, SIMILAR_VIEWS_RATIO, countVideos, detectCandidates, type CountPost } from "../src/lib/artie/bonus";
 
@@ -300,7 +300,7 @@ ok(withTT.length === 2 && withTT.find((c) => c.primaryPostId === "ig1")!.related
 ok(EUR_TO_USD === 1.0989, "ECB reference rate used for the conversion");
 ok(PROGRAMMES.artie.defaults.monthlyCostPerCreator === 659.34, "Artie: €600 per creator = $659.34");
 ok(Math.round(50 * (PROGRAMMES.artie.defaults.monthlyCostPerCreator as number)) === 32967, "Artie: the 50-creator €30,000 budget = $32,967");
-ok(PROGRAMMES.artie.defaults.currency === "USD" && PROGRAMMES.ecosia.defaults.monthlyCostPerCreator === 500 && PROGRAMMES.ecosia.defaults.currency === "EUR", "Ecosia is untouched: €500 per creator, shown in euros; only Artie is converted to dollars");
+ok(PROGRAMMES.artie.defaults.currency === "USD" && !("ecosia" in PROGRAMMES) && !isProgramme("ecosia") && isProgramme("artie"), "Artie is in dollars; Ecosia is no longer a programme");
 
 // ── programme goal: fixed headcount the client asked for (50 × 2 a day, $600 each) ─────
 const gl = (v: number, target = 50, now = "2026-11-17T12:00:00Z", cycle = cyc2, spend = 0, cost: number | null = 600) =>
@@ -340,7 +340,7 @@ ok(sm.goal.targetCreators === 50 && sm.goal.onRoster === 4 && sm.videos.cycleTar
 ok(sm.spend !== null && sm.spend.actual === 810 && sm.spend.currency === "USD" && sm.spend.cycleBudget > sm.spend.budgetToDate, "spend: 400+150+260 = 810 against a pro rata budget");
 ok(sm.bonuses.enabled === true && sm.bonuses.givenAmount === 150 && sm.bonuses.pendingCount === 2, "bonuses reported when the programme pays them");
 ok(sm.lastSyncedAt === "2026-11-17T06:40:00.000Z" && sm.generatedAt === NOWS.toISOString(), "timestamps: last sync + generated-at");
-const noBonus = summariseProgramme({ ...ov, bonusEnabled: false, programme: { id: "ecosia", label: "Ecosia" } } as unknown as OverviewLike, NOWS);
+const noBonus = summariseProgramme({ ...ov, bonusEnabled: false, programme: { id: "artie", label: "Artie" } } as unknown as OverviewLike, NOWS);
 ok(JSON.stringify(noBonus.bonuses) === '{"enabled":false}', "a programme without bonuses exposes no bonus figures at all");
 ok(summariseProgramme({ ...ov, monthlyCostPerCreator: null } as unknown as OverviewLike, NOWS).spend === null, "no creator budget set → no spend block");
 // The privacy guarantee: nothing per-creator can appear in the output.

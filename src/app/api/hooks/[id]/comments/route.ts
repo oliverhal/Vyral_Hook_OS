@@ -32,15 +32,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     include: { user: { select: { id: true, name: true, color: true } } },
   });
 
-  // Parse @mentions and create notifications
+  // Fetch hook info + all existing commenters in parallel
+  const [hook, existingComments] = await Promise.all([
+    prisma.hook.findUnique({
+      where: { id: params.id },
+      select: { hookText: true, submittedById: true, weekId: true },
+    }),
+    prisma.hookComment.findMany({
+      where: { hookId: params.id, id: { not: comment.id } },
+      select: { userId: true },
+      distinct: ["userId"],
+    }),
+  ]);
+
+  const hookText = hook?.hookText ?? "";
+  const weekId = hook?.weekId ?? undefined;
+
+  type NotifData = { userId: string; fromName: string; commentId: string; hookText: string; type: string; weekId?: string };
+  const notificationsToCreate: NotifData[] = [];
+  const notifiedIds = new Set<string>();
+
+  // @mention notifications
   const mentionMatches = [...content.matchAll(/@([\w]+(?:\s[\w]+)*)/g)];
   if (mentionMatches.length > 0) {
-    const hook = await prisma.hook.findUnique({ where: { id: params.id }, select: { hookText: true } });
-    const hookText = hook?.hookText ?? "";
     const activeUsers = await prisma.user.findMany({ where: { active: true }, select: { id: true, name: true } });
-
-    const notificationsToCreate: { userId: string; fromName: string; commentId: string; hookText: string }[] = [];
-    const notifiedIds = new Set<string>();
 
     for (const match of mentionMatches) {
       const mentionedName = match[1].trim().toLowerCase();
@@ -48,14 +63,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         (u) => u.name.toLowerCase() === mentionedName || u.name.toLowerCase().startsWith(mentionedName)
       );
       if (mentioned && mentioned.id !== userId && !notifiedIds.has(mentioned.id)) {
-        notificationsToCreate.push({ userId: mentioned.id, fromName, commentId: comment.id, hookText });
+        notificationsToCreate.push({ userId: mentioned.id, fromName, commentId: comment.id, hookText, type: "mention", weekId });
         notifiedIds.add(mentioned.id);
       }
     }
+  }
 
-    if (notificationsToCreate.length > 0) {
-      await prisma.notification.createMany({ data: notificationsToCreate });
+  // Reply notifications — hook author + all previous thread commenters
+  const replyTargetSet = new Set<string>();
+  if (hook?.submittedById) replyTargetSet.add(hook.submittedById);
+  for (const c of existingComments) replyTargetSet.add(c.userId);
+
+  for (const targetId of Array.from(replyTargetSet)) {
+    if (targetId !== userId && !notifiedIds.has(targetId)) {
+      notificationsToCreate.push({ userId: targetId, fromName, commentId: comment.id, hookText, type: "reply", weekId });
+      notifiedIds.add(targetId);
     }
+  }
+
+  if (notificationsToCreate.length > 0) {
+    await prisma.notification.createMany({ data: notificationsToCreate });
   }
 
   return NextResponse.json(comment);

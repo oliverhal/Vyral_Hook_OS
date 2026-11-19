@@ -6,15 +6,19 @@ import Link from "next/link";
 import { isPast } from "date-fns";
 import {
   ArrowLeft, Check, CheckCircle2, ChevronDown, ChevronUp,
-  Clock, Sparkles, Users, AlertCircle, Hash, Layers
+  Clock, Sparkles, Users, AlertCircle, Hash, Layers, Link as LinkIcon, Share2, RotateCcw
 } from "lucide-react";
 import { cn, CAMPAIGN_COLORS, formatWeekRange, formatDeadline } from "@/lib/utils";
 import HookCard from "./HookCard";
 import HookForm from "./HookForm";
+import BulkImportModal from "./BulkImportModal";
+import PreviousHooksPicker from "./PreviousHooksPicker";
 import ExportPanel from "./ExportPanel";
 import ValidatedPicker from "./ValidatedPicker";
 import WeekHistoryPanel from "./WeekHistoryPanel";
+import { HOOK_FORMATS, FORMAT_COLORS } from "@/types";
 import type { Hook, WeekWithHooks, WeekMode } from "@/types";
+import CampaignLogo from "./CampaignLogo";
 
 type FilterType = "all" | "mine" | "selected";
 
@@ -24,8 +28,11 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>("all");
   const [filterContributor, setFilterContributor] = useState<string | null>(null);
+  const [filterFormat, setFilterFormat] = useState<string>("");
   const [showForm, setShowForm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   const currentUser = session?.user as { name?: string; role?: string } | undefined;
   const isAdmin = currentUser?.role === "admin";
@@ -44,25 +51,47 @@ export default function WeekView({ weekId }: { weekId: string }) {
 
   async function toggleSelect(hookId: string, selected: boolean) {
     if (!week) return;
-    const currentSelected = week.hooks.filter((h) => h.isSelected && h.id !== hookId);
-    const newOrder = selected ? currentSelected.length + 1 : null;
 
-    setWeek((w) => w ? {
-      ...w,
-      hooks: w.hooks.map((h) =>
-        h.id === hookId ? { ...h, isSelected: selected, selectedOrder: newOrder } : h
-      ),
-    } : w);
+    // Mark hook as selected/deselected
+    const updated = week.hooks.map((h) =>
+      h.id === hookId ? { ...h, isSelected: selected } : h
+    );
 
-    await fetch(`/api/hooks/${hookId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        isSelected: selected,
-        selectedOrder: newOrder,
-        status: selected ? "selected" : "submitted",
-      }),
+    // Renumber all selected hooks sequentially — new hook goes last, rest keep their relative order
+    const nowSelected = updated
+      .filter((h) => h.isSelected)
+      .sort((a, b) => {
+        if (a.id === hookId) return 1;
+        if (b.id === hookId) return -1;
+        return (a.selectedOrder ?? 99) - (b.selectedOrder ?? 99);
+      });
+
+    const orderMap = new Map(nowSelected.map((h, i) => [h.id, i + 1]));
+
+    const finalHooks = updated.map((h) => ({
+      ...h,
+      selectedOrder: h.isSelected ? (orderMap.get(h.id) ?? null) : null,
+    }));
+
+    setWeek((w) => w ? { ...w, hooks: finalHooks } : w);
+
+    // Persist all changed hooks to backend
+    const changed = finalHooks.filter((h) => {
+      const orig = week.hooks.find((o) => o.id === h.id);
+      return orig && (orig.isSelected !== h.isSelected || orig.selectedOrder !== h.selectedOrder);
     });
+
+    await Promise.all(changed.map((h) =>
+      fetch(`/api/hooks/${h.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          isSelected: h.isSelected,
+          selectedOrder: h.selectedOrder,
+          status: h.isSelected ? "selected" : "submitted",
+        }),
+      })
+    ));
   }
 
   async function deleteHook(hookId: string) {
@@ -121,6 +150,15 @@ export default function WeekView({ weekId }: { weekId: string }) {
       ...w,
       hooks: w.hooks.map((h) => h.id === hookId ? { ...h, wentViral } : h),
     } : w);
+    // Refresh full week so selectedValidated reflects the new/removed pick
+    fetchWeek();
+  }
+
+  function handleEditHook(hookId: string, updates: Partial<Hook>) {
+    setWeek((w) => w ? {
+      ...w,
+      hooks: w.hooks.map((h) => h.id === hookId ? { ...h, ...updates } : h),
+    } : w);
   }
 
   async function updateWeekStatus(status: string) {
@@ -170,6 +208,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
 
   const filteredHooks = week.hooks.filter((h) => {
     if (filterContributor && h.submitterName !== filterContributor) return false;
+    if (filterFormat && h.format !== filterFormat) return false;
     if (filter === "mine") return h.submitterName === currentUser?.name;
     if (filter === "selected") return h.isSelected;
     return true;
@@ -191,6 +230,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
   const captionsNeeded = selectedHooks.filter((h) => !h.aiCaption).length;
 
   return (
+    <>
     <div className="p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
@@ -202,7 +242,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <span className="text-2xl">{week.campaign.emoji}</span>
+              <CampaignLogo logoUrl={week.campaign.logoUrl} emoji={week.campaign.emoji} name={week.campaign.name} size="md" />
               <h1 className="text-2xl font-bold text-slate-900">{week.campaign.name}</h1>
               <span className={cn("badge", colors.badge)}>{week.campaign.clientName}</span>
             </div>
@@ -213,12 +253,21 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 <Clock className="w-3.5 h-3.5" />
                 {formatDeadline(deadline)}
               </span>
-              <span className="text-slate-300">·</span>
-              <span>{totalSelected} / {totalTarget} hooks selected</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(window.location.href);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2000);
+              }}
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+            >
+              {linkCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
+              {linkCopied ? "Link copied!" : "Share"}
+            </button>
             {selectedHooks.length > 0 && captionsNeeded > 0 && (
               <button
                 onClick={generateAllCaptions}
@@ -228,7 +277,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 Generate {captionsNeeded} caption{captionsNeeded !== 1 ? "s" : ""}
               </button>
             )}
-            {week.status !== "finalized" && totalSelected >= totalTarget && (
+            {week.status !== "finalized" ? (
               <button
                 onClick={() => updateWeekStatus("finalized")}
                 disabled={statusUpdating}
@@ -236,6 +285,19 @@ export default function WeekView({ weekId }: { weekId: string }) {
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Finalize Week
+              </button>
+            ) : isAdmin && (
+              <button
+                onClick={() => {
+                  if (confirm("Reopen this week? It will go back to open status so you can make changes.")) {
+                    updateWeekStatus("open");
+                  }
+                }}
+                disabled={statusUpdating}
+                className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reopen week
               </button>
             )}
             <span className={cn(
@@ -284,47 +346,63 @@ export default function WeekView({ weekId }: { weekId: string }) {
       )}
 
       {/* Progress bar */}
-      <div className="mb-6">
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex">
-          <div
-            className="h-full bg-blue-500 transition-all duration-700"
-            style={{ width: `${(Math.min(selectedHooks.length, expTarget) / totalTarget) * 100}%` }}
-          />
-          <div
-            className="h-full bg-orange-500 transition-all duration-700"
-            style={{ width: `${(Math.min(selectedValidated.length, valTarget) / totalTarget) * 100}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-xs text-slate-400 mt-1.5">
-          <span>
-            <span className="text-blue-500">●</span> {selectedHooks.length}/{expTarget} experimental
+      {(() => {
+        const expPct = totalTarget > 0 ? (Math.min(selectedHooks.length, expTarget) / totalTarget) * 100 : 0;
+        const valPct = totalTarget > 0 ? (Math.min(selectedValidated.length, valTarget) / totalTarget) * 100 : 0;
+        const done = totalSelected >= totalTarget && totalTarget > 0;
+        return (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-slate-500 font-medium">
+                {totalSelected} / {totalTarget} selected
+              </span>
+              {done && <span className="text-xs font-semibold text-emerald-600">✓ Target reached</span>}
+            </div>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex">
+              <div
+                className={cn("h-full transition-all duration-700", done ? "bg-emerald-500" : "bg-blue-500")}
+                style={{ width: `${expPct}%` }}
+              />
+              <div
+                className={cn("h-full transition-all duration-700", done ? "bg-emerald-400" : "bg-orange-400")}
+                style={{ width: `${valPct}%` }}
+              />
+            </div>
             {valTarget > 0 && (
-              <>
-                {" · "}
-                <span className="text-orange-500">●</span> {selectedValidated.length}/{valTarget} validated
-              </>
+              <div className="flex gap-3 text-[11px] text-slate-400 mt-1">
+                <span><span className={cn(done ? "text-emerald-500" : "text-blue-500")}>●</span> {selectedHooks.length}/{expTarget} experimental</span>
+                <span><span className={cn(done ? "text-emerald-400" : "text-orange-400")}>●</span> {selectedValidated.length}/{valTarget} validated</span>
+              </div>
             )}
-          </span>
-          <span>Total target: {totalTarget}</span>
-        </div>
-      </div>
+          </div>
+        );
+      })()}
 
       <div className="grid grid-cols-5 gap-6">
         {/* Left panel */}
         <div className="col-span-2 space-y-5">
           {week.status !== "finalized" && (
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className={cn(
-                "w-full flex items-center justify-between px-5 py-3 rounded-2xl border-2 text-sm font-semibold transition-all duration-200",
-                showForm
-                  ? "border-blue-500 bg-blue-50 text-blue-700"
-                  : "border-dashed border-slate-300 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-600"
-              )}
-            >
-              <span>{showForm ? "Hide form" : "+ Submit experimental hook"}</span>
-              {showForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className={cn(
+                  "w-full flex items-center justify-between px-5 py-3 rounded-2xl border-2 text-sm font-semibold transition-all duration-200",
+                  showForm
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-dashed border-slate-300 bg-white text-slate-600 hover:border-blue-400 hover:text-blue-600"
+                )}
+              >
+                <span>{showForm ? "Hide form" : "+ Submit experimental hook"}</span>
+                {showForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={() => setShowBulkImport(true)}
+                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-500 hover:text-violet-600 hover:border-violet-300 hover:bg-violet-50 text-sm font-medium transition-all duration-200"
+              >
+                <span>⚡</span>
+                <span>Bulk import from sheet</span>
+              </button>
+            </div>
           )}
 
           {showForm && (
@@ -333,9 +411,85 @@ export default function WeekView({ weekId }: { weekId: string }) {
                 weekId={weekId}
                 teamMembers={[]}
                 onSuccess={() => { fetchWeek(); setShowForm(false); }}
+                campaignName={week.campaign.name}
               />
             </div>
           )}
+
+          {/* Carry forward from previous weeks */}
+          {week.status !== "finalized" && (
+            <PreviousHooksPicker weekId={weekId} onAdded={fetchWeek} />
+          )}
+
+          {/* Sheet URLs */}
+          <div className="card p-4 space-y-4">
+            {/* New hooks sheet */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <LinkIcon className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-semibold text-slate-700">New hooks sheet</span>
+              </div>
+              {isAdmin ? (
+                <input
+                  className="input text-xs"
+                  placeholder="https://docs.google.com/spreadsheets/..."
+                  defaultValue={week.newHooksSheetUrl ?? ""}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim() || null;
+                    if (val === (week.newHooksSheetUrl ?? null)) return;
+                    await fetch(`/api/weeks/${weekId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ newHooksSheetUrl: val }),
+                    });
+                    fetchWeek();
+                  }}
+                />
+              ) : week.newHooksSheetUrl ? (
+                <a href={week.newHooksSheetUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline truncate block">
+                  {week.newHooksSheetUrl}
+                </a>
+              ) : (
+                <p className="text-xs text-slate-400">No sheet linked yet</p>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100" />
+
+            {/* Validated hooks sheet — campaign-level, shared across all weeks */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <LinkIcon className="w-4 h-4 text-orange-400" />
+                <span className="text-sm font-semibold text-slate-700">Validated hooks sheet</span>
+              </div>
+              <p className="text-[10px] text-slate-400 mb-2">Saved for all weeks in this campaign</p>
+              {isAdmin ? (
+                <input
+                  className="input text-xs"
+                  placeholder="https://docs.google.com/spreadsheets/..."
+                  defaultValue={week.campaign.validatedSheetUrl ?? ""}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim() || null;
+                    if (val === (week.campaign.validatedSheetUrl ?? null)) return;
+                    await fetch(`/api/campaigns/${week.campaignId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ validatedSheetUrl: val }),
+                    });
+                    fetchWeek();
+                  }}
+                />
+              ) : week.campaign.validatedSheetUrl ? (
+                <a href={week.campaign.validatedSheetUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-orange-600 hover:underline truncate block">
+                  {week.campaign.validatedSheetUrl}
+                </a>
+              ) : (
+                <p className="text-xs text-slate-400">No sheet linked yet</p>
+              )}
+            </div>
+          </div>
 
           {/* Validated picker — only in mixed mode */}
           {mode === "mixed" && (
@@ -402,12 +556,22 @@ export default function WeekView({ weekId }: { weekId: string }) {
           )}
 
           {deadlinePassed && week.status !== "finalized" && (
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
-              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="text-sm font-semibold text-red-700">Deadline passed</div>
-                <div className="text-xs text-red-500 mt-0.5">Select your top {totalTarget} hooks and finalize.</div>
+            <div className="flex items-start justify-between gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="text-sm font-semibold text-red-700">Deadline passed</div>
+                  <div className="text-xs text-red-500 mt-0.5">Finalize whenever you're ready — no minimum required.</div>
+                </div>
               </div>
+              <button
+                onClick={() => updateWeekStatus("finalized")}
+                disabled={statusUpdating}
+                className="flex-shrink-0 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Finalize now
+              </button>
             </div>
           )}
 
@@ -415,6 +579,8 @@ export default function WeekView({ weekId }: { weekId: string }) {
             weekId={weekId}
             campaign={week.campaign}
             weekStart={week.weekStart}
+            newHooksSheetUrl={week.newHooksSheetUrl}
+            validatedSheetUrl={week.campaign.validatedSheetUrl}
             selectedHooks={selectedHooks}
             selectedValidated={selectedValidated}
           />
@@ -424,7 +590,7 @@ export default function WeekView({ weekId }: { weekId: string }) {
 
         {/* Right: hooks list */}
         <div className="col-span-3">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-slate-200 w-fit">
               {(["all", "mine", "selected"] as FilterType[]).map((f) => (
                 <button
@@ -445,6 +611,46 @@ export default function WeekView({ weekId }: { weekId: string }) {
               {filterContributor ? `${filterContributor}'s hooks` : "Experimental hooks"}
             </span>
           </div>
+
+          {/* Format filter pills */}
+          {(() => {
+            const formatsInUse = Array.from(new Set(week.hooks.map((h) => h.format)));
+            if (formatsInUse.length <= 1) return null;
+            return (
+              <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+                <button
+                  onClick={() => setFilterFormat("")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                    !filterFormat ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
+                  )}
+                >
+                  All formats
+                </button>
+                {formatsInUse.map((fmt) => {
+                  const count = week.hooks.filter((h) => h.format === fmt).length;
+                  const colorClass = FORMAT_COLORS[fmt] ?? "bg-slate-100 text-slate-600";
+                  const isActive = filterFormat === fmt;
+                  return (
+                    <button
+                      key={fmt}
+                      onClick={() => setFilterFormat(isActive ? "" : fmt)}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all",
+                        isActive
+                          ? "ring-2 ring-offset-1 ring-slate-500 shadow-sm " + colorClass
+                          : colorClass + " hover:opacity-80"
+                      )}
+                    >
+                      {fmt}
+                      <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-white/60 text-[10px] font-bold">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
 
           {filteredHooks.length === 0 ? (
             <div className="card p-12 text-center">
@@ -471,12 +677,14 @@ export default function WeekView({ weekId }: { weekId: string }) {
                   campaign={week.campaign}
                   onSelect={week.status !== "finalized" ? toggleSelect : undefined}
                   onDelete={week.status !== "finalized" ? deleteHook : undefined}
+                  onEdit={week.status !== "finalized" && (isAdmin || hook.submitterName === currentUser?.name) ? handleEditHook : undefined}
                   onGenerateCaption={hook.isSelected ? generateCaption : undefined}
                   onViralToggle={isAdmin ? handleViralToggle : undefined}
                   showSubmitter
                   selectable={week.status !== "finalized"}
                   rank={hook.isSelected ? hook.selectedOrder ?? undefined : undefined}
                   isAdmin={isAdmin}
+                  weekId={weekId}
                 />
               ))}
             </div>
@@ -484,5 +692,15 @@ export default function WeekView({ weekId }: { weekId: string }) {
         </div>
       </div>
     </div>
+
+    {showBulkImport && (
+      <BulkImportModal
+        weekId={weekId}
+        onClose={() => setShowBulkImport(false)}
+        onSuccess={() => { fetchWeek(); }}
+        campaignName={week.campaign.name}
+      />
+    )}
+    </>
   );
 }

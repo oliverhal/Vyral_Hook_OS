@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
-  Check, KeyRound, Loader2, Plus, Shield, Trash2, UserCheck, UserMinus, X
+  Check, KeyRound, Loader2, Plus, Shield, Trash2, UserCheck, UserMinus, X, Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import UserAvatar from "./UserAvatar";
 
 const COLORS = [
   { id: "blue", label: "Blue", class: "bg-blue-500" },
@@ -24,6 +25,7 @@ interface User {
   name: string;
   email: string;
   color: string;
+  avatarUrl: string | null;
   role: string;
   active: boolean;
 }
@@ -144,6 +146,7 @@ export default function TeamManager() {
               onReset={() => setModal({ type: "reset", user })}
               onToggleActive={() => toggleActive(user)}
               onToggleRole={() => toggleRole(user)}
+              onAvatarChange={(url) => setUsers(prev => prev.map(u => u.id === user.id ? { ...u, avatarUrl: url } : u))}
               saving={saving}
             />
           ))}
@@ -166,6 +169,7 @@ export default function TeamManager() {
                 onReset={() => setModal({ type: "reset", user })}
                 onToggleActive={() => toggleActive(user)}
                 onToggleRole={() => toggleRole(user)}
+                onAvatarChange={(url) => setUsers(prev => prev.map(u => u.id === user.id ? { ...u, avatarUrl: url } : u))}
                 saving={saving}
               />
             ))}
@@ -196,21 +200,43 @@ function UserRow({
   onReset,
   onToggleActive,
   onToggleRole,
+  onAvatarChange,
   saving,
 }: {
   user: User;
   onReset: () => void;
   onToggleActive: () => void;
   onToggleRole: () => void;
+  onAvatarChange: (avatarUrl: string | null) => void;
   saving: boolean;
 }) {
-  const colorClass = COLORS.find((c) => c.id === user.color)?.class ?? "bg-slate-500";
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleAvatarUpload(file: File) {
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/user/avatar?userId=${user.id}`, { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.avatarUrl) onAvatarChange(data.avatarUrl);
+    setUploading(false);
+  }
 
   return (
     <div className="px-5 py-4 flex items-center gap-4">
-      {/* Avatar */}
-      <div className={cn("w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0", colorClass)}>
-        <span className="text-white font-bold text-sm">{user.name.charAt(0)}</span>
+      {/* Avatar with upload */}
+      <div className="relative group flex-shrink-0">
+        <UserAvatar name={user.name} color={user.color} avatarUrl={user.avatarUrl} size="md" className="ring-0" />
+        <button
+          onClick={() => fileRef.current?.click()}
+          className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+          title="Upload photo"
+        >
+          {uploading ? <Loader2 className="w-3.5 h-3.5 text-white animate-spin" /> : <Camera className="w-3.5 h-3.5 text-white" />}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(f); }} />
       </div>
 
       {/* Info */}

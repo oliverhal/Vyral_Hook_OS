@@ -89,6 +89,8 @@ export interface ExportableHook {
   aiCaption?: string | null;
   caption: string;
   recordingNotes: string | null;
+  requiresAppFootage?: boolean;
+  appFootageSource?: string | null;
   selectedOrder: number | null;
   source?: "experimental" | "validated";
 }
@@ -108,7 +110,7 @@ export function generateCSV(
 
   // Header row — exactly matching the Google Sheet columns
   rows.push(
-    ["Hook (text on screen)", "Format", "Reference Vid:", "Captions (pls add your own hashtags)", "Notes:"]
+    ["Hook (text on screen)", "Format", "Reference Vid:", "Captions (pls add your own hashtags)", "Notes:", "Requires App Footage", "App Footage Source"]
       .map(csvCell)
       .join(",")
   );
@@ -117,7 +119,7 @@ export function generateCSV(
   for (const h of sorted) {
     const caption = h.aiCaption || h.caption;
     rows.push(
-      [h.hookText, h.format, h.referenceVideo ?? "", caption, h.recordingNotes ?? ""]
+      [h.hookText, h.format, h.referenceVideo ?? "", caption, h.recordingNotes ?? "", h.requiresAppFootage ? "Yes" : "", h.appFootageSource ?? ""]
         .map(csvCell)
         .join(",")
     );
@@ -130,7 +132,9 @@ export function generateSlackMessage(
   campaignName: string,
   clientName: string,
   weekStart: Date,
-  hooks: ExportableHook[]
+  hooks: ExportableHook[],
+  newHooksSheetUrl?: string | null,
+  validatedSheetUrl?: string | null
 ): string {
   const sorted = [...hooks]
     .filter((h) => h.selectedOrder !== null)
@@ -146,11 +150,20 @@ export function generateSlackMessage(
     })
     .join("\n\n");
 
+  const sheetLines = [
+    newHooksSheetUrl ? `📋 *New hooks sheet:* ${newHooksSheetUrl}` : null,
+    validatedSheetUrl ? `🔥 *Validated hooks sheet:* ${validatedSheetUrl}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const sheetsBlock = sheetLines ? `\n${sheetLines}\n` : "";
+
   return `Hey! 👋 Here are your hooks for the week of ${weekRange}
 
 *${clientName} — ${campaignName}*
-
+${sheetsBlock}
 ${hookLines}
 
-Let me know if you'd like any adjustments! 🚀`;
+Please look at the full sheet this week for instructions on how to recreate. If you have any questions lmk 🙏`;
 }

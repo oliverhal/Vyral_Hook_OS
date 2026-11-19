@@ -32,6 +32,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           color: user.color,
+          avatarUrl: user.avatarUrl,
           role: user.role,
         };
       },
@@ -42,15 +43,18 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.color = (user as { color?: string }).color;
+        token.avatarUrl = (user as { avatarUrl?: string }).avatarUrl;
         token.role = (user as { role?: string }).role;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as { id: string; color: string; role: string }).id = token.id as string;
-        (session.user as { id: string; color: string; role: string }).color = token.color as string;
-        (session.user as { id: string; color: string; role: string }).role = token.role as string;
+        const u = session.user as { id: string; color: string; avatarUrl: string | null; role: string };
+        u.id = token.id as string;
+        u.color = token.color as string;
+        u.avatarUrl = (token.avatarUrl as string | null) ?? null;
+        u.role = token.role as string;
       }
       return session;
     },

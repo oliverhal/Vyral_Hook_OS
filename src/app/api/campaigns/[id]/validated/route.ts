@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const userId = (session.user as { id: string }).id;
   const body = await req.json();
-  const { hookText, format, caption, referenceVideo, recordingNotes, notes } = body;
+  const { hookText, format, caption, referenceVideo, recordingNotes, notes, sourceHookId } = body;
 
   if (!hookText?.trim()) {
     return NextResponse.json({ error: "hookText required" }, { status: 400 });
@@ -38,9 +38,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       recordingNotes: recordingNotes || null,
       notes: notes || null,
       addedById: userId,
+      sourceHookId: sourceHookId || null,
     },
     include: { addedBy: { select: { id: true, name: true } } },
   });
+
+  // Mark the source hook as validated so the archive filter picks it up
+  if (sourceHookId) {
+    await prisma.hook.update({
+      where: { id: sourceHookId },
+      data: { wentViral: true },
+    }).catch(() => {}); // ignore if hook no longer exists
+  }
 
   return NextResponse.json(hook);
 }
